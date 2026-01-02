@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrivyChat - Official User Manual</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --accent: #ec4899;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --card: #ffffff;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 50px 30px;
+            background: var(--card);
+            min-height: 100vh;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 30px;
+        }
+
+        h1 {
+            color: #0f172a;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .version-badge {
+            background: var(--primary);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            vertical-align: middle;
+        }
+
+        /* Typography */
+        h2 {
+            margin-top: 50px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.8rem;
+        }
+
+        h3 {
+            color: #334155;
+            margin-top: 30px;
+            font-size: 1.3rem;
+            border-left: 4px solid var(--accent);
+            padding-left: 15px;
+        }
+
+        p,
+        li {
+            font-size: 1.1rem;
+            color: #475569;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 12px;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        li::before {
+            content: "•";
+            color: var(--primary);
+            font-weight: bold;
+            display: inline-block;
+            width: 1em;
+            margin-left: -1em;
+        }
+
+        /* Boxes */
+        .info-box {
+            background: #eff6ff;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #bfdbfe;
+            margin: 20px 0;
+        }
+
+        .danger-box {
+            background: #fef2f2;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+            margin: 20px 0;
+        }
+
+        .code-box {
+            background: #1e293b;
+            color: #bef264;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 1px;
+            margin: 10px 0;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Keyboard Key Style */
+        kbd {
+            background-color: #eee;
+            border-radius: 3px;
+            border: 1px solid #b4b4b4;
+            box-shadow: 0 1px 1px rgba(0, 0, 0, .2), 0 2px 0 0 rgba(255, 255, 255, .7) inset;
+            color: #333;
+            display: inline-block;
+            font-size: .85em;
+            font-weight: 700;
+            line-height: 1;
+            padding: 2px 4px;
+            white-space: nowrap;
+        }
+
+        /* Print Button */
+        .btn-print {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: var(--text);
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            z-index: 100;
+        }
+
+        .btn-print:hover {
+            transform: scale(1.1);
+            background: var(--primary);
+        }
+
+        /* Responsive */
+        @media print {
+            .btn-print {
+                display: none;
+            }
+
+            body {
+                background: white;
+            }
+
+            .container {
+                box-shadow: none;
+                padding: 0;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <button class="btn-print" onclick="window.print()" title="Print / Save PDF">🖨️</button>
+
+    <div class="container">
+        <header>
+            <h1>🛡️ PrivyChat Manual</h1>
+            <span class="version-badge">Version 2.0.1</span>
+            <p>The Ultimate Guide to Secure, Ephemeral, & Stealth Messaging.</p>
+        </header>
+
+        <h2>1. Getting Started</h2>
+        <p>PrivyChat is designed to be as simple as it is secure. When you open the application, you are presented with
+            three distinct ways to communicate.</p>
+
+        <h3>🔒 Mode A: 1-on-1 Secure Link</h3>
+        <p>This is the most secure method for creating a private conversation with exactly one other person.</p>
+        <ul>
+            <li><strong>How it works:</strong> The system generates a unique, encrypted URL containing a special key.
+            </li>
+            <li><strong>Security:</strong> The encryption key is in the URL hash (after the <code>#</code>). This part
+                of the URL is <em>never sent to the server</em>, meaning even the server admin cannot peek at your chat.
+            </li>
+            <li><strong>Sharing:</strong> Copy the link and send it via a secure channel (Signal, Email, etc.) to your
+                partner.</li>
+        </ul>
+
+        <h3>🔑 Mode B: Private Room</h3>
+        <p>Best for recurring meetings or small groups who know a shared secret.</p>
+        <ul>
+            <li><strong>Setup:</strong> You create a Room Name (e.g., "OperationAlpha") and a Password.</li>
+            <li><strong>Encryption:</strong> The app uses the password to mathematically derive an encryption key (using
+                PBKDF2).</li>
+            <li><strong>Warning:</strong> If you forget the password, all data is lost. There is no password recovery.
+            </li>
+        </ul>
+
+        <h3>📢 Mode C: Public Lobby</h3>
+        <p>A global, open chat room. Use this for casual testing. Messages are still transported securely via HTTPS, but
+            they are accessible to anyone who joins the "General" room.</p>
+
+        <div class="danger-box">
+            <strong>⚠️ IMPORTANT:</strong> PrivyChat uses <strong>RAM-Only Storage</strong>. If you refresh the page or
+            the server restarts, your chat history is permanently deleted. Do not use this for long-term storage of
+            information.
+        </div>
+
+        <h2>2. Spy Tools & Stealth Features</h2>
+        <p>This is where PrivyChat shines. We have built-in tools to protect you in the physical world.</p>
+
+        <h3>🎭 Stealth Mode (Calculator)</h3>
+        <p>Need to hide what you are doing instantly? Turn your chat into a harmless Calculator.</p>
+        <ul>
+            <li><strong>Activate:</strong> Click the Mask Icon <kbd>🎭</kbd> in the top-right header.</li>
+            <li><strong>Effect:</strong> The chat interface is immediately replaced by a fully functional scientific
+                calculator.</li>
+            <li><strong>To Unlock:</strong> Enter the secret code and press Equals <kbd>=</kbd>.</li>
+        </ul>
+        <div class="code-box">CODE: 1337</div>
+
+        <h3>👻 Ghost Mode</h3>
+        <p>Prevents "Shoulder Surfing" (people behind you reading your screen).</p>
+        <ul>
+            <li><strong>Activate:</strong> Click the Ghost Icon <kbd>👁️</kbd> / <kbd>👻</kbd>.</li>
+            <li><strong>Effect:</strong> All messages become heavily blurred.</li>
+            <li><strong>Reveal:</strong> Hover your mouse cursor over a specific message to reveal it temporarily.</li>
+        </ul>
+
+        <h3>🚨 Panic Button</h3>
+        <p>The "Nuclear Option" for emergencies.</p>
+        <ul>
+            <li><strong>Activate:</strong> Click the Siren Icon <kbd>🚨</kbd>.</li>
+            <li><strong>Effect:</strong>
+                <ol>
+                    <li>Immediately saves nothing.</li>
+                    <li>Disconnects from the server.</li>
+                    <li>Wipes all local browser storage.</li>
+                    <li>Redirects the browser to <strong>Google.com</strong> instantly.</li>
+                </ol>
+            </li>
+        </ul>
+
+        <h2>3. Messaging & Media</h2>
+
+        <h3>💣 Self-Destruct Timer</h3>
+        <p>Want your messages to disappear after being read?</p>
+        <ul>
+            <li>Use the dropdown menu next to the input bar (Default: <kbd>⏱️ Off</kbd>).</li>
+            <li>Select <strong>5s</strong>, <strong>10s</strong>, or <strong>30s</strong>.</li>
+            <li>Sent messages will display a countdown timer on the <em>recipient's</em> screen and vanish when it hits
+                zero.</li>
+        </ul>
+
+        <h3>🎤 Voice Notes</h3>
+        <ul>
+            <li>Press and hold the <strong>Pink Microphone Button</strong> <kbd>🎤</kbd>.</li>
+            <li>Speak your message.</li>
+            <li>Release the button to send automatically.</li>
+            <li>Voice notes are encrypted using Opus/WebM format for high quality.</li>
+        </ul>
+
+        <h3>📎 File Encryption</h3>
+        <p>You can send images and documents. Before leaving your device, every byte is encrypted. The server only sees
+            random noise.</p>
+
+        <h2>4. Troubleshooting</h2>
+
+        <div class="info-box">
+            <strong>Microphone Not Working?</strong><br>
+            Make sure you have allowed "Microphone Access" in your browser's site settings.
+            <br><em>(Click the Lock icon in the address bar -> Site Settings -> Microphone -> Allow)</em>
+        </div>
+
+        <div class="info-box">
+            <strong>Encryption Error?</strong><br>
+            If you see "Decryption Failed" messages, it means your partner has a different password or key than you.
+            Ensure you both joined with the <strong>exact same password</strong>.
+        </div>
+
+        <hr>
+        <p style="text-align: center; opacity: 0.6; font-size: 0.9rem; margin-top: 50px;">
+            &copy; 2026 PrivyChat. Secure Communication Division.
+        </p>
+
+    </div>
+
+</body>
+
+</html>

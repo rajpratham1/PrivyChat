@@ -1,98 +1,87 @@
-# 🛡️ PrivyChat - Secure & Ephemeral Messaging
+# 🛡️ PrivyChat - Zero-Trace Spy Messenger
 
 ![PrivyChat Banner](public/logo.png)
 
-### **Premium Secure Chat. 100% Ephemeral. No Database.**
-Designed by **Pratham Kumar**, PrivyChat is a statement against surveillance capitalism. It provides a secure, frictionless communication channel that leaves zero digital footprints.
+### **"Your words belong to you. The moment they are spoken, they should vanish."**
+
+PrivyChat is an ultra-secure, ephemeral messaging platform designed for whistleblowers, journalists, and privacy enthusiasts. It bypasses traditional databases entirely, storing messages **only in RAM**, making data recovery physically impossible after a server restart.
 
 ---
 
-## 🚀 Deployment
+## 🌟 Key Features
 
-### **Option 1: Deploy to Render (Recommended)**
-PrivyChat utilizes **WebSockets (Socket.io)** for real-time communication. This requires a stateful server, which `Render.com` provides for free.
+### **🕵️‍♂️ Spy Tech & Stealth**
+*   **Stealth Mode (Calculator)**: Instantly hide the entire chat app behind a fully functional Calculator overlay.
+    *   *Unlock Code*: Type `1337` and press `=` to re-enter.
+*   **Ghost Mode**: All messages are blurred by default. They only reveal when you hover your mouse over them, preventing "shoulder surfing" in public.
+*   **Panic Button**: A single click on the 🚨 icon instantly disconnects you, wipes local storage, and redirects your browser to Google.com.
+*   **Self-Destruct Messages**: Set a timer (5s, 10s, 30s) for your messages to effectively "burn" from the recipient's screen after reading.
 
-1.  **Fork** this repository.
-2.  Login to [Render Dashboard](https://dashboard.render.com).
-3.  Click **New +** -> **Web Service**.
-4.  Connect your GitHub repo `PrivyChat`.
-5.  Render will auto-detect the `render.yaml` blueprint.
-6.  Click **Create**. Your app is live!
+### **🔐 Military-Grade Security**
+*   **End-to-End Encryption (E2E)**: 
+    *   **Private Rooms**: Uses **AES-GCM-256** with keys derived from your Room Password + Salt (PBKDF2). The server *cannot* derive the key.
+    *   **1-on-1 Links**: Uses **RSA-OAEP** and **AES-GCM** key exchange via URL fragments. The key is in the `#hash`, which is *never sent to the server*.
+*   **Zero-Knowledge Server**: The server acts as a dumb relay. It routes encrypted blobs without having the keys to decrypt them.
+*   **RAM-Only Storage**: No MongoDB. No SQL. No Redis. If the power plug is pulled, all data ceases to exist.
 
-### **Why not Vercel?**
-Vercel is a Serverless/Static platform. It does not support persistent WebSocket connections (The "Phone Line" required for chat). If you deploy to Vercel, the app will load but disconnects after 10 seconds.
-
----
-
-## 🔐 Security Architecture
-
-PrivyChat employs a defense-in-depth strategy to ensure complete privacy:
-
-### **1. Ephemeral Storage (RAM Only)**
-*   **No Database**: There is no MongoDB, SQL, or Redis.
-*   **Volatile Memory**: Messages are stored in the server's RAM arrays (`messages[]`).
-*   **Instant Wipe**: The moment the server restarts (which happens frequently on free tiers) or the session ends, data is irretrievably lost.
-
-### **2. End-to-End Encryption (E2E)**
-We use the **Web Crypto API** (SubtleCrypto) native to modern browsers.
-
-*   **Private Rooms**:
-    *   **PBKDF2**: Key Derivation Function generates a cryptographic key from your Room Password + Room Name (Salt).
-    *   **AES-GCM**: Military-grade encryption is used to lock messages before they leave your device.
-*   **1-on-1 (Server Blind)**:
-    *   **Hash-Based Key**: The encryption key is generated in the URL Hash (`#key=...`).
-    *   **Server Blindness**: Browsers **never** send the URL fragment (after `#`) to the server. The server literally cannot see the key required to decrypt your chat.
-
-### **3. Privacy Features**
-*   **Screenshot Protection**: The UI blurs instantly (`filter: blur(10px)`) when the window loses focus (Alt-Tab detection).
-*   **No IP Logging**: We do not log IP addresses or User Agents.
+### **🎨 Premium Experience**
+*   **Glassmorphism UI**: A stunning, modern interface with blur effects and smooth animations.
+*   **Themes**: Switch between "Standard Secure" (Blue/Dark) and "Hacker Mode" (Matrix Green/Black terminal style).
+*   **Rich Media**: Send **Encypted Images** and **Voice Notes** (Opus/WebM) securely.
 
 ---
 
-## 📂 Project Structure
+## � Getting Started (Local)
 
-A clean, modular MVC-lite architecture using Vanilla JS.
+PrivyChat is built on **Node.js** and **Socket.io**.
 
-```
-PrivyChat/
-├── public/                 # Client-Side Code
-│   ├── index.html          # Single Page Application (SPA) Entry
-│   ├── app.js              # Core Logic (Socket, UI, Encryption)
-│   ├── style.css           # Glassmorphism Design System
-│   ├── crypto-utils.js     # E2E Encryption Handling (Web Crypto API)
-│   └── logo.png            # Assets
-├── server.js               # Node.js + Socket.io Server Backend
-├── render.yaml             # Render Infrastructure-as-Code
-├── vercel.json             # Vercel Configuration (Static Serving)
-├── package.json            # Dependencies
-└── README.md               # Documentation
-```
+### **Prerequisites**
+*   Node.js (v14 or higher)
+*   NPM (Node Package Manager)
 
----
+### **Installation**
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/yourusername/PrivyChat.git
+    cd PrivyChat
+    ```
 
-## 🛠️ Technology Stack
+2.  **Install Dependencies**
+    ```bash
+    npm install
+    ```
 
-*   **Runtime**: Node.js
-*   **Framework**: Express.js
-*   **Real-Time**: Socket.io v4
-*   **Frontend**: Native HTML5, CSS3 Variables, ES6 JavaScript
-*   **Cryptography**: AES-GCM (Galois/Counter Mode) via `window.crypto.subtle`
+3.  **Start the Server**
+    ```bash
+    npm run dev
+    ```
 
----
-
-## 🌍 Developer & Vision
-
-**Designed & Developed by [Pratham Kumar](https://rajpratham1.github.io/WebFolio/)**
-
-> "In a world where every click is tracked and every message is archived, privacy is no longer a luxury—it's a necessity. We believe that your words belong to you, and the moment they are spoken, they should vanish into the ether."
-
-### **Contact & Portfolio**
-*   **Portfolio**: [WebFolio](https://rajpratham1.github.io/WebFolio/)
-*   **GitHub**: [@rajpratham1](https://github.com/rajpratham1)
+4.  **Open in Browser**
+    Visit `http://localhost:3001`
 
 ---
 
-## 📄 License
-This project is licensed under the **MIT License**.
-Copyright (c) 2024 Pratham Kumar.
-Free to use, study, and modify for educational or personal privacy tools.
+## 📖 User Manual
+
+A comprehensive User Manual is included in the application.
+👉 **[View User Manual](public/manual.html)** (or access via the `?` Help icon in the app).
+
+---
+
+## 🛠️ Tech Stack
+
+*   **Frontend**: Vanilla JS (ES6+), HTML5, CSS3 Variables.
+*   **Backend**: Node.js, Express.
+*   **Real-Time**: Socket.io v4 (WebSockets).
+*   **Cryptography**: Web Crypto API (`window.crypto.subtle`).
+
+---
+
+## ⚠️ Disclaimer
+
+While PrivyChat uses industry-standard encryption algorithms, it is an **open-source educational project**. It has not been audited by external security firms. Use it for personal privacy, but always exercise caution with extremely sensitive data.
+
+---
+
+### **License**
+MIT License. Free to use, fork, and modify.

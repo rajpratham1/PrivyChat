@@ -11,8 +11,13 @@ const io = new Server(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
-    }
+    },
+    maxHttpBufferSize: 1e7 // 10MB Limit (Default is 1MB)
 });
+
+// ...
+
+
 
 const PORT = process.env.PORT || 3001;
 
@@ -138,9 +143,8 @@ io.on('connection', (socket) => {
     // File Sharing
     socket.on('file_share', (data) => {
         // data: { room, fileData, fileName, fileType, username, timestamp }
-        // Broadcast to room (including sender if we want, but usually sender sees their own immediately. 
-        // Let's broadcast to all for simplicity or use io.to)
-        io.to(data.room).emit('receive_file', data);
+        // Broadcast back to room so client listener 'socket.on("file_share")' triggers
+        io.to(data.room).emit('file_share', data);
     });
 
     // Leave/Disconnect

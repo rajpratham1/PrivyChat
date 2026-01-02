@@ -1,24 +1,153 @@
 :root {
-    --bg-color: #0f172a;
-    /* Slate 900 */
-    --text-color: #f1f5f9;
-    /* Slate 100 */
-    --accent-color: #3b82f6;
-    /* Blue 500 */
-    --glass-bg: rgba(30, 41, 59, 0.7);
-    /* Slate 800 */
-    --glass-border: rgba(59, 130, 246, 0.3);
-    --success-color: #10b981;
+    --bg-color: #202124;
+    /* Google Dark Gray */
+    --text-color: #e8eaed;
+    --accent-color: #8ab4f8;
+    /* Google Blue */
+    --surface: #303134;
+    --border: #5f6368;
 }
 
-body.hacker-theme {
-    --bg-color: #000000;
-    --text-color: #00ff00;
-    --accent-color: #00ff00;
-    --glass-bg: rgba(0, 20, 0, 0.9);
-    --glass-border: rgba(0, 255, 0, 0.5);
-    font-family: 'Courier New', Courier, monospace;
+body {
+    background: var(--bg-color);
+    /* Override gradient */
+    font-family: 'Arial', sans-serif;
+    /* Google-like sans */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
+
+/* Google Container */
+.google-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 80vh;
+    /* Centered visually */
+    width: 100%;
+}
+
+.google-logo {
+    font-family: 'Product Sans', 'Century Gothic', sans-serif;
+    font-size: 5rem;
+    margin-bottom: 30px;
+    letter-spacing: -2px;
+}
+
+/* Search Bar */
+.search-bar-wrapper {
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 10px 20px;
+    width: 100%;
+    max-width: 584px;
+    transition: all 0.2s;
+}
+
+.search-bar-wrapper:hover,
+.search-bar-wrapper:focus-within {
+    background: #303134;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+    border-color: rgba(255, 255, 255, 0);
+}
+
+.google-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 1.1rem;
+    padding: 0 15px;
+    outline: none;
+    height: 34px;
+}
+
+.search-icon,
+.mic-icon {
+    font-size: 1.2rem;
+    opacity: 0.6;
+    cursor: pointer;
+}
+
+.mic-icon:hover {
+    opacity: 1;
+    color: #4285F4;
+}
+
+/* Buttons */
+.google-buttons {
+    margin-top: 30px;
+    display: flex;
+    gap: 15px;
+}
+
+.g-btn {
+    background: #303134;
+    border: 1px solid transparent;
+    color: #e8eaed;
+    padding: 0 16px;
+    height: 36px;
+    border-radius: 4px;
+    font-family: arial, sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.g-btn:hover {
+    border-color: #5f6368;
+    color: white;
+}
+
+/* Google Footer */
+.google-footer {
+    background: #171717;
+    width: 100%;
+    font-size: 14px;
+    color: #9aa0a6;
+    margin-top: auto;
+    /* Push to bottom */
+}
+
+.footer-row {
+    padding: 15px 30px;
+    border-bottom: 1px solid #3c4043;
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.footer-row.bottom {
+    border-bottom: none;
+    justify-content: space-between;
+}
+
+.footer-row a {
+    color: #999da2;
+    text-decoration: none;
+    margin-right: 25px;
+}
+
+.footer-row a:hover {
+    text-decoration: underline;
+}
+
+/* HACKER THEME OVERRIDE */
+body.hacker-theme {
+    --bg-color: #000;
+    --text-color: #0f0;
+    --surface: #001100;
+    --border: #00ff00;
+}
+
+body.hacker-theme .google-logo span {
+    color: #0f0 !important;
+}
+
 
 body.hacker-theme .blob {
     display: none;
@@ -384,12 +513,47 @@ p {
     /* Hidden by default until active */
 }
 
-.input-area {
-    display: flex;
-    gap: 10px;
-    padding: 1rem;
-    margin-top: 0;
-    /* Remove top margin */
+/* Message Styles */
+.message.sent {
+    align-self: flex-end;
+    background: linear-gradient(135deg, #3b82f6, #0ea5e9);
+    color: white;
+    border-bottom-right-radius: 2px;
+    padding: 10px 15px;
+    border-radius: 12px;
+    margin-bottom: 5px;
+    max-width: 80%;
+    word-break: break-word;
+}
+
+.message.received {
+    align-self: flex-start;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #f1f5f9;
+    border-bottom-left-radius: 2px;
+    padding: 10px 15px;
+    border-radius: 12px;
+    margin-bottom: 5px;
+    max-width: 80%;
+    word-break: break-word;
+}
+
+.message.system {
+    align-self: center;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 0.8rem;
+    text-align: center;
+    margin: 10px 0;
+}
+
+.message .sender {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-bottom: 2px;
+    display: block;
 }
 
 /* Typing Animation */
@@ -422,52 +586,65 @@ p {
     }
 }
 
-.message.sent {
-    align-self: flex-end;
-    background: linear-gradient(135deg, #3b82f6, #0ea5e9);
-    /* Blue to Sky */
-    color: white;
-    border-bottom-right-radius: 2px;
+/* Ghost Mode (Blur Effect) */
+.ghost-active .message-content,
+.ghost-active .file-preview {
+    filter: blur(8px);
+    transition: filter 0.3s ease;
+    cursor: pointer;
+    user-select: none;
+    /* Harder to copy blindly */
 }
 
-.message.received {
-    align-self: flex-start;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: #f1f5f9;
-    border-bottom-left-radius: 2px;
+.ghost-active .message-content:hover,
+.ghost-active .file-preview:hover {
+    filter: blur(0);
 }
 
-.message.system {
-    align-self: center;
-    background: transparent;
-    border: none;
-    color: #94a3b8;
-    font-size: 0.8rem;
-    text-align: center;
-}
-
-.message .sender {
-    font-size: 0.7rem;
-    opacity: 0.7;
-    margin-bottom: 2px;
-    display: block;
-}
-
+/* Input Area */
 .input-area {
     display: flex;
     gap: 10px;
-    padding: 1rem;
-    margin-top: 1rem;
+    padding: 15px !important;
+    /* Override glass-card large padding */
+    margin-top: 20px;
+    align-items: center;
+    border-radius: 20px;
+    /* Slightly tighter radius */
 }
 
-.input-area input {
+.input-area input[type="text"] {
     flex: 1;
     background: transparent;
     border: none;
     color: white;
     font-size: 1rem;
     outline: none;
+    padding: 10px;
+    min-width: 100px;
+}
+
+.input-area .btn {
+    padding: 10px 25px;
+    /* Compact send button */
+    font-size: 1rem;
+    box-shadow: none;
+    /* remove giant shadow for cleaner look */
+}
+
+.input-area .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+}
+
+.timer-select {
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    font-size: 0.9rem;
 }
 
 /* Toast Notifications */

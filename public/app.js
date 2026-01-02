@@ -170,103 +170,64 @@ if (inviteRoom) {
         inputPass.style.display = 'none';
     }
 }
+// --- Google UI Logic ---
 
-// Functions
-function selectMode(mode) {
-    currentMode = mode;
-    joinForm.style.display = 'block';
-    linkDisplay.innerText = '';
-
-    // Reset Inputs
-    inputRoom.style.display = 'none';
-    inputPass.style.display = 'none';
-    inputRoom.readOnly = false;
-    inputPass.value = ''; // Clear password
-
-    if (mode === '1v1') {
-        formTitle.innerText = "Start 1-on-1 Chat";
-        if (!inviteRoom) {
-            // Generate UUID for room
-            const roomUUID = 'chat-' + Math.random().toString(36).substr(2, 9);
-            // Generate Strong Secret for E2E (Hash part, never sent to server)
-            const secretKey = Math.random().toString(36).substr(2, 10) + Math.random().toString(36).substr(2, 10);
-
-            const link = `${window.location.origin}?room=${roomUUID}#key=${secretKey}`;
-
-            linkDisplay.innerHTML = `
-                <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; margin-top: 10px;">
-                    <p style="margin:0 0 5px 0; font-size: 0.8rem; opacity: 0.8;">Share this private link:</p>
-                    <input type="text" value="${link}" id="share-link-input" readonly style="width:100%; background:transparent; border:none; color:#fbcfe8; font-family:monospace; margin-bottom:5px;">
-                    <button class="btn" onclick="copyLink()" style="padding: 5px 15px; font-size: 0.8rem; width: auto;">📋 Copy Link</button>
-                    <p style="font-size:0.7rem; color:#4ade80; margin-top:5px;">🔒 E2E Encryption Key Included in Link</p>
-                </div>
-            `;
-            inputRoom.value = roomUUID;
-            // Auto-set password for local user so they can join their own creation
-            inputPass.value = secretKey;
-        }
-    } else if (mode === 'private') {
-        formTitle.innerText = "Enter Private Room";
-        inputRoom.style.display = 'block';
-        inputPass.style.display = 'block';
-        inputRoom.placeholder = "Room Name";
-    } else if (mode === 'group') {
-        formTitle.innerText = "Join Group Chat";
-    }
+// Enter Key Handler
+function handleGoogleEnter(e) {
+    if (e.key === 'Enter') googleJoin();
 }
 
-function showLobby() {
-    joinForm.style.display = 'none';
-    document.querySelector('.modes-grid').style.display = 'grid';
-    linkDisplay.innerText = '';
-}
+function googleJoin() {
+    const input = document.getElementById('google-input');
+    const roomCode = input.value.trim();
 
-function startChat() {
-    myUsername = inputUser.value.trim();
-    if (!myUsername) {
-        alert("Please enter a nickname");
+    if (!roomCode) {
+        // Shake effect or focus
+        input.focus();
+        input.style.borderColor = '#EA4335'; // Red error
+        setTimeout(() => input.style.borderColor = '#5f6368', 500);
         return;
     }
 
-    let room = '';
-    let password = '';
+    // Since we removed the "Join Form" with nickname input, we need to ask for it now.
+    userLoginFlow(roomCode, null, 'private');
+}
 
-    // Check for Key in Hash (from invite link)
-    const urlHash = window.location.hash;
-    if (urlHash.includes('key=')) {
-        password = urlHash.split('key=')[1];
+function googleCreate() {
+    // "I'm Feeling Lucky" -> Generate Secure Room
+    const roomUUID = 'secure-' + Math.random().toString(36).substr(2, 6);
+    const secretKey = Math.random().toString(36).substr(2, 8); // Simple password
+
+    // We treat this as a "Unique Code" Private Room
+    // To share it, users will share "Room Name" + "Password" OR we can generate a link.
+    // For this flow, let's auto-join and show the credentials.
+
+    userLoginFlow(roomUUID, secretKey, '1v1');
+}
+
+function userLoginFlow(room, password, mode) {
+    if (!myUsername) {
+        // Simple Prompt for v3.0 (Can be improved to a modal later)
+        const name = prompt("Enter your Nickname to join:");
+        if (!name) return;
+        myUsername = name;
     }
 
-    // Fallback: If creating 1v1, we set inputPass.value in step 1
-    if (currentMode === '1v1' && inputPass.value) {
-        password = inputPass.value;
-    }
+    // Store globally
+    currentMode = mode;
+    currentRoom = room;
+    if (password) currentPassword = password;
 
-    if (currentMode === 'group') {
-        room = 'general';
-        password = ''; // No key for public
-    } else if (currentMode === '1v1') {
-        room = (inputRoom.value || '1v1-default').toLowerCase();
-        // Password here is the Encryption Key
-    } else if (currentMode === 'private') {
-        room = inputRoom.value.trim().toLowerCase();
-        password = inputPass.value.trim();
-        if (!room || !password) {
-            showToast("Room name and password required", "error");
-            return;
-        }
-    } else if (!currentMode && inputRoom.value) {
-        // Invite Link Case
-        room = inputRoom.value.trim().toLowerCase();
-        // Assume public unless prompted later
-        if (!room) {
-            showToast("Invalid Room", "error");
-            return;
-        }
-    }
+    // Join
+    socket.emit('join_room', { room: room, password: password || '', username: myUsername, type: mode });
 
-    // Join via Socket
-    socket.emit('join_room', { room, password, username: myUsername, type: currentMode });
+    // Hide Lobby (Google page)
+    document.getElementById('lobby').style.display = 'none';
+    document.getElementById('chat-room').style.display = 'flex';
+}
+
+function startGoogleMic() {
+    alert("🎤 Voice Search coming soon in v4.0!");
 }
 
 let isCurrentRoomPrivate = false;
@@ -437,31 +398,42 @@ const fileInput = document.getElementById('file-input');
 const uploadBtn = document.querySelector('.input-area button'); // The paperclip button
 
 fileInput.addEventListener('change', (e) => {
+    console.log("📂 File Selected");
     const file = e.target.files[0];
     if (file) {
-        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        if (file.size > 5 * 1024 * 1024) {
             alert("File too large (Max 5MB)");
             return;
         }
 
-        // feedback
         uploadBtn.innerText = "⏳";
         uploadBtn.disabled = true;
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
+            console.log("📂 File Read Complete");
             let fileData = evt.target.result;
             let isEncrypted = false;
             let iv = null;
 
             if (currentCryptoKey) {
-                // Encrypt the Base64 String
-                const encrypted = await CryptoUtils.encrypt(fileData, currentCryptoKey);
-                fileData = encrypted.data; // This is now ciphertext
-                iv = encrypted.iv;
-                isEncrypted = true;
+                console.log("🔒 Encrypting File...");
+                try {
+                    const encrypted = await CryptoUtils.encrypt(fileData, currentCryptoKey);
+                    fileData = encrypted.data;
+                    iv = encrypted.iv;
+                    isEncrypted = true;
+                    console.log("🔒 Encryption Success");
+                } catch (err) {
+                    console.error("❌ Encryption Failed:", err);
+                    alert("Encryption Failed!");
+                    uploadBtn.innerText = "📎";
+                    uploadBtn.disabled = false;
+                    return;
+                }
             }
 
+            console.log("📡 Emitting file_share event");
             socket.emit('file_share', {
                 room: currentRoom,
                 username: myUsername,
@@ -472,12 +444,12 @@ fileInput.addEventListener('change', (e) => {
                 fileType: file.type,
                 timestamp: Date.now()
             });
-            // reset
+
             uploadBtn.innerText = "📎";
             uploadBtn.disabled = false;
         };
         reader.readAsDataURL(file);
-        fileInput.value = ''; // Reset
+        fileInput.value = '';
     }
 });
 
@@ -568,15 +540,19 @@ function addMessage(text, type, sender) {
     const div = document.createElement('div');
     div.classList.add('message', type);
 
+    // Create the message content wrapper for Ghost Mode targeting
+    // We wrap the text in a span with 'message-content' class
+    const contentHtml = `<span class="message-content">${text}</span>`;
+
     if (sender && type !== 'sent') {
-        div.innerHTML = `<span class="sender">${sender}</span>${text}`;
+        div.innerHTML = `<span class="sender">${sender}</span>${contentHtml}`;
     } else {
-        div.innerText = text;
+        div.innerHTML = contentHtml;
     }
 
     messagesDiv.appendChild(div);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    return div; // Return element for manipulation
+    return div;
 }
 
 function addFileMessage(data, type) {
@@ -584,17 +560,39 @@ function addFileMessage(data, type) {
     div.classList.add('message', type);
 
     let content = '';
-    if (data.fileType.startsWith('image/')) {
-        content = `<img src="${data.fileData}" style="max-width: 100%; border-radius: 10px; margin-top: 5px;">`;
-    } else if (data.fileType.startsWith('audio/')) {
-        content = `<div style="min-width: 200px;">
-                     <div style="font-size:0.8rem; opacity:0.7; margin-bottom:5px;">🎤 Voice Note</div>
-                     <audio controls src="${data.fileData}" style="width: 100%; border-radius: 20px;"></audio>
+    const fileType = data.fileType || ''; // Safety Check
+
+    // Apply 'file-preview' class for Ghost Mode targeting
+    if (fileType.startsWith('image/')) {
+        content = `<img src="${data.fileData}" class="file-preview" style="max-width: 100%; border-radius: 10px; margin-top: 5px;">`;
+    } else if (fileType.startsWith('audio/')) {
+        // Calculate Rate based on Effect
+        let rate = 1.0;
+        let label = "🎤 Voice Note";
+        // Check if voiceEffect exists safely
+        if (data.voiceEffect === 'robot') {
+            rate = 0.75;
+            label = "🤖 Robot Voice";
+        } else if (data.voiceEffect === 'chipmunk') {
+            rate = 1.5;
+            label = "🐿️ Chipmunk Voice";
+        }
+
+        // Generate unique ID for this audio to set rate via JS safely
+        const audioId = 'audio-' + Math.random().toString(36).substr(2, 9);
+
+        content = `<div class="file-preview" style="min-width: 200px;">
+                     <div style="font-size:0.8rem; opacity:0.7; margin-bottom:5px;">${label}</div>
+                     <audio id="${audioId}" controls src="${data.fileData}" style="width: 100%; border-radius: 20px;"></audio>
                    </div>`;
+
+
+
     } else {
-        content = `<div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
-                     📄 ${data.fileName} <br>
-                     <a href="${data.fileData}" download="${data.fileName}" style="color: #fbcfe8; text-decoration: underline;">Download</a>
+        // Default / Fallback
+        content = `<div class="file-preview" style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
+                     📄 ${data.fileName || 'Unknown File'} <br>
+                     <a href="${data.fileData}" download="${data.fileName || 'file'}" style="color: #fbcfe8; text-decoration: underline;">Download</a>
                    </div>`;
     }
 
@@ -646,6 +644,29 @@ window.addEventListener('focus', () => {
     }
 });
 
+// Toast Notification Logic
+function showToast(msg, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerText = msg;
+
+    // Auto-remove
+    container.appendChild(toast);
+
+    // Animation trigger
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    }, 10);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        setTimeout(() => toast.remove(), 500);
+    }, 3000);
+}
+
 // --- v2.0 Features ---
 
 function panicMode() {
@@ -654,6 +675,22 @@ function panicMode() {
     localStorage.clear();
     sessionStorage.clear();
     window.location.replace("https://www.google.com");
+}
+
+// --- UI Functions ---
+function toggleGhostMode() {
+    const messages = document.getElementById('messages');
+    messages.classList.toggle('ghost-active');
+
+    // Toggle Icon
+    const btn = document.querySelector('.chat-header .btn-icon');
+    if (messages.classList.contains('ghost-active')) {
+        btn.innerText = '👻'; // Active
+        showToast("Ghost Mode ON: Messages Blurred", "info");
+    } else {
+        btn.innerText = '👁️'; // Inactive
+        showToast("Ghost Mode OFF", "info");
+    }
 }
 
 function toggleTheme() {
@@ -677,7 +714,7 @@ async function startRecording() {
         };
 
         mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
             sendVoiceNote(audioBlob);
         };
 
@@ -722,6 +759,7 @@ function sendVoiceNote(blob) {
             iv: iv,
             fileName: "voice-note.webm",
             fileType: "audio/webm",
+            voiceEffect: document.getElementById('voice-effect').value, // Send Effect Meta
             timestamp: Date.now(),
             destruct: document.getElementById('destruct-timer').value
         });
@@ -767,3 +805,13 @@ function calcInput(val) {
         display.value = calcExpression;
     }
 }
+
+// Failsafe: Allow Escape key to close Stealth Mode
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('stealth-calculator');
+        if (overlay && overlay.style.display !== 'none') {
+            toggleStealth();
+        }
+    }
+});

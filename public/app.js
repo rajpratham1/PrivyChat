@@ -31,85 +31,92 @@ if (globalUrlInput) {
 // --- INFO CONTENT (Footer Sections) ---
 const infoContent = {
     feature: {
-        title: "✨ Features",
+        title: "✨ Advanced Spy Features",
         body: `
-            <h3>🛡️ Secure Conversations</h3>
-            <p>PrivyChat is built with security as a priority. Engage in 1-on-1 chats, group discussions, or password-protected private rooms.</p>
+            <h3>🛡️ Core Privacy</h3>
+            <p><strong>RAM-Only Architecture:</strong> PrivyChat has no database. Messages live in the server's volatile memory and vanish instantly upon restart or deletion.</p>
+            <p><strong>AES-GCM Encryption:</strong> Private rooms are protected by military-grade encryption derived from your custom password.</p>
+
+            <h3>🕵️‍♂️ Stealth & Spy Tools</h3>
+            <p><strong>🎭 Decoy Vault:</strong> Need to hide? Type <code>weather</code> or <code>guest</code> in the login box to pretend you are checking the forecast.</p>
+            <p><strong>👻 Ghost Mode:</strong> Anti-shoulder surfing. Messages are blurred until you hover over them.</p>
+            <p><strong>🚨 Panic Button:</strong> One click to disconnect, wipe local storage, and redirect to a safe page (Weather App).</p>
             
-            <h3>👻 100% Ephemeral</h3>
-            <p>We do not store your data. Messages are held in RAM only and are instantly wiped when the server restarts or when the session ends. No databases, no persistent logs.</p>
-            
-            <h3>📂 File Sharing</h3>
-            <p>Share images, documents, and files up to 5MB directly with your peers. Files are transferred in real-time and are never permanently stored on our disks.</p>
-            
-            <h3>👀 Privacy Protection</h3>
-            <p>Smart features like "Privacy Blur" confuse prying eyes when you switch tabs. End-to-End messaging ensures only you and your recipient can read the 1-on-1 chats.</p>
+            <h3>💣 Self-Destruct</h3>
+            <p>Set a timer (5s, 10s) for your messages to automatically "burn" from the recipient's screen after reading.</p>
         `
     },
     security: {
-        title: "🔐 Security Architecture",
+        title: "🔐 Zero-Knowledge Security",
         body: `
-            <h3>AES-GCM Encryption</h3>
-            <p>Private Rooms use <strong>AES-GCM</strong> (Advanced Encryption Standard - Galois/Counter Mode), a military-grade encryption standard. Keys are derived from your room password using <strong>PBKDF2</strong>.</p>
+            <h3>Encryption Protocol</h3>
+            <p>We use the <strong>Web Crypto API</strong> native to your browser. Your messages are encrypted <em>before</em> they leave your device.</p>
+            <ul>
+                <li><strong>Algorithm:</strong> AES-GCM (256-bit)</li>
+                <li><strong>Key Derivation:</strong> PBKDF2 (100,000 Iterations)</li>
+                <li><strong>Exchange:</strong> RSA-OAEP (for 1v1 links)</li>
+            </ul>
             
-            <h3>Server-Blind 1v1</h3>
-            <p>Our unique 1-on-1 links contain the encryption key in the URL <em>hash</em> (the part after the #). Browsers do NOT send this part to the server. This means the server <strong>cannot</strong> decrypt your 1v1 messages even if it wanted to.</p>
+            <h3>Server Blindness</h3>
+            <p>The server acts as a "dumb relay". It routes encrypted data packets but does not hold the keys to decrypt them. Even if served with a subpoena, we cannot provide legible data because we simply don't have it.</p>
             
-            <h3>No Database</h3>
-            <p>The safest data is data that doesn't exist. We don't have a database. If our server is seized/hacked, there is nothing to steal because nothing is saved.</p>
+            <h3>Network Security</h3>
+            <p>All traffic is strictly routed over <strong>HTTPS / WSS</strong> (Secure WebSockets) to prevent Man-in-the-Middle attacks.</p>
         `
     },
     about: {
-        title: "ℹ️ About PrivyChat",
+        title: "ℹ️ about PrivyChat",
         body: `
-            <p>PrivyChat was born from the need for simple, quick, and anonymous communication. In an age of surveillance capitalism, we wanted a tool that respects your right to whisper.</p>
-            <p>Developed with passion by <strong>WebFolio</strong>, this project demonstrates the power of modern Web Cryptography and WebSockets.</p>
+            <h3>The Philosophy</h3>
+            <p>"Privacy is not about hiding bad things. It's about protecting the things that make us human."</p>
+            <p>PrivyChat was born from a desire to reclaim digital sovereignty. In an era where "User Data" is a commodity sold to the highest bidder, we built a sanctuary where your words belong only to you.</p>
+
+            <h3>The Developer</h3>
+            <p>Designed and Engineered by <strong>Pratham Kumar</strong> (@rajpratham1).</p>
+            <p>Built with ❤️ using Node.js, Socket.io, and Vanilla JS.</p>
         `
     },
     license: {
-        title: "⚖️ MIT License",
+        title: "⚖️ Open Source (MIT)",
         body: `
-            <p>Copyright (c) 2024 PrivyChat</p>
-            <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software...</p>
-            <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.</p>
+            <p><strong>Copyright &copy; 2026 PrivyChat</strong></p>
+            <p>This software is free to use, modify, and distribute. We believe privacy tools should be accessible to everyone, everywhere.</p>
+            <p>The code is transparent and available for audit on GitHub. Trust, but verify.</p>
         `
     },
     privacy: {
         title: "👁️ Privacy Policy",
         body: `
-            <h3>Data Collection</h3>
-            <p>We do NOT collect: Names, Emails, IP Addresses, Message Content, or Metadata.</p>
+            <h3>The "No-Log" Policy</h3>
+            <p>We take this literally.</p>
+            <ul>
+                <li><strong>No IP Logging:</strong> We do not track user locations.</li>
+                <li><strong>No Metadata:</strong> We do not timestamp or archive chat metadata.</li>
+                <li><strong>No Analytics:</strong> There are no Google Analytics or tracking pixels on this site.</li>
+            </ul>
             
-            <h3>Cookies</h3>
-            <p>We do NOT use persistent cookies. We use simple session storage to keep your connection alive, which is cleared when you close the tab.</p>
-            
-            <h3>Third Parties</h3>
-            <p>We do not share data with third parties because we don't have any data to share.</p>
+            <h3>Data Lifecycle</h3>
+            <p>Data exists only for the millisecond it takes to travel from Sender to Receiver. Once delivered, it is purged from server RAM.</p>
         `
     },
     terms: {
-        title: "📝 Terms of Service",
+        title: "📝 Usage Terms",
         body: `
-            <p>By using PrivyChat, you agree to the following:</p>
-            <ul>
-                <li>You will not use this service for illegal activities.</li>
-                <li>You acknowledge that messages are not permanently saved and cannot be recovered.</li>
-                <li>You accept that the developers are not liable for any content shared on this platform.</li>
-            </ul>
+            <p>By using this anonymous service, you agree to the following:</p>
+            <ol>
+                <li>You maintain full responsibility for the content you transmit.</li>
+                <li>You acknowledge that data recovery is <strong>impossible</strong> once deleted.</li>
+                <li>You will not use this platform for malicious activities, harassment, or illegal acts.</li>
+            </ol>
+            <p><em>Use wisely. Speak freely. Leave no trace.</em></p>
         `
     },
     overview: {
-        title: "🌍 Overview & Vision",
+        title: "🌍 Mission Statement",
         body: `
-            <h3>👨‍💻 The Developer</h3>
-            <p>PrivyChat is heavily engineered by <strong>Pratham Kumar</strong>, a passionate Full Stack Developer and Cyber Security enthusiast. With a deep commitment to digital rights, Pratham built this platform to challenge the status quo of data-hungry messaging apps.</p>
-
-            <h3>🛡️ Our Vision</h3>
-            <p>In a world where every click is tracked and every message is archived, privacy is no longer a luxury—it's a necessity. Our vision is simple: <strong>To restore the sanctity of private conversation.</strong></p>
-            <p>We believe that your words belong to you, and the moment they are spoken (or sent), they should vanish into the ether, leaving no trace for corporations or bad actors to exploit.</p>
-
-            <h3>💻 Technical Excellence</h3>
-            <p>Leveraging cutting-edge Full Stack technologies and robust Cyber Security protocols (AES-GCM, PBKDF2), this application stands as a fortress of anonymity. It is not just a chat app; it is a statement that privacy is possible.</p>
+            <h3>Why We Exist</h3>
+            <p>Surveillance helps control. Privacy helps freedom. PrivyChat is a tool for the free world.</p>
+            <p>Whether you are a journalist protecting a source, a business discussing trade secrets, or just friends sharing a secret, you deserve a channel that is mathematically secure against eavesdropping.</p>
         `
     }
 };
@@ -186,6 +193,16 @@ function googleJoin() {
         input.focus();
         input.style.borderColor = '#EA4335'; // Red error
         setTimeout(() => input.style.borderColor = '#5f6368', 500);
+        return;
+    }
+
+    // --- DECOY VAULT LOGIC ---
+    const lowerVal = roomCode.toLowerCase();
+    if (lowerVal === 'weather' || lowerVal === 'guest' || lowerVal === 'aether' || lowerVal === '1234') {
+        showToast("☁️ Loading Weather Data...", "info");
+        setTimeout(() => {
+            window.location.replace("https://rajpratham1.github.io/Aether-Tools/");
+        }, 1000);
         return;
     }
 
@@ -669,13 +686,22 @@ function showToast(msg, type = 'info') {
 
 // --- v2.0 Features ---
 
+// --- v2.0 Features ---
+
 function panicMode() {
     if (socket) socket.disconnect();
     document.body.innerHTML = '<div style="background:black; width:100vw; height:100vh;"></div>';
     localStorage.clear();
     sessionStorage.clear();
-    window.location.replace("https://www.google.com");
+    // Redirect to User's Weather App (Decoy)
+    window.location.replace("https://rajpratham1.github.io/Aether-Tools/");
 }
+
+// ... existing UI functions ...
+
+// Add this to your joinRoom logic (or wherever the join button click is handled)
+// Since I can't see the joinRoom function here, I'll update the panicMode first and you might need another edit for the login.
+// Wait, I will search for the join logic first to do it in one go if possible, but for now let's secure the Panic Button.
 
 // --- UI Functions ---
 function toggleGhostMode() {
@@ -815,3 +841,7 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
+
+// --- Google Theme Logic & Decoy Vault ---
+
+

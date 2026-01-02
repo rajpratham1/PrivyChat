@@ -13,6 +13,7 @@ PrivyChat is an ultra-secure, ephemeral messaging platform designed for whistleb
 ### **🕵️‍♂️ Spy Tech & Stealth**
 *   **Stealth Mode (Calculator)**: Instantly hide the entire chat app behind a fully functional Calculator overlay.
     *   *Unlock Code*: Type `1337` and press `=` to re-enter.
+*   **Decoy Vault**: Type keywords like `weather` or `guest` into the login box to instanty redirect to a harmless **Weather App**. Perfect for plausible deniability.
 *   **Ghost Mode**: All messages are blurred by default. They only reveal when you hover your mouse over them, preventing "shoulder surfing" in public.
 *   **Panic Button**: A single click on the 🚨 icon instantly disconnects you, wipes local storage, and redirects your browser to Google.com.
 *   **Self-Destruct Messages**: Set a timer (5s, 10s, 30s) for your messages to effectively "burn" from the recipient's screen after reading.

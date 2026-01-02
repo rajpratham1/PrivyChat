@@ -378,7 +378,26 @@ socket.on('update_user_count', (count) => {
 
 // ... (existing listeners)
 
-// ... (other listeners)
+socket.on('file_share', async (data) => {
+    // 1. Decrypt if needed
+    if (data.encrypted && data.iv) {
+        if (currentCryptoKey) {
+            try {
+                data.fileData = await CryptoUtils.decrypt({ iv: data.iv, data: data.fileData }, currentCryptoKey);
+            } catch (e) {
+                console.error("File Decrypt Fail:", e);
+                data.fileName = "⚠️ Decryption Failed";
+                data.fileData = null;
+            }
+        } else {
+            data.fileName = "🔒 Encrypted File";
+            data.fileData = null; // Cannot view
+        }
+    }
+
+    const type = data.username === myUsername ? 'sent' : 'received';
+    addFileMessage(data, type);
+});
 
 function copyRoomLink(room) {
     let link = `${window.location.origin}?room=${room}`;
@@ -430,12 +449,25 @@ fileInput.addEventListener('change', (e) => {
         uploadBtn.disabled = true;
 
         const reader = new FileReader();
-        reader.onload = (evt) => {
-            const fileData = evt.target.result;
+        reader.onload = async (evt) => {
+            let fileData = evt.target.result;
+            let isEncrypted = false;
+            let iv = null;
+
+            if (currentCryptoKey) {
+                // Encrypt the Base64 String
+                const encrypted = await CryptoUtils.encrypt(fileData, currentCryptoKey);
+                fileData = encrypted.data; // This is now ciphertext
+                iv = encrypted.iv;
+                isEncrypted = true;
+            }
+
             socket.emit('file_share', {
                 room: currentRoom,
                 username: myUsername,
                 fileData: fileData,
+                encrypted: isEncrypted,
+                iv: iv,
                 fileName: file.name,
                 fileType: file.type,
                 timestamp: Date.now()
@@ -477,7 +509,8 @@ async function sendMessage() {
             encrypted: isEncrypted,
             iv: iv,
             username: myUsername,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            destruct: document.getElementById('destruct-timer').value
         });
 
         // Sender sees their own message immediately (Plaintext)
@@ -511,7 +544,24 @@ socket.on('receive_message', async (data) => {
         }
     }
 
-    addMessage(displayMsg, type, data.username);
+    const msgElement = addMessage(displayMsg, type, data.username);
+
+    // Handle Self-Destruct
+    if (data.destruct && data.destruct > 0) {
+        const timerSec = data.destruct / 1000;
+        const timerSpan = document.createElement('span');
+        timerSpan.style.fontSize = '0.7rem';
+        timerSpan.style.color = '#ef4444';
+        timerSpan.style.marginLeft = '10px';
+        timerSpan.innerText = `💣 ${timerSec}s`;
+        msgElement.appendChild(timerSpan);
+
+        setTimeout(() => {
+            msgElement.style.transition = "opacity 0.5s";
+            msgElement.style.opacity = "0";
+            setTimeout(() => msgElement.remove(), 500);
+        }, data.destruct);
+    }
 });
 
 function addMessage(text, type, sender) {
@@ -526,6 +576,7 @@ function addMessage(text, type, sender) {
 
     messagesDiv.appendChild(div);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    return div; // Return element for manipulation
 }
 
 function addFileMessage(data, type) {
@@ -535,6 +586,11 @@ function addFileMessage(data, type) {
     let content = '';
     if (data.fileType.startsWith('image/')) {
         content = `<img src="${data.fileData}" style="max-width: 100%; border-radius: 10px; margin-top: 5px;">`;
+    } else if (data.fileType.startsWith('audio/')) {
+        content = `<div style="min-width: 200px;">
+                     <div style="font-size:0.8rem; opacity:0.7; margin-bottom:5px;">🎤 Voice Note</div>
+                     <audio controls src="${data.fileData}" style="width: 100%; border-radius: 20px;"></audio>
+                   </div>`;
     } else {
         content = `<div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
                      📄 ${data.fileName} <br>
@@ -589,3 +645,125 @@ window.addEventListener('focus', () => {
         document.title = "🛡️ PrivyChat";
     }
 });
+
+// --- v2.0 Features ---
+
+function panicMode() {
+    if (socket) socket.disconnect();
+    document.body.innerHTML = '<div style="background:black; width:100vw; height:100vh;"></div>';
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.replace("https://www.google.com");
+}
+
+function toggleTheme() {
+    document.body.classList.toggle('hacker-theme');
+    const isHacker = document.body.classList.contains('hacker-theme');
+    showToast(isHacker ? "👨‍💻 Hacker Mode" : "🛡️ Secure Mode", "success");
+}
+
+// --- Voice Notes ---
+let mediaRecorder;
+let audioChunks = [];
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            sendVoiceNote(audioBlob);
+        };
+
+        mediaRecorder.start();
+        document.getElementById('mic-btn').innerText = "🔴"; // Visual Feedback
+        showToast("Recording...", "info");
+    } catch (err) {
+        console.error("Mic Error:", err);
+        showToast("Microphone Access Denied (Check Permissions)", "error");
+    }
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        document.getElementById('mic-btn').innerText = "🎤";
+    }
+}
+
+function sendVoiceNote(blob) {
+    if (blob.size < 1000) return; // Ignore accidental clicks (< 1KB)
+
+    // Convert Blob to DataURL (Base64) to send via Socket
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+        let fileData = evt.target.result;
+        let isEncrypted = false;
+        let iv = null;
+
+        if (currentCryptoKey) {
+            const encrypted = await CryptoUtils.encrypt(fileData, currentCryptoKey);
+            fileData = encrypted.data;
+            iv = encrypted.iv;
+            isEncrypted = true;
+        }
+
+        socket.emit('file_share', {
+            room: currentRoom,
+            username: myUsername,
+            fileData: fileData,
+            encrypted: isEncrypted,
+            iv: iv,
+            fileName: "voice-note.webm",
+            fileType: "audio/webm",
+            timestamp: Date.now(),
+            destruct: document.getElementById('destruct-timer').value
+        });
+    };
+    reader.readAsDataURL(blob);
+}
+
+// --- Stealth Mode ---
+let calcExpression = '';
+function toggleStealth() {
+    const overlay = document.getElementById('stealth-calculator');
+    const isHidden = overlay.style.display === 'none';
+    overlay.style.display = isHidden ? 'flex' : 'none';
+    document.title = isHidden ? "Calculator" : "🛡️ PrivyChat";
+    if (isHidden) {
+        calcExpression = '';
+        document.getElementById('calc-display').value = '';
+    }
+}
+
+function calcInput(val) {
+    const display = document.getElementById('calc-display');
+
+    if (val === 'C') {
+        calcExpression = '';
+        display.value = '';
+    } else if (val === 'unlock') {
+        // Magic Code Check
+        if (calcExpression === '1337' || display.value === '1337') {
+            toggleStealth();
+            showToast("🔓 Access Granted", "success");
+        } else {
+            // Perform actual math to fake it
+            try {
+                display.value = eval(calcExpression || '0');
+                calcExpression = display.value;
+            } catch (e) {
+                display.value = 'Error';
+            }
+        }
+    } else {
+        calcExpression += val;
+        display.value = calcExpression;
+    }
+}

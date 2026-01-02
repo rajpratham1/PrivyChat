@@ -11,6 +11,92 @@
     --success-color: #10b981;
 }
 
+body.hacker-theme {
+    --bg-color: #000000;
+    --text-color: #00ff00;
+    --accent-color: #00ff00;
+    --glass-bg: rgba(0, 20, 0, 0.9);
+    --glass-border: rgba(0, 255, 0, 0.5);
+    font-family: 'Courier New', Courier, monospace;
+}
+
+body.hacker-theme .blob {
+    display: none;
+}
+
+body.hacker-theme .heart {
+    background: #00ff00;
+    width: 2px;
+    height: 10px;
+    border-radius: 0;
+}
+
+.btn-panic {
+    background: #ef4444;
+    /* Red */
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 0 10px #ef4444;
+    animation: pulse-red 2s infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-panic:hover {
+    transform: scale(1.1);
+    background: #dc2626;
+}
+
+.btn-icon {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-icon:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+.timer-select {
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--text-color);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    padding: 5px;
+    outline: none;
+    cursor: pointer;
+}
+
+.timer-select option {
+    background: #1e293b;
+}
+
 body {
     margin: 0;
     padding: 0;
@@ -201,6 +287,30 @@ p {
     opacity: 0;
     pointer-events: none;
     z-index: -1;
+}
+
+/* Stealth Calculator */
+.btn-calc {
+    background: #475569;
+    color: white;
+    border: none;
+    padding: 15px;
+    font-size: 1.2rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-calc:hover {
+    background: #64748b;
+}
+
+.btn-calc.op {
+    background: #f59e0b;
+}
+
+.btn-calc.op:hover {
+    background: #d97706;
 }
 
 /* Chat UI Styles */

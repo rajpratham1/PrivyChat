@@ -22,6 +22,38 @@
 
 
 
+        <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 100;">
+            <button class="btn-icon" onclick="toggleStealth()" title="Stealth Mode (Calculator)">🎭</button>
+            <button class="btn-icon" onclick="toggleTheme()" title="Hacker Mode">👨‍💻</button>
+            <button class="btn-panic" onclick="panicMode()" title="PANIC: Erase & Exit">🚨</button>
+        </div>
+
+        <!-- Stealth Calculator Overlay -->
+        <div id="stealth-calculator"
+            style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#1e293b; z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+            <div class="calc-body"
+                style="background:#0f172a; padding:20px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+                <input type="text" id="calc-display" readonly
+                    style="width:100%; border:none; background:#334155; color:white; font-size:2rem; padding:15px; margin-bottom:15px; text-align:right; border-radius:10px;">
+                <div class="calc-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;">
+                    <button class="btn-calc" onclick="calcInput('7')">7</button> <button class="btn-calc"
+                        onclick="calcInput('8')">8</button> <button class="btn-calc" onclick="calcInput('9')">9</button>
+                    <button class="btn-calc op" onclick="calcInput('/')">÷</button>
+                    <button class="btn-calc" onclick="calcInput('4')">4</button> <button class="btn-calc"
+                        onclick="calcInput('5')">5</button> <button class="btn-calc" onclick="calcInput('6')">6</button>
+                    <button class="btn-calc op" onclick="calcInput('*')">×</button>
+                    <button class="btn-calc" onclick="calcInput('1')">1</button> <button class="btn-calc"
+                        onclick="calcInput('2')">2</button> <button class="btn-calc" onclick="calcInput('3')">3</button>
+                    <button class="btn-calc op" onclick="calcInput('-')">-</button>
+                    <button class="btn-calc" onclick="calcInput('C')" style="background:#ef4444;">C</button> <button
+                        class="btn-calc" onclick="calcInput('0')">0</button> <button class="btn-calc"
+                        onclick="calcInput('unlock')" style="background:#22c55e;">=</button> <button class="btn-calc op"
+                        onclick="calcInput('+')">+</button>
+                </div>
+                <p style="text-align:center; color:gray; font-size:0.8rem; margin-top:10px;">Enter '1337=' to Unlock</p>
+            </div>
+        </div>
+
         <!-- Mode Selection -->
         <div class="modes-grid">
             <!-- 1v1 -->
@@ -99,8 +131,17 @@
         <div class="input-area glass-card">
             <input type="file" id="file-input" hidden>
             <button class="btn" onclick="document.getElementById('file-input').click()"
-                style="padding: 0.8rem 1.2rem; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 10px;">📎</button>
+                style="padding: 0.8rem 1.2rem; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 5px;">📎</button>
+            <button class="btn" id="mic-btn" onmousedown="startRecording()" onmouseup="stopRecording()"
+                onmouseleave="stopRecording()"
+                style="padding: 0.8rem 1.2rem; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 10px; background: #ec4899;">🎤</button>
             <input type="text" id="msg-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+            <select id="destruct-timer" class="timer-select" title="Self-Destruct Timer">
+                <option value="0">⏱️ Off</option>
+                <option value="5000">💣 5s</option>
+                <option value="10000">💣 10s</option>
+                <option value="30000">💣 30s</option>
+            </select>
             <button class="btn" onclick="sendMessage()">Send</button>
         </div>
     </div>

@@ -304,6 +304,30 @@ socket.on('disconnect', () => {
     updateConnectionStatus(false);
 });
 
+socket.on('connect_error', (err) => {
+    console.error("Connection Error:", err);
+    updateConnectionStatus(false);
+
+    // Check if hosted on Vercel (hostname check)
+    if (window.location.hostname.includes('vercel.app')) {
+        // Show critical error modal
+        document.body.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#0f172a; color:white; font-family:'Outfit',sans-serif; text-align:center; padding:20px;">
+                <h1 style="color:#ef4444; font-size:3rem; margin-bottom:10px;">⚠️ Deployment Error</h1>
+                <p style="font-size:1.2rem; max-width:600px; line-height:1.6;">
+                    You are trying to run a <strong>Real-Time WebSocket App</strong> on <strong>Vercel</strong>.<br>
+                    Vercel does not support persistent connections needed for this chat.
+                </p>
+                <div style="background:rgba(255,255,255,0.1); padding:20px; border-radius:10px; margin:20px 0;">
+                    <h3 style="margin:0 0 10px 0;">Solution:</h3>
+                    <p>Please deploy this repository to <strong>Render.com</strong> or <strong>Railway.app</strong>.</p>
+                </div>
+                <a href="https://github.com/rajpratham1/PrivyChat" class="btn" style="text-decoration:none; padding:10px 20px; background:#3b82f6; border-radius:5px; color:white;">View GitHub Instructions</a>
+            </div>
+        `;
+    }
+});
+
 function updateConnectionStatus(isConnected) {
     const statusDot = document.getElementById('connection-status');
     if (statusDot) {

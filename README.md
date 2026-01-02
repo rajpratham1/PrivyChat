@@ -59,8 +59,18 @@ A project driven by the vision of restoring privacy in the digital age.
 
 ## ☁️ Deployment
 
-### Deploy to Vercel
-You can deploy this project instantly using Vercel:
+### 🚀 Deploy to Render (Recommended)
+This app uses **WebSockets**, which requires a persistent server. Vercel is great for static sites but does not support persistent WebSockets. **We recommend deploying to Render.**
+
+1.  Push your code to GitHub.
+2.  Create an account on [Render.com](https://render.com).
+3.  Click "New +", select **"Web Service"**.
+4.  Connect your GitHub repo.
+5.  Render will auto-detect Node.js. Click "Create Web Service".
+6.  *Done!*
+
+### ☁️ Deploy to Vercel (Frontend Only / Experimental)
+**Note**: Vercel does not support native WebSockets. The app may load, but real-time features might fail unless configured with a separate backend.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Frajpratham1%2FHide)
 

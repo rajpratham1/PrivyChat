@@ -1,84 +1,98 @@
-# 🛡️ PrivyChat - Secure & Ephemeral
+# 🛡️ PrivyChat - Secure & Ephemeral Messaging
 
-A premium, privacy-focused real-time chat application built for anonymity. 
+![PrivyChat Banner](public/logo.png)
 
-**No Database. No Logs. 100% Ephemeral.**
+### **Premium Secure Chat. 100% Ephemeral. No Database.**
+Designed by **Pratham Kumar**, PrivyChat is a statement against surveillance capitalism. It provides a secure, frictionless communication channel that leaves zero digital footprints.
 
-![PrivyChat Logo](public/logo.png)
+---
 
-## 🚀 Features
+## 🚀 Deployment
 
-*   **🔒 End-to-End Encryption**: 
-    *   **Private Rooms**: Secured with AES-GCM (Password Derived).
-    *   **1-on-1 Rooms**: Secured with **Server-Blind** Hash Keys. The server *never* sees the encryption key.
-*   **👥 1-on-1 Rooms**: Instantly generate a unique, sharable link for private conversations (Max 2 users).
-*   **👀 Screenshot Protection**: Privacy Blur activates instantly when you switch tabs or minimize.
-*   **🔑 Password Protected Rooms**: Create named rooms that require a password to join.
-*   **👻 Ephemeral Messaging**: Messages are RAM-only and vanish instantly when the server restarts or you leave.
-*   **📂 File Sharing**: Share images and documents (up to 5MB) directly peer-to-peer.
-*   **✨ Premium UI**: Glassmorphism design, smooth animations, and a "Cyber Security" blue theme.
-*   **🔔 Smart Notifications**: Toast notifications and Modals replace intrusive browser alerts.
+### **Option 1: Deploy to Render (Recommended)**
+PrivyChat utilizes **WebSockets (Socket.io)** for real-time communication. This requires a stateful server, which `Render.com` provides for free.
+
+1.  **Fork** this repository.
+2.  Login to [Render Dashboard](https://dashboard.render.com).
+3.  Click **New +** -> **Web Service**.
+4.  Connect your GitHub repo `PrivyChat`.
+5.  Render will auto-detect the `render.yaml` blueprint.
+6.  Click **Create**. Your app is live!
+
+### **Why not Vercel?**
+Vercel is a Serverless/Static platform. It does not support persistent WebSocket connections (The "Phone Line" required for chat). If you deploy to Vercel, the app will load but disconnects after 10 seconds.
+
+---
+
+## 🔐 Security Architecture
+
+PrivyChat employs a defense-in-depth strategy to ensure complete privacy:
+
+### **1. Ephemeral Storage (RAM Only)**
+*   **No Database**: There is no MongoDB, SQL, or Redis.
+*   **Volatile Memory**: Messages are stored in the server's RAM arrays (`messages[]`).
+*   **Instant Wipe**: The moment the server restarts (which happens frequently on free tiers) or the session ends, data is irretrievably lost.
+
+### **2. End-to-End Encryption (E2E)**
+We use the **Web Crypto API** (SubtleCrypto) native to modern browsers.
+
+*   **Private Rooms**:
+    *   **PBKDF2**: Key Derivation Function generates a cryptographic key from your Room Password + Room Name (Salt).
+    *   **AES-GCM**: Military-grade encryption is used to lock messages before they leave your device.
+*   **1-on-1 (Server Blind)**:
+    *   **Hash-Based Key**: The encryption key is generated in the URL Hash (`#key=...`).
+    *   **Server Blindness**: Browsers **never** send the URL fragment (after `#`) to the server. The server literally cannot see the key required to decrypt your chat.
+
+### **3. Privacy Features**
+*   **Screenshot Protection**: The UI blurs instantly (`filter: blur(10px)`) when the window loses focus (Alt-Tab detection).
+*   **No IP Logging**: We do not log IP addresses or User Agents.
+
+---
+
+## 📂 Project Structure
+
+A clean, modular MVC-lite architecture using Vanilla JS.
+
+```
+PrivyChat/
+├── public/                 # Client-Side Code
+│   ├── index.html          # Single Page Application (SPA) Entry
+│   ├── app.js              # Core Logic (Socket, UI, Encryption)
+│   ├── style.css           # Glassmorphism Design System
+│   ├── crypto-utils.js     # E2E Encryption Handling (Web Crypto API)
+│   └── logo.png            # Assets
+├── server.js               # Node.js + Socket.io Server Backend
+├── render.yaml             # Render Infrastructure-as-Code
+├── vercel.json             # Vercel Configuration (Static Serving)
+├── package.json            # Dependencies
+└── README.md               # Documentation
+```
+
+---
 
 ## 🛠️ Technology Stack
 
-*   **Frontend**: HTML5, Vanilla CSS3 (Glassmorphism), Vanilla JS (ES6+)
-*   **Backend**: Node.js, Express.js
-*   **Real-Time**: Socket.io (WebSockets)
-*   **Security**: Web Crypto API (SubtleCrypto) for AES-GCM & PBKDF2
+*   **Runtime**: Node.js
+*   **Framework**: Express.js
+*   **Real-Time**: Socket.io v4
+*   **Frontend**: Native HTML5, CSS3 Variables, ES6 JavaScript
+*   **Cryptography**: AES-GCM (Galois/Counter Mode) via `window.crypto.subtle`
 
-## 📦 Installation & Usage
+---
 
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/rajpratham1/Hide.git
-    cd Hide
-    ```
+## 🌍 Developer & Vision
 
-2.  **Install Dependencies**
-    ```bash
-    npm install
-    ```
+**Designed & Developed by [Pratham Kumar](https://rajpratham1.github.io/WebFolio/)**
 
-3.  **Start the Server**
-    ```bash
-    node server.js
-    ```
-    *Or use the developer mode:*
-    ```bash
-    npm run dev
-    ```
+> "In a world where every click is tracked and every message is archived, privacy is no longer a luxury—it's a necessity. We believe that your words belong to you, and the moment they are spoken, they should vanish into the ether."
 
-4.  **Open the App**
-    *   Visit: `http://localhost:3001`
-    *   **Public Access**: Use `go_live.bat` to expose via Localtunnel.
+### **Contact & Portfolio**
+*   **Portfolio**: [WebFolio](https://rajpratham1.github.io/WebFolio/)
+*   **GitHub**: [@rajpratham1](https://github.com/rajpratham1)
 
-## 🌍 Designed & Developed By
-**Pratham Kumar** (WebFolio)  
-A project driven by the vision of restoring privacy in the digital age.  
-[Visit Portfolio](https://rajpratham1.github.io/WebFolio/)
-
-## ☁️ Deployment
-
-### 🚀 Deploy to Render (Recommended)
-This app uses **WebSockets**, which requires a persistent server. Vercel is great for static sites but does not support persistent WebSockets. **We recommend deploying to Render.**
-
-1.  Push your code to GitHub.
-2.  Create an account on [Render.com](https://render.com).
-3.  Click "New +", select **"Web Service"**.
-4.  Connect your GitHub repo.
-5.  Render will auto-detect Node.js. Click "Create Web Service".
-6.  *Done!*
-
-### ☁️ Deploy to Vercel (Frontend Only / Experimental)
-**Note**: Vercel does not support native WebSockets. The app may load, but real-time features might fail unless configured with a separate backend.
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Frajpratham1%2FHide)
-
-### Manual Deployment
-1.  Push to GitHub.
-2.  Import project in Vercel.
-3.  Set Output Directory to `public` (optional, usually auto-detected).
-4.  Environment Variables: None required for basic usage.
+---
 
 ## 📄 License
-MIT License. Copyright (c) 2024 Pratham Kumar.
+This project is licensed under the **MIT License**.
+Copyright (c) 2024 Pratham Kumar.
+Free to use, study, and modify for educational or personal privacy tools.

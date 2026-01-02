@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrivyChat - Secure & Ephemeral</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="crypto-utils.js"></script>
+</head>
+
+<body>
+
+    <!-- Lobby Section -->
+    <div class="container" id="lobby">
+        <h1 style="display:flex; justify-content:center; align-items:center; gap:15px;">🛡️ PrivyChat</h1>
+        <p>Premium Secure Chat. 100% Ephemeral. No Database.</p>
+
+
+
+        <!-- Mode Selection -->
+        <div class="modes-grid">
+            <!-- 1v1 -->
+            <div class="glass-card mode-card" onclick="selectMode('1v1')">
+                <h2>🔒 1-on-1</h2>
+                <p>Generate a private link for two people.</p>
+            </div>
+
+            <!-- Private Room -->
+            <div class="glass-card mode-card" onclick="selectMode('private')">
+                <h2>🔑 Private Room</h2>
+                <p>Join a named room with a password.</p>
+            </div>
+
+            <!-- Group -->
+            <div class="glass-card mode-card" onclick="selectMode('group')">
+                <h2>📢 Group Chat</h2>
+                <p>Join the public global chat.</p>
+            </div>
+        </div>
+
+        <!-- Join Form (Hidden initially) -->
+        <div id="join-form" class="glass-card" style="display: none; margin-top: 2rem;">
+            <h2 id="form-title">Join Chat</h2>
+            <input type="text" id="username" placeholder="Your Nickname" class="input-field">
+            <input type="text" id="room-name" placeholder="Room Name" class="input-field" style="display:none;">
+            <input type="password" id="room-pass" placeholder="Password" class="input-field" style="display:none;">
+
+            <div class="actions">
+                <button class="btn" onclick="startChat()">Enter Chat</button>
+                <button class="btn delete-btn" onclick="showLobby()">Cancel</button>
+            </div>
+            <p id="generated-link" style="margin-top:10px; font-size: 0.9em; word-break: break-all;"></p>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        <div class="footer-links">
+            <a href="javascript:void(0)" onclick="openInfo('feature')">Feature</a>
+            <a href="javascript:void(0)" onclick="openInfo('security')">Security</a>
+            <a href="javascript:void(0)" onclick="openInfo('about')">About</a>
+            <a href="javascript:void(0)" onclick="openInfo('license')">License</a>
+            <a href="javascript:void(0)" onclick="openInfo('privacy')">Privacy</a>
+            <a href="javascript:void(0)" onclick="openInfo('terms')">Terms</a>
+            <a href="javascript:void(0)" onclick="openInfo('overview')">Overview</a>
+        </div>
+        <div class="footer-credit">
+            Design and Developed with <a href="https://rajpratham1.github.io/WebFolio/" target="_blank">WebFolio</a>
+        </div>
+    </footer>
+
+    <!-- Chat Room Section -->
+    <div class="chat-container" id="chat-room" style="display: none;">
+        <div class="chat-header glass-card">
+            <h3 id="current-room" style="display:flex; align-items:center; gap:10px;">
+                Room: General
+            </h3>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span id="user-count" style="font-size: 0.8rem; opacity: 0.8; margin-right: 5px;">👥 1 Online</span>
+                <span id="connection-status"
+                    style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%; display: inline-block;"
+                    title="Connecting..."></span>
+                <button class="btn delete-btn" onclick="leaveChat()"
+                    style="padding: 0.5rem 1rem; font-size: 0.8rem;">Leave</button>
+            </div>
+        </div>
+
+        <div class="messages" id="messages">
+            <!-- Messages will appear here -->
+            <div class="message system">Welcome to the secure chat.</div>
+        </div>
+
+        <div id="typing-indicator"
+            style="padding: 0 20px; font-size: 0.8rem; color: #f472b6; height: 20px; font-style: italic;"></div>
+
+        <div class="input-area glass-card">
+            <input type="file" id="file-input" hidden>
+            <button class="btn" onclick="document.getElementById('file-input').click()"
+                style="padding: 0.8rem 1.2rem; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 10px;">📎</button>
+            <input type="text" id="msg-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+            <button class="btn" onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <!-- Background Elements -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <!-- UI Overlays -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <div class="modal-overlay" id="password-modal">
+        <div class="modal-content">
+            <h2>🔒 Password Required</h2>
+            <p>This room is private. Please enter the access code.</p>
+            <input type="password" id="modal-pass-input" class="input-field" placeholder="Enter Password..."
+                onkeypress="handleModalKey(event)">
+            <div style="margin-top: 1.5rem; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn" style="padding: 0.8rem 2rem; font-size: 1rem;"
+                    onclick="submitPasswordModal()">Join</button>
+                <button class="btn delete-btn" style="padding: 0.8rem 2rem; font-size: 1rem;"
+                    onclick="closePasswordModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generic Info Modal -->
+    <div class="modal-overlay" id="info-modal" onclick="if(event.target === this) closeInfoModal()">
+        <div class="modal-content large">
+            <h2 id="info-title">Title</h2>
+            <div id="info-body">Content goes here...</div>
+            <div style="margin-top: 2rem; text-align: center;">
+                <button class="btn" style="padding: 0.8rem 3rem;" onclick="closeInfoModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

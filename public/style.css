@@ -1430,3 +1430,61 @@ body.hacker-theme #user-count {
     border-color: #00ff00;
     color: #00ff00;
 }
+/* --- Final Polish: Intro Animations --- */
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Staggered Entrance for Landing Page */
+.logo-container {
+    animation: fadeSlideUp 0.8s ease-out forwards;
+}
+
+.search-container {
+    opacity: 0; /* Star hidden */
+    animation: fadeSlideUp 0.8s ease-out 0.3s forwards;
+}
+
+.buttons-container {
+    opacity: 0; /* Start hidden */
+    animation: fadeSlideUp 0.8s ease-out 0.6s forwards;
+}
+
+.google-footer {
+    opacity: 0;
+    animation: fadeSlideUp 1s ease-out 1s forwards;
+}
+
+/* Enhanced Typing Indicator (Bubble) */
+.typing-bubble {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    padding: 5px 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 5px;
+    margin-left: 10px;
+    border-bottom-left-radius: 4px;
+    width: fit-content;
+}
+
+.typing-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--text-color);
+    border-radius: 50%;
+    animation: typingBounce 1.4s infinite ease-in-out both;
+    opacity: 0.7;
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typingBounce {
+    0%, 80%, 100% { transform: scale(0); }
+    40% { transform: scale(1); }
+}
+
+

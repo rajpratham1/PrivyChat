@@ -983,6 +983,7 @@ function googleCreate() {
 }
 
 function userLoginFlow(room, password, mode) {
+    SoundUtils.init(); // Initialize Audio Context on user interaction (Click/Enter)
     if (!myUsername) {
         const name = prompt("Enter your Nickname to join:");
         if (!name) return;
@@ -1131,11 +1132,12 @@ socket.on('call_user', (data) => {
     modalTitle.innerText = data.callType === 'voice' ? '📞 Incoming Voice Call...' : '🎥 Incoming Video Call...';
 
     incomingModal.style.display = 'flex';
-    // SoundUtils.playRing(); // TODO: Add ringtone
+    SoundUtils.playRing(); // Start Ringing!
 });
 
 // 3. Receiver Accepts
 async function acceptCall() {
+    SoundUtils.stopRing(); // Stop Ringing
     incomingModal.style.display = 'none';
     try {
         const type = incomingCallData.callType || 'video';
@@ -1173,6 +1175,7 @@ async function acceptCall() {
 }
 
 function rejectCall() {
+    SoundUtils.stopRing(); // Stop Ringing
     incomingModal.style.display = 'none';
     incomingCallData = null;
     // Notify caller?

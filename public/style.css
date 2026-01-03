@@ -1605,3 +1605,81 @@ body.hacker-theme #user-count {
 .call-controls .delete-btn {
     background: #ef4444 !important;
 }
+/* --- Compact Layout (v5.1.2) --- */
+.btn-attach, .btn-mic {
+    padding: 0;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0; /* Prevent squishing */
+}
+
+.btn-attach {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.btn-mic {
+    background: #ec4899; /* Pink */
+    margin-right: 5px;
+}
+
+/* --- Mobile Specific Compactness --- */
+@media (max-width: 600px) {
+    .input-area {
+        padding: 5px !important;
+        gap: 5px;
+        border-radius: 25px; /* Pill shape */
+    }
+
+    /* Small circular buttons */
+    .btn-attach, .btn-mic {
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
+    }
+
+    /* Compact Dropdowns */
+    .timer-select {
+        padding: 0;
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
+        border-radius: 50%; /* Circle selectors */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align-last: center; /* Center emoji */
+        min-width: unset;
+        appearance: none; /* Hide Arrow */
+    }
+
+    .input-area input[type='text'] {
+        font-size: 0.95rem;
+        padding: 5px 10px;
+    }
+
+    /* Compact Send Button (Icon Only) */
+    .input-area .btn:last-child {
+        width: 38px;
+        height: 38px;
+        padding: 0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0; /* Hide text */
+    }
+    
+    .input-area .btn:last-child::after {
+        content: '';
+        font-size: 1.2rem;
+        margin-left: 2px;
+    }
+}
+
+

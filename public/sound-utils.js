@@ -70,5 +70,49 @@ const SoundUtils = {
         noise.connect(gain);
         gain.connect(ctx.destination);
         noise.start();
+    },
+
+    // --- Ringtone Logic ---
+    ringInterval: null,
+
+    playRing: () => {
+        if (SoundUtils.ringInterval) return; // Already ringing
+
+        const playPulse = () => {
+            if (!SoundUtils.audioCtx) SoundUtils.init();
+            const ctx = SoundUtils.audioCtx;
+
+            // Dual tone "Phone" ring (US Style)
+            // 440Hz + 480Hz
+            const osc1 = ctx.createOscillator();
+            const osc2 = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc1.frequency.value = 440;
+            osc2.frequency.value = 480;
+
+            osc1.connect(gain);
+            osc2.connect(gain);
+            gain.connect(ctx.destination);
+
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 2);
+            gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 2.1);
+
+            osc1.start();
+            osc2.start();
+            osc1.stop(ctx.currentTime + 2.2);
+            osc2.stop(ctx.currentTime + 2.2);
+        };
+
+        playPulse(); // Immediate start
+        SoundUtils.ringInterval = setInterval(playPulse, 4000); // Repeat every 4s
+    },
+
+    stopRing: () => {
+        if (SoundUtils.ringInterval) {
+            clearInterval(SoundUtils.ringInterval);
+            SoundUtils.ringInterval = null;
+        }
     }
 };

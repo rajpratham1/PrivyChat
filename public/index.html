@@ -180,11 +180,9 @@
 
         <div class="input-area glass-card">
             <input type="file" id="file-input" hidden>
-            <button class="btn" onclick="document.getElementById('file-input').click()"
-                style="padding: 0.8rem 1.2rem; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 5px;">📎</button>
-            <button class="btn" id="mic-btn" onmousedown="startRecording()" onmouseup="stopRecording()"
-                onmouseleave="stopRecording()"
-                style="padding: 0.8rem 1.2rem; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 10px; background: #ec4899;">🎤</button>
+            <button class="btn btn-attach" onclick="document.getElementById('file-input').click()">📎</button>
+            <button class="btn btn-mic" id="mic-btn" onmousedown="startRecording()" onmouseup="stopRecording()"
+                onmouseleave="stopRecording()">🎤</button>
             <input type="text" id="msg-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
             <select id="voice-effect" class="timer-select" title="Voice Mask" style="margin-right: 5px;">
                 <option value="normal" title="Normal">🎙️</option>
@@ -271,7 +269,7 @@
         </div>
     </div>
 
-    <script src="app.js?v=5.1.0"></script>
+    <script src="app.js?v=5.1.2"></script>
 </body>
 
 </html>

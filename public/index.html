@@ -147,7 +147,12 @@
             <div style="display:flex; align-items:center; gap:10px;">
                 <button class="btn-icon" onclick="toggleGhostMode()" title="👻 Ghost Mode (Blur Messages)"
                     style="font-size:1.2rem;">👁️</button>
-                <span id="user-count" style="font-size: 0.8rem; opacity: 0.8; margin-right: 5px;">👥 1 Online</span>
+                <button class="btn-icon" onclick="startCall('voice')" title="📞 Voice Call"
+                    style="font-size:1.2rem;">📞</button>
+                <button class="btn-icon" onclick="startCall('video')" title="🎥 Video Call"
+                    style="font-size:1.2rem;">🎥</button>
+                <span id="user-count" onclick="toggleUserList()"
+                    style="font-size: 0.8rem; opacity: 0.8; margin-right: 5px;">👥 0 Online</span>
                 <span id="connection-status"
                     style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%; display: inline-block;"
                     title="Connecting..."></span>
@@ -242,7 +247,31 @@
         </div>
     </div>
 
-    <script src="app.js?v=3.4.0"></script>
+    <!-- Incoming Call Modal -->
+    <div class="modal-overlay" id="incoming-call-modal">
+        <div class="modal-content">
+            <h2>📞 Incoming Call...</h2>
+            <div style="margin: 20px 0;">Someone is requesting a secure video link.</div>
+            <div class="flex-center" style="gap: 15px;">
+                <button class="btn" style="background: #10b981; border-color: #10b981;"
+                    onclick="acceptCall()">Accept</button>
+                <button class="btn delete-btn" onclick="rejectCall()">Decline</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Video Call Overlay -->
+    <div id="video-call-overlay" style="display: none;">
+        <video id="remote-video" autoplay playsinline></video>
+        <video id="local-video" autoplay playsinline muted></video>
+        <div class="call-controls">
+            <button class="btn-icon" onclick="toggleMute()">🎤</button>
+            <button class="btn-icon" onclick="toggleCam()">📷</button>
+            <button class="btn-icon delete-btn" onclick="endCall()">❌</button>
+        </div>
+    </div>
+
+    <script src="app.js?v=5.1.0"></script>
 </body>
 
 </html>

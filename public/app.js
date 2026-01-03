@@ -1071,3 +1071,186 @@ function highlightMessage(elementId) {
     console.log('Highlight requested for', elementId);
 }
 
+
+/* --- WebRTC Video Logic (v5.0) --- */
+let localStream;
+let remoteStream;
+let peerConnection;
+const rtcConfig = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] // Public STUN
+};
+
+// UI Elements
+const videoOverlay = document.getElementById('video-call-overlay');
+const localVideo = document.getElementById('local-video');
+const remoteVideo = document.getElementById('remote-video');
+const incomingModal = document.getElementById('incoming-call-modal');
+let incomingCallData = null;
+
+// 1. Initiator Starts Call
+async function startCall(type = 'video') {
+    try {
+        const constraints = type === 'voice' ? { video: false, audio: true } : { video: true, audio: true };
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        localVideo.srcObject = localStream;
+        // If voice only, maybe show a placeholder in localVideo?
+        if (type === 'voice') localVideo.style.opacity = 0; // Hide self view for voice
+        else localVideo.style.opacity = 1;
+
+        videoOverlay.style.display = 'flex'; // Show UI
+        if (type === 'voice') {
+            document.getElementById('remote-video').style.display = 'none'; // Hide big video area
+            // Add a visual indicator for voice call?
+        } else {
+            document.getElementById('remote-video').style.display = 'block';
+        }
+
+        peerConnection = createPeerConnection();
+
+        // Add Tracks
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        // Send Offer
+        socket.emit('call_user', { room: currentRoom, offer: offer, callType: type });
+        showToast('Calling...', 'info');
+    } catch (err) {
+        console.error('Call Error:', err);
+        showToast('Camera/Mic Permission Denied', 'error');
+    }
+}
+
+// 2. Receiver Gets Offer
+socket.on('call_user', (data) => {
+    // data: { offer, socketId, callType }
+    incomingCallData = data;
+    const modalTitle = document.querySelector('#incoming-call-modal h2');
+    modalTitle.innerText = data.callType === 'voice' ? '📞 Incoming Voice Call...' : '🎥 Incoming Video Call...';
+
+    incomingModal.style.display = 'flex';
+    // SoundUtils.playRing(); // TODO: Add ringtone
+});
+
+// 3. Receiver Accepts
+async function acceptCall() {
+    incomingModal.style.display = 'none';
+    try {
+        const type = incomingCallData.callType || 'video';
+        const constraints = type === 'voice' ? { video: false, audio: true } : { video: true, audio: true };
+
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        localVideo.srcObject = localStream;
+
+        if (type === 'voice') {
+            localVideo.style.opacity = 0;
+            document.getElementById('remote-video').style.display = 'none';
+        } else {
+            localVideo.style.opacity = 1;
+            document.getElementById('remote-video').style.display = 'block';
+        }
+
+        videoOverlay.style.display = 'flex';
+
+        peerConnection = createPeerConnection();
+
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        // Set Remote Description (The Offer)
+        await peerConnection.setRemoteDescription(incomingCallData.offer);
+
+        // Create Answer
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        // Send Answer
+        socket.emit('answer_call', { to: incomingCallData.socketId, answer: answer });
+    } catch (err) {
+        console.error('Accept Error:', err);
+    }
+}
+
+function rejectCall() {
+    incomingModal.style.display = 'none';
+    incomingCallData = null;
+    // Notify caller?
+}
+
+// 4. Initiator Gets Answer
+socket.on('call_accepted', async (answer) => {
+    await peerConnection.setRemoteDescription(answer);
+    showToast('Call Connected', 'success');
+});
+
+// 5. ICE Candidates (Network Discovery)
+socket.on('ice_candidate', async (candidate) => {
+    if (peerConnection) {
+        try {
+            await peerConnection.addIceCandidate(candidate);
+        } catch (e) {
+            console.error('Error adding received ice candidate', e);
+        }
+    }
+});
+
+function createPeerConnection() {
+    const pc = new RTCPeerConnection(rtcConfig);
+
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            // Send candidate to peer via Room Broadcast
+            socket.emit('ice_candidate', {
+                room: currentRoom,
+                candidate: event.candidate
+            });
+        }
+    };
+
+    pc.ontrack = (event) => {
+        remoteVideo.srcObject = event.streams[0];
+    };
+
+    return pc;
+}
+
+// 6. End Call
+function endCall() {
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+    videoOverlay.style.display = 'none';
+    socket.emit('end_call', { room: currentRoom });
+}
+
+socket.on('end_call', () => {
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+    videoOverlay.style.display = 'none';
+    showToast('Call Ended', 'info');
+});
+
+// Controls
+function toggleMute() {
+    const audioTrack = localStream.getAudioTracks()[0];
+    audioTrack.enabled = !audioTrack.enabled;
+    showToast(audioTrack.enabled ? 'Mic On' : 'Mic Muted', 'info');
+}
+
+function toggleCam() {
+    const videoTrack = localStream.getVideoTracks()[0];
+    videoTrack.enabled = !videoTrack.enabled;
+    showToast(videoTrack.enabled ? 'Cam On' : 'Cam Off', 'info');
+}
+
+

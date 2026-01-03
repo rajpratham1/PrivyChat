@@ -1488,3 +1488,75 @@ body.hacker-theme #user-count {
 }
 
 
+
+/* --- Video Call Overlay (v5.0) --- */
+#video-call-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #000;
+    z-index: 2000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#remote-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+#local-video {
+    position: absolute;
+    bottom: 100px;
+    right: 20px;
+    width: 120px;
+    height: 160px;
+    background: #333;
+    border-radius: 15px;
+    border: 2px solid rgba(255,255,255,0.2);
+    object-fit: cover;
+    z-index: 2001;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+.call-controls {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+    z-index: 2002;
+    background: rgba(0,0,0,0.5);
+    padding: 15px 25px;
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.call-controls .btn-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.1);
+    transition: all 0.2s;
+}
+
+.call-controls .btn-icon:hover {
+    background: rgba(255,255,255,0.2);
+    transform: scale(1.1);
+}
+
+.call-controls .delete-btn {
+    background: #ef4444 !important;
+}
+
+

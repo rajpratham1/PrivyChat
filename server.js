@@ -150,6 +150,33 @@ io.on('connection', (socket) => {
         io.to(data.room).emit('file_share', data);
     });
 
+    // --- WebRTC Signaling ---
+    socket.on('call_user', (data) => {
+        // data: { offer, room }
+        socket.to(data.room).emit('call_user', { offer: data.offer, socketId: socket.id });
+    });
+
+    socket.on('answer_call', (data) => {
+        // data: { answer, to }
+        io.to(data.to).emit('call_accepted', data.answer);
+    });
+
+    socket.on('ice_candidate', (data) => {
+        // Standard WebRTC: Exchange candidates
+        // data: { candidate, to, room }
+        if (data.room) {
+            // Broadcast to the other person in the room
+            socket.to(data.room).emit('ice_candidate', data.candidate);
+        } else if (data.to) {
+            // Direct P2P (if socketID is known)
+            io.to(data.to).emit('ice_candidate', data.candidate);
+        }
+    });
+
+    socket.on('end_call', (data) => {
+        io.to(data.room).emit('end_call');
+    });
+
     socket.on('disconnecting', () => {
         const roomsToUpdate = [...socket.rooms];
         roomsToUpdate.forEach((room) => {

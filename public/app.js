@@ -31,92 +31,159 @@ if (globalUrlInput) {
 // --- INFO CONTENT (Footer Sections) ---
 const infoContent = {
     feature: {
-        title: "✨ Advanced Spy Features",
+        title: "✨ Advanced Feature Suite",
         body: `
-            <h3>🛡️ Core Privacy</h3>
-            <p><strong>RAM-Only Architecture:</strong> PrivyChat has no database. Messages live in the server's volatile memory and vanish instantly upon restart or deletion.</p>
-            <p><strong>AES-GCM Encryption:</strong> Private rooms are protected by military-grade encryption derived from your custom password.</p>
+            <div style="font-size: 0.95rem; text-align: left;">
+                <h3 style="color:var(--accent-color); margin-top:0;">🕵️‍♂️ Spy & Stealth Tools</h3>
+                <p>PrivyChat is built for the physical world, where privacy is often compromised by prying eyes.</p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 10px;"><strong>🎭 Stealth Mode (Calculator)</strong><br>
+                        Click the mask icon to hide the chat behind a functional scientific calculator.<br>
+                        <span style="opacity:0.7">Unlock: Type <code>1337</code> and press <code>=</code>.</span>
+                    </li>
+                    <li style="margin-bottom: 10px;"><strong>🌦️ Decoy Vault</strong><br>
+                        Need an escape? Type <code>weather</code>, <code>guest</code>, or <code>1234</code> into the main login box.<br>
+                        <span style="opacity:0.7">Effect: Instant redirect to a harmless Weather App for plausible deniability.</span>
+                    </li>
+                    <li style="margin-bottom: 10px;"><strong>👻 Ghost Mode</strong><br>
+                        Prevents "Shoulder Surfing". All messages are heavily blurred until you hover your mouse over them.
+                    </li>
+                    <li style="margin-bottom: 10px;"><strong>🚨 Panic Button</strong><br>
+                        The Nuclear Option. Instantly disconnects, wipes all RAM/Storage, and redirects to Google.
+                    </li>
+                </ul>
 
-            <h3>🕵️‍♂️ Stealth & Spy Tools</h3>
-            <p><strong>🎭 Decoy Vault:</strong> Need to hide? Type <code>weather</code> or <code>guest</code> in the login box to pretend you are checking the forecast.</p>
-            <p><strong>👻 Ghost Mode:</strong> Anti-shoulder surfing. Messages are blurred until you hover over them.</p>
-            <p><strong>🚨 Panic Button:</strong> One click to disconnect, wipe local storage, and redirect to a safe page (Weather App).</p>
-            
-            <h3>💣 Self-Destruct</h3>
-            <p>Set a timer (5s, 10s) for your messages to automatically "burn" from the recipient's screen after reading.</p>
+                <h3 style="color:var(--accent-color);">💬 Rich Messaging</h3>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 10px;"><strong>🎤 Encrypted Voice Notes</strong><br>
+                        Send crystal-clear voice messages (Opus/WebM). Encrypted before upload.
+                    </li>
+                    <li style="margin-bottom: 10px;"><strong>📎 Secure File Sharing</strong><br>
+                        Share images and documents. Files are encrypted chunk-by-chunk in the browser.
+                    </li>
+                    <li style="margin-bottom: 10px;"><strong>💣 Self-Destruct Timers</strong><br>
+                        Set messages to auto-burn (5s, 10s, 30s) after reading.
+                    </li>
+                </ul>
+            </div>
         `
     },
     security: {
         title: "🔐 Zero-Knowledge Security",
         body: `
-            <h3>Encryption Protocol</h3>
-            <p>We use the <strong>Web Crypto API</strong> native to your browser. Your messages are encrypted <em>before</em> they leave your device.</p>
-            <ul>
-                <li><strong>Algorithm:</strong> AES-GCM (256-bit)</li>
-                <li><strong>Key Derivation:</strong> PBKDF2 (100,000 Iterations)</li>
-                <li><strong>Exchange:</strong> RSA-OAEP (for 1v1 links)</li>
-            </ul>
-            
-            <h3>Server Blindness</h3>
-            <p>The server acts as a "dumb relay". It routes encrypted data packets but does not hold the keys to decrypt them. Even if served with a subpoena, we cannot provide legible data because we simply don't have it.</p>
-            
-            <h3>Network Security</h3>
-            <p>All traffic is strictly routed over <strong>HTTPS / WSS</strong> (Secure WebSockets) to prevent Man-in-the-Middle attacks.</p>
+            <div style="font-size: 0.95rem; text-align: left;">
+                <p>We use a <strong>Zero-Trust Architecture</strong>. We assume the server is compromised, the network is tapped, and the device might be seized.</p>
+                
+                <h3 style="color:var(--accent-color);">🛡️ Encryption Protocol</h3>
+                <p>All encryption happens in your browser using the <strong>Web Crypto API</strong>.</p>
+                <table style="width:100%; border-collapse: collapse; margin-bottom: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden;">
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding: 8px; font-weight: bold;">Algorithm</td>
+                        <td style="padding: 8px;">AES-GCM (256-bit)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding: 8px; font-weight: bold;">Key Derivation</td>
+                        <td style="padding: 8px;">PBKDF2 (100,000 Iterations)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding: 8px; font-weight: bold;">Key Exchange</td>
+                        <td style="padding: 8px;">RSA-OAEP (1v1 Mode)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; font-weight: bold;">Integrity</td>
+                        <td style="padding: 8px;">SHA-256 Hashing</td>
+                    </tr>
+                </table>
+
+                <h3 style="color:var(--accent-color);">🔒 Server Blindness</h3>
+                <p>The server acts as a "dumb relay". It routes encrypted blobs but <strong>never</strong> holds the decryption keys. Even if we wanted to read your messages, we couldn't.</p>
+                
+                <h3 style="color:var(--accent-color);">⚡ RAM-Only Storage</h3>
+                <p>We use no persistent databases (No MongoDB, No SQL). Data lives only in the volatile Random Access Memory. If the server loses power or restarts, 100% of the data is physically destroyed.</p>
+            </div>
         `
     },
     about: {
-        title: "ℹ️ about PrivyChat",
+        title: "ℹ️ About PrivyChat",
         body: `
-            <h3>The Philosophy</h3>
-            <p>"Privacy is not about hiding bad things. It's about protecting the things that make us human."</p>
-            <p>PrivyChat was born from a desire to reclaim digital sovereignty. In an era where "User Data" is a commodity sold to the highest bidder, we built a sanctuary where your words belong only to you.</p>
+            <div style="font-size: 0.95rem; text-align: left;">
+                <div style="text-align:center; margin-bottom: 20px;">
+                    <h2 style="margin: 0; color: #4285F4;">Privy<span style="color:#ffffff">Chat</span></h2>
+                    <p style="opacity: 0.7; font-size: 0.9rem;">"Your words belong to you."</p>
+                </div>
 
-            <h3>The Developer</h3>
-            <p>Designed and Engineered by <strong>Pratham Kumar</strong> (@rajpratham1).</p>
-            <p>Built with ❤️ using Node.js, Socket.io, and Vanilla JS.</p>
-        `
-    },
-    license: {
-        title: "⚖️ Open Source (MIT)",
-        body: `
-            <p><strong>Copyright &copy; 2026 PrivyChat</strong></p>
-            <p>This software is free to use, modify, and distribute. We believe privacy tools should be accessible to everyone, everywhere.</p>
-            <p>The code is transparent and available for audit on GitHub. Trust, but verify.</p>
+                <h3 style="color:var(--accent-color);">The Philosophy</h3>
+                <p>PrivyChat was born from a desire to reclaim digital sovereignty. In an era where "User Data" is a commodity sold to the highest bidder, we built a sanctuary where your words belong only to you.</p>
+                <p>We believe privacy is not about hiding "bad" things, but about protecting the things that make us human: intimacy, secrets, and freedom of thought.</p>
+
+                <h3 style="color:var(--accent-color);">The Team</h3>
+                <p>Designed and Engineered by <strong>Pratham Kumar</strong>.</p>
+                <p>This is an open-source initiative to provide free, high-security communication tools to journalists, activists, and privacy enthusiasts worldwide.</p>
+            </div>
         `
     },
     privacy: {
         title: "👁️ Privacy Policy",
         body: `
-            <h3>The "No-Log" Policy</h3>
-            <p>We take this literally.</p>
-            <ul>
-                <li><strong>No IP Logging:</strong> We do not track user locations.</li>
-                <li><strong>No Metadata:</strong> We do not timestamp or archive chat metadata.</li>
-                <li><strong>No Analytics:</strong> There are no Google Analytics or tracking pixels on this site.</li>
-            </ul>
-            
-            <h3>Data Lifecycle</h3>
-            <p>Data exists only for the millisecond it takes to travel from Sender to Receiver. Once delivered, it is purged from server RAM.</p>
+            <div style="font-size: 0.95rem; text-align: left;">
+                <h3 style="color:var(--accent-color);">The "No-Log" Guarantee</h3>
+                <p>We take this literally.</p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
+                        <strong>🚫 No IP Logging</strong><br>We do not store or track user IP addresses.
+                    </li>
+                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
+                        <strong>🚫 No Metadata</strong><br>We do not archive timestamps, sender IDs, or session durations.
+                    </li>
+                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
+                        <strong>🚫 No Analytics</strong><br>No Google Analytics. No Facebook Pixels. No Cookies.
+                    </li>
+                </ul>
+
+                <h3 style="color:var(--accent-color);">Data Lifecycle</h3>
+                <p>Data exists only for the millisecond it takes to travel from Sender to Receiver. Once delivered, it is purged from server RAM.</p>
+            </div>
         `
     },
     terms: {
-        title: "📝 Usage Terms",
+        title: "📝 Terms of Service",
         body: `
-            <p>By using this anonymous service, you agree to the following:</p>
-            <ol>
-                <li>You maintain full responsibility for the content you transmit.</li>
-                <li>You acknowledge that data recovery is <strong>impossible</strong> once deleted.</li>
-                <li>You will not use this platform for malicious activities, harassment, or illegal acts.</li>
-            </ol>
-            <p><em>Use wisely. Speak freely. Leave no trace.</em></p>
+            <div style="font-size: 0.95rem; text-align: left;">
+                <p>By using PrivyChat, you agree to the following:</p>
+                <ol style="padding-left: 20px;">
+                    <li style="margin-bottom: 10px;"><strong>Self-Responsibility:</strong> You are solely responsible for the content you transmit. We cannot see or moderate content.</li>
+                    <li style="margin-bottom: 10px;"><strong>No Recovery:</strong> You acknowledge that because we do not store data, lost passwords or messages are <strong>unrecoverable</strong>.</li>
+                    <li style="margin-bottom: 10px;"><strong>Legal Use:</strong> You will not use this platform for malicious activities, cybercrime, or harassment.</li>
+                    <li style="margin-bottom: 10px;"><strong>As-Is Software:</strong> This is open-source software provided without warranty. Use at your own risk.</li>
+                </ol>
+                <p style="text-align:center; margin-top: 20px; font-style: italic; opacity: 0.7;">Use wisely. Speak freely. Leave no trace.</p>
+            </div>
         `
     },
-    overview: {
-        title: "🌍 Mission Statement",
+    location: {
+        title: "🇮🇳 Development HQ: India",
         body: `
-            <h3>Why We Exist</h3>
-            <p>Surveillance helps control. Privacy helps freedom. PrivyChat is a tool for the free world.</p>
-            <p>Whether you are a journalist protecting a source, a business discussing trade secrets, or just friends sharing a secret, you deserve a channel that is mathematically secure against eavesdropping.</p>
+            <div style="font-size: 0.95rem; text-align: left;">
+                <p><strong>PrivyChat</strong> is proudly developed and maintained in <strong>India</strong>, a growing hub for global cyber-security innovation.</p>
+                
+                <h3 style="color:var(--accent-color);">📍 Server Infrastructure</h3>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 10px;">
+                        <strong>Node Region:</strong> <span style="color:#10b981">Asia-Pacific (Mumbai)</span><br>
+                        <span style="opacity:0.7">Optimized for low-latency connections across South Asia.</span>
+                    </li>
+                    <li style="margin-bottom: 10px;">
+                        <strong>Routing:</strong> <span style="color:#3b82f6">Decentralized Relay</span><br>
+                        <span style="opacity:0.7">Traffic is routed through ephemeral nodes to obscure origin points.</span>
+                    </li>
+                </ul>
+
+                <h3 style="color:var(--accent-color);">⚖️ Jurisdiction</h3>
+                <p>While developed in India, PrivyChat operates on a <strong>Code-is-Law</strong> principle.</p>
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; font-size: 0.9rem; border-left: 3px solid #f59e0b;">
+                    "We cannot comply with data requests because we do not possess the data. Technology, not policy, guarantees your privacy."
+                </div>
+            </div>
         `
     }
 };

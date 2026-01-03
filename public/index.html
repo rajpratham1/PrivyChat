@@ -262,6 +262,10 @@
     <div id="video-call-overlay" style="display: none;">
         <video id="remote-video" autoplay playsinline></video>
         <video id="local-video" autoplay playsinline muted></video>
+        <!-- Status Indicator -->
+        <h2 id="call-status"
+            style="position:absolute; top:20%; width:100%; text-align:center; color:white; text-shadow:0 0 10px black; z-index:10; font-weight:300;">
+        </h2>
         <div class="call-controls">
             <button class="btn-icon" onclick="toggleMute()">🎤</button>
             <button class="btn-icon" onclick="toggleCam()">📷</button>

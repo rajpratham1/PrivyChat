@@ -1605,8 +1605,10 @@ body.hacker-theme #user-count {
 .call-controls .delete-btn {
     background: #ef4444 !important;
 }
+
 /* --- Compact Layout (v5.1.2) --- */
-.btn-attach, .btn-mic {
+.btn-attach,
+.btn-mic {
     padding: 0;
     width: 45px;
     height: 45px;
@@ -1615,16 +1617,18 @@ body.hacker-theme #user-count {
     align-items: center;
     justify-content: center;
     font-size: 1.2rem;
-    flex-shrink: 0; /* Prevent squishing */
+    flex-shrink: 0;
+    /* Prevent squishing */
 }
 
 .btn-attach {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .btn-mic {
-    background: #ec4899; /* Pink */
+    background: #ec4899;
+    /* Pink */
     margin-right: 5px;
 }
 
@@ -1633,11 +1637,13 @@ body.hacker-theme #user-count {
     .input-area {
         padding: 5px !important;
         gap: 5px;
-        border-radius: 25px; /* Pill shape */
+        border-radius: 25px;
+        /* Pill shape */
     }
 
     /* Small circular buttons */
-    .btn-attach, .btn-mic {
+    .btn-attach,
+    .btn-mic {
         width: 38px;
         height: 38px;
         font-size: 1rem;
@@ -1649,13 +1655,16 @@ body.hacker-theme #user-count {
         width: 38px;
         height: 38px;
         font-size: 1rem;
-        border-radius: 50%; /* Circle selectors */
+        border-radius: 50%;
+        /* Circle selectors */
         display: flex;
         align-items: center;
         justify-content: center;
-        text-align-last: center; /* Center emoji */
+        text-align-last: center;
+        /* Center emoji */
         min-width: unset;
-        appearance: none; /* Hide Arrow */
+        appearance: none;
+        /* Hide Arrow */
     }
 
     .input-area input[type='text'] {
@@ -1672,9 +1681,10 @@ body.hacker-theme #user-count {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0; /* Hide text */
+        font-size: 0;
+        /* Hide text */
     }
-    
+
     .input-area .btn:last-child::after {
         content: '';
         font-size: 1.2rem;
@@ -1683,3 +1693,65 @@ body.hacker-theme #user-count {
 }
 
 
+
+/* --- v5.2 Mobile Fixes (Single Row) --- */
+@media (max-width: 600px) {
+    .input-area {
+        flex-wrap: nowrap !important;
+        /* Force Single Row */
+        gap: 4px !important;
+        padding: 5px 8px !important;
+    }
+
+    /* Specific Button Styling for Send */
+    .input-area .btn:last-child {
+        background: #8b5cf6 !important;
+        /* Purple */
+        color: white !important;
+        font-size: 0 !important;
+        /* Hide 'Send' text */
+        width: 40px !important;
+        height: 40px !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 40px !important;
+    }
+
+    /* Insert Paper Plane Icon */
+    .input-area .btn:last-child::after {
+        content: '➤';
+        /* Clear Icon */
+        font-size: 1.4rem;
+        margin-left: 3px;
+        /* Optical center */
+        display: block;
+    }
+
+    .input-area input[type='text'] {
+        min-width: 0;
+        /* Allow shrink */
+        flex: 1 1 auto;
+        /* Grow to fill */
+    }
+
+    /* Status Pulse Animation */
+    @keyframes pulseText {
+        0% {
+            opacity: 0.5;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        100% {
+            opacity: 0.5;
+        }
+    }
+
+    #call-status {
+        animation: pulseText 2s infinite;
+    }
+}

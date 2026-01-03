@@ -1084,8 +1084,9 @@ const rtcConfig = {
 // UI Elements
 const videoOverlay = document.getElementById('video-call-overlay');
 const localVideo = document.getElementById('local-video');
-const remoteVideo = document.getElementById('remote-video');
+const callStatus = document.getElementById('call-status'); // Status UI
 const incomingModal = document.getElementById('incoming-call-modal');
+const remoteVideo = document.getElementById('remote-video');
 let incomingCallData = null;
 
 // 1. Initiator Starts Call
@@ -1102,9 +1103,10 @@ async function startCall(type = 'video') {
         videoOverlay.style.display = 'flex'; // Show UI
         if (type === 'voice') {
             document.getElementById('remote-video').style.display = 'none'; // Hide big video area
-            // Add a visual indicator for voice call?
+            callStatus.innerText = "📞 Calling...";
         } else {
             document.getElementById('remote-video').style.display = 'block';
+            callStatus.innerText = "🎥 Calling...";
         }
 
         peerConnection = createPeerConnection();
@@ -1117,6 +1119,7 @@ async function startCall(type = 'video') {
 
         // Send Offer
         socket.emit('call_user', { room: currentRoom, offer: offer, callType: type });
+        callStatus.innerText = "🔔 Ringing..."; // Update status after send
         showToast('Calling...', 'info');
     } catch (err) {
         console.error('Call Error:', err);
@@ -1141,6 +1144,8 @@ async function acceptCall() {
     incomingModal.style.display = 'none';
     try {
         const type = incomingCallData.callType || 'video';
+        callStatus.innerText = "🔄 Connecting..."; // Initial output
+
         const constraints = type === 'voice' ? { video: false, audio: true } : { video: true, audio: true };
 
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -1208,6 +1213,20 @@ function createPeerConnection() {
                 room: currentRoom,
                 candidate: event.candidate
             });
+        }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+        const state = pc.iceConnectionState;
+        console.log("ICE State:", state);
+        if (state === 'disconnected') {
+            callStatus.innerText = "⚠️ Reconnecting...";
+            // showToast("Call Reconnecting...", "info");
+        } else if (state === 'failed') {
+            callStatus.innerText = "❌ Call Failed";
+            endCall();
+        } else if (state === 'connected') {
+            callStatus.innerText = ""; // Clear status when live
         }
     };
 

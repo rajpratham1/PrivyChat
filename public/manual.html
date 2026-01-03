@@ -205,85 +205,79 @@
             <p>The Ultimate Guide to Secure, Ephemeral, & Stealth Messaging.</p>
         </header>
 
-        <h2>1. Getting Started</h2>
-        <p>PrivyChat is designed to be as simple as it is secure. When you open the application, you are presented with
-            three distinct ways to communicate.</p>
+        <h2>1. Getting Started: The "Search Engine" Interface</h2>
+        <p>PrivyChat disguises itself as a simple search engine. Here is how to navigate the "Google Theme" UI to access
+            different modes.</p>
 
-        <h3>🔒 Mode A: 1-on-1 Secure Link</h3>
-        <p>This is the most secure method for creating a private conversation with exactly one other person.</p>
+        <h3>🌍 Public Lobby (Group Chat)</h3>
+        <p>Want to join the global conversation?</p>
         <ul>
-            <li><strong>How it works:</strong> The system generates a unique, encrypted URL containing a special key.
-            </li>
-            <li><strong>Security:</strong> The encryption key is in the URL hash (after the <code>#</code>). This part
-                of the URL is <em>never sent to the server</em>, meaning even the server admin cannot peek at your chat.
-            </li>
-            <li><strong>Sharing:</strong> Copy the link and send it via a secure channel (Signal, Email, etc.) to your
-                partner.</li>
+            <li><strong>Action:</strong> Leave the search bar <strong>empty</strong> and click the <button
+                    class="btn-sm">Join / Public</button> button.</li>
+            <li><strong>Result:</strong> You enter the "General" room. Anyone can join here.</li>
+            <li><strong>Security:</strong> Encrypted in transit (HTTPS), but <strong>not end-to-end encrypted</strong>.
+                Public by design.</li>
         </ul>
 
-        <h3>🔑 Mode B: Private Room</h3>
-        <p>Best for recurring meetings or small groups who know a shared secret.</p>
+        <h3>🔐 Private Room (Password Protected)</h3>
+        <p>For secure team meetings or group chats.</p>
         <ul>
-            <li><strong>Setup:</strong> You create a Room Name (e.g., "OperationAlpha") and a Password.</li>
-            <li><strong>Encryption:</strong> The app uses the password to mathematically derive an encryption key (using
-                PBKDF2).</li>
-            <li><strong>Warning:</strong> If you forget the password, all data is lost. There is no password recovery.
-            </li>
+            <li><strong>Action:</strong> Click <button class="btn-sm">Create Private</button> or type a <strong>Room
+                    Name</strong> in the search bar and hit Enter.</li>
+            <li><strong>Setup:</strong> You will be prompted to set a <strong>Password</strong>.</li>
+            <li><strong>Encryption:</strong> Uses AES-GCM (military-grade). The password generates the key. If you lose
+                the password, the data is unrecoverable.</li>
         </ul>
 
-        <h3>📢 Mode C: Public Lobby</h3>
-        <p>A global, open chat room. Use this for casual testing. Messages are still transported securely via HTTPS, but
-            they are accessible to anyone who joins the "General" room.</p>
+        <h3>🎲 1-on-1 Secure Link ("I'm Feeling Lucky")</h3>
+        <p>The gold standard for top-secret conversations.</p>
+        <ul>
+            <li><strong>Action:</strong> Click the <button class="btn-sm">I'm Feeling Lucky</button> button.</li>
+            <li><strong>Result:</strong> Instantly generates a unique, 1-time room (e.g., <code>secure-x8a92b</code>).
+            </li>
+            <li><strong>Sharing:</strong> Copy the URL and send it to your partner. The encryption key is hidden in the
+                URL hash, so the server never sees it.</li>
+        </ul>
 
         <div class="danger-box">
             <strong>⚠️ IMPORTANT:</strong> PrivyChat uses <strong>RAM-Only Storage</strong>. If you refresh the page or
-            the server restarts, your chat history is permanently deleted. Do not use this for long-term storage of
-            information.
+            the server restarts, your chat history is permanently deleted.
         </div>
 
         <h2>2. Spy Tools & Stealth Features</h2>
-        <p>This is where PrivyChat shines. We have built-in tools to protect you in the physical world.</p>
+        <p>PrivyChat includes "James Bond" style features to protect you in the physical world.</p>
+
+        <h3>🌦️ Decoy Vault (Fake Login)</h3>
+        <p>Need to hide what you are doing instantly? Prove you are just "checking the weather".</p>
+        <ul>
+            <li><strong>How to use:</strong> In the main search bar, type one of these keywords and hit Enter:</li>
+            <div class="code-box">weather &nbsp;&nbsp; guest &nbsp;&nbsp; aether &nbsp;&nbsp; 1234</div>
+            <li><strong>Effect:</strong> You are instantly redirected to a fully functional harmless <strong>Weather
+                    App</strong>.</li>
+            <li><strong>Why:</strong> Plausible Deniability.</li>
+        </ul>
 
         <h3>🎭 Stealth Mode (Calculator)</h3>
-        <p>Need to hide what you are doing instantly? Turn your chat into a harmless Calculator.</p>
+        <p>Turn your chat into a working scientific calculator.</p>
         <ul>
             <li><strong>Activate:</strong> Click the Mask Icon <kbd>🎭</kbd> in the top-right header.</li>
-            <li><strong>Effect:</strong> The chat interface is immediately replaced by a fully functional scientific
-                calculator.</li>
-            <li><strong>To Unlock:</strong> Enter the secret code and press Equals <kbd>=</kbd>.</li>
+            <li><strong>To Unlock:</strong> Enter the code below and press Equals <kbd>=</kbd>.</li>
         </ul>
         <div class="code-box">CODE: 1337</div>
 
         <h3>👻 Ghost Mode</h3>
         <p>Prevents "Shoulder Surfing" (people behind you reading your screen).</p>
         <ul>
-            <li><strong>Activate:</strong> Click the Ghost Icon <kbd>👁️</kbd> / <kbd>👻</kbd>.</li>
-            <li><strong>Effect:</strong> All messages become heavily blurred.</li>
-            <li><strong>Reveal:</strong> Hover your mouse cursor over a specific message to reveal it temporarily.</li>
+            <li><strong>Activate:</strong> Click the Eye Icon <kbd>👁️</kbd> in the chat header.</li>
+            <li><strong>Effect:</strong> All messages are blurred. Hover over a single message to read it.</li>
         </ul>
 
         <h3>🚨 Panic Button</h3>
         <p>The "Nuclear Option" for emergencies.</p>
         <ul>
-            <li><strong>Activate:</strong> Click the Siren Icon <kbd>🚨</kbd>.</li>
-            <li><strong>Effect:</strong>
-                <ol>
-                    <li>Immediately saves nothing.</li>
-                    <li>Disconnects from the server.</li>
-                    <li>Wipes all local browser storage.</li>
-                    <li>Redirects the browser to <strong>Google.com</strong> instantly.</li>
-                </ol>
-            </li>
-        </ul>
-
-        <h3>🌦️ Decoy Vault (Fake Login)</h3>
-        <p>Need to prove you aren't chatting? Use the Decoy Vault.</p>
-        <ul>
-            <li><strong>How to use:</strong> In the "Room Code" input, type <kbd>weather</kbd> or <kbd>guest</kbd> and
-                hit Enter.</li>
-            <li><strong>Effect:</strong> You are instantly redirected to a fully functional Weather App.</li>
-            <li><strong>Why:</strong> Plausible Deniability. You can show anyone that you were just checking the
-                forecast.</li>
+            <li><strong>Activate:</strong> Click the Red Siren Icon <kbd>🚨</kbd>.</li>
+            <li><strong>Effect:</strong> Disconnects, Wipes RAM, Clears Storage, and Redirects to Google.com
+                immediately.</li>
         </ul>
 
         <h2>3. Messaging & Media</h2>

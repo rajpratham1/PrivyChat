@@ -1,22 +1,179 @@
-:root {
-    --bg-color: #202124;
-    /* Google Dark Gray */
-    --text-color: #e8eaed;
-    --accent-color: #8ab4f8;
-    /* Google Blue */
-    --surface: #303134;
-    --border: #5f6368;
+/* --- ANIMATIONS & SMOOTHNESS --- */
+
+/* 1. Global Smoothness */
+html {
+    scroll-behavior: smooth;
 }
 
 body {
-    background: var(--bg-color);
-    /* Override gradient */
-    font-family: 'Arial', sans-serif;
-    /* Google-like sans */
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
+    transition: background 0.5s ease;
 }
+
+/* 2. Enhanced Glassmorphism */
+.glass-card,
+.search-bar-wrapper,
+.google-buttons .g-btn {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    background-color: rgba(17, 25, 40, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 3. Search Bar "Glow" */
+.search-bar-wrapper:focus-within {
+    box-shadow: 0 0 20px rgba(66, 133, 244, 0.4),
+        0 0 0 2px rgba(66, 133, 244, 0.2);
+    /* Google Blue Glow */
+    transform: scale(1.02);
+    border-color: rgba(66, 133, 244, 0.5);
+    background-color: rgba(20, 30, 50, 0.9);
+}
+
+/* 4. Button Interactions */
+.g-btn {
+    position: relative;
+    overflow: hidden;
+}
+
+.g-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.g-btn:active {
+    transform: translateY(0);
+}
+
+/* 5. Logo Floating Animation */
+.google-logo {
+    animation: floatLogo 6s ease-in-out infinite;
+    text-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes floatLogo {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+/* 6. Chat Message Entry Animation */
+.message {
+    animation: messageSlideIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+@keyframes messageSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 7. Enhanced Gradient Blobs */
+.blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    /* Smoother blur */
+    z-index: -1;
+    opacity: 0.5;
+    animation: blobMove 20s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.blob-1 {
+    top: -10%;
+    left: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, #4285F4, #8b5cf6);
+    /* Blue to Purple */
+    animation-delay: -5s;
+}
+
+.blob-2 {
+    bottom: -10%;
+    right: -10%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, #34A853, #22d3ee);
+    /* Green to Cyan */
+}
+
+@keyframes blobMove {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    33% {
+        transform: translate(50px, 50px) scale(1.1);
+    }
+
+    66% {
+        transform: translate(-30px, 80px) scale(0.9);
+    }
+
+    100% {
+        transform: translate(20px, -40px) scale(1.05);
+    }
+}
+
+/* 8. Toast Notification Polish */
+.toast {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 500;
+}
+
+/* 9. Input Area Polish */
+.input-area {
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
+    /* Top shadow for depth */
+    transition: transform 0.3s;
+}
+
+.input-area:focus-within {
+    border-color: rgba(66, 133, 244, 0.4);
+}
+
+/* 10. Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* FooterStyles - Keep Fixed */
+.google-footer {
+    /* Keep existing footer styles, ensure z-index */
+    z-index: 10;
+    backdrop-filter: blur(10px);
+    background: rgba(23, 23, 23, 0.8);
+    /* Slightly transparent */
+}
+
 
 /* Google Container */
 .google-container {

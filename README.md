@@ -1,88 +1,221 @@
-# 🛡️ PrivyChat - Zero-Trace Spy Messenger
+# 🛡️ PrivyChat - The Zero-Trace Spy Messenger
 
 ![PrivyChat Banner](public/logo.png)
 
-### **"Your words belong to you. The moment they are spoken, they should vanish."**
+> **"Privacy is not a crime. It is a fundamental human right."**
 
-PrivyChat is an ultra-secure, ephemeral messaging platform designed for whistleblowers, journalists, and privacy enthusiasts. It bypasses traditional databases entirely, storing messages **only in RAM**, making data recovery physically impossible after a server restart.
+**PrivyChat** is an open-source, ultra-secure, and ephemeral messaging platform designed for journalists, activists, whistleblowers, and privacy enthusiasts. It is engineered with a **"Zero-Trust"** philosophy: we assume the server is compromised, the network is tapped, and the device might be seized.
 
----
-
-## 🌟 Key Features
-
-### **🕵️‍♂️ Spy Tech & Stealth**
-*   **Stealth Mode (Calculator)**: Instantly hide the entire chat app behind a fully functional Calculator overlay.
-    *   *Unlock Code*: Type `1337` and press `=` to re-enter.
-*   **Decoy Vault**: Type keywords like `weather` or `guest` into the login box to instanty redirect to a harmless **Weather App**. Perfect for plausible deniability.
-*   **Ghost Mode**: All messages are blurred by default. They only reveal when you hover your mouse over them, preventing "shoulder surfing" in public.
-*   **Panic Button**: A single click on the 🚨 icon instantly disconnects you, wipes local storage, and redirects your browser to Google.com.
-*   **Self-Destruct Messages**: Set a timer (5s, 10s, 30s) for your messages to effectively "burn" from the recipient's screen after reading.
-
-### **🔐 Military-Grade Security**
-*   **End-to-End Encryption (E2E)**: 
-    *   **Private Rooms**: Uses **AES-GCM-256** with keys derived from your Room Password + Salt (PBKDF2). The server *cannot* derive the key.
-    *   **1-on-1 Links**: Uses **RSA-OAEP** and **AES-GCM** key exchange via URL fragments. The key is in the `#hash`, which is *never sent to the server*.
-*   **Zero-Knowledge Server**: The server acts as a dumb relay. It routes encrypted blobs without having the keys to decrypt them.
-*   **RAM-Only Storage**: No MongoDB. No SQL. No Redis. If the power plug is pulled, all data ceases to exist.
-
-### **🎨 Premium Experience**
-*   **Glassmorphism UI**: A stunning, modern interface with blur effects and smooth animations.
-*   **Themes**: Switch between "Standard Secure" (Blue/Dark) and "Hacker Mode" (Matrix Green/Black terminal style).
-*   **Rich Media**: Send **Encypted Images** and **Voice Notes** (Opus/WebM) securely.
+To combat this, PrivyChat operates entirely in **RAM (Random Access Memory)**, uses **Military-Grade End-to-End Encryption**, and includes distinct **"Spy Features"** like a decoy calculator mode and browser panic button.
 
 ---
 
-## � Getting Started (Local)
+## 📑 Table of Contents
 
-PrivyChat is built on **Node.js** and **Socket.io**.
+1.  [Philosophy & Core Concepts](#-philosophy--core-concepts)
+2.  [Features Overview](#-features-overview)
+3.  [Technical Architecture](#-technical-architecture)
+4.  [Security Protocol (Cryptography)](#-security-protocol)
+5.  [Codebase Deep Dive](#-codebase-deep-dive)
+    *   [Frontend Architecture](#frontend-appjs--indexhtml)
+    *   [Backend Logic](#backend-serverjs)
+6.  [Installation & Setup](#-installation--setup)
+7.  [Deployment Guide](#-deployment-guide)
+8.  [Disclaimer & License](#-disclaimer--license)
+
+---
+
+## 🧠 Philosophy & Core Concepts
+
+### **1. RAM-Only Architecture**
+Traditional chat apps store messages in databases (MongoDB, SQL, Redis). This leaves a forensic trail.
+*   **PrivyChat approach:** Data exists **only** in the volatile memory of the Node.js process.
+*   **Consequence:** If the server is restarted, crashed, or seized, **100% of the data is instantly and irrevocably lost**. There is no "Restore Backup" button.
+
+### **2. Zero-Knowledge Server**
+The server routes messages between users but **cannot read them**.
+*   All encryption happens in the **Browser** (Client-Side) using the Web Crypto API.
+*   The server only ever sees encrypted blobs (cipher text).
+
+### **3. Plausible Deniability**
+Security is useless if you are forced to give up your password.
+*   **Decoy Vault:** A fake login system that redirects to a weather app, allowing you to prove you were just "checking the forecast".
+*   **Stealth Mode:** A calculator overlay that hides the chat interface instantly.
+
+---
+
+## 🌟 Features Overview
+
+### **🕵️‍♂️ Stealth Suite**
+*   **Google Theme UI**: A landing page disguised as a search engine. Passersby will think you are just browsing Google.
+*   **Ghost Mode**: Messages are **blurred by default**. They only reveal when you hover your mouse over them, preventing "shoulder surfing" in public transport or cafes.
+*   **Stealth Calculator**:
+    *   **Trigger**: Click the Mask Icon `🎭`.
+    *   **Effect**: The app transforms into a functional scientific calculator.
+    *   **Unlock**: Enter `1337` + `=` to retrieve your chat.
+*   **Panic Button**:
+    *   **Trigger**: Click the Red Siren `🚨`.
+    *   **Effect**: Instantly disconnects socket, clears `localStorage`, `sessionStorage`, and redirects to `google.com`.
+
+### **💬 Messaging**
+*   **1v1 Secure Links**: "I'm Feeling Lucky" button generates a unique UUID room. The encryption key is embedded in the URL hash (`#key`) so the server never receives it.
+*   **Private Rooms**: Password-protected named rooms (e.g., "TeamAlpha").
+*   **Voice Notes**: Record encrypted audio clips (`Opus/WebM`).
+*   **File Sharing**: Send images and documents. Files are encrypted chunk-by-chunk before upload.
+*   **Self-Destruct**: Set messages to auto-delete (5s, 10s, 30s) after being viewed.
+
+---
+
+## 🏗️ Technical Architecture
+
+PrivyChat is a **Real-Time Single Page Application (SPA)** built with Vanilla JavaScript and Node.js.
+
+### **System Design**
+```mermaid
+graph TD
+    UserA[User A (Browser)] <-->|Encrypted WSS| Server[Node.js Server (RAM Only)];
+    UserB[User B (Browser)] <-->|Encrypted WSS| Server;
+    
+    UserA -- Key Exchange (RSA-OAEP) --> UserB;
+    UserA -- AES-GCM Encrypted Data --> Server --> UserB;
+```
+
+*   **Runtime**: Node.js (v14+)
+*   **Framework**: Express.js (HTTP Server)
+*   **Protocol**: Socket.io v4 (WebSockets with Polling fallback)
+*   **Frontend**: HTML5, CSS3 (Glassmorphism), Vanilla JS (ECMAScript 2020)
+*   **Cryptography**: `window.crypto.subtle` (Native Web Crypto API)
+
+---
+
+## 🔐 Security Protocol
+
+We use a hybrid encryption scheme to ensure speed and security.
+
+### **1. Key Generation (PBKDF2)**
+For **Private Rooms**, keys are derived from the password.
+*   **Algorithm**: `PBKDF2` (Password-Based Key Derivation Function 2)
+*   **Hash**: `SHA-256`
+*   **Iterations**: 100,000 (To prevent brute-force attacks)
+*   **Salt**: Room Name
+*   **Output**: A 256-bit AES-GCM Encryption Key.
+
+### **2. Message Encryption (AES-GCM)**
+All messages (Text, Images, Audio) are encrypted using **AES-GCM** (Galois/Counter Mode).
+*   **Why AES-GCM?**: It provides both **Confidentiality** (they can't read it) and **Integrity** (they can't temper with it).
+*   **IV (Initialization Vector)**: A unique 12-byte random IV is generated for *every single message*. This ensures that sending "Hello" twice results in two completely different encrypted strings.
+
+### **3. Transport Layer**
+All data is transmitted over **HTTPS / WSS** (Secure WebSockets), providing a second layer of encryption (TLS/SSL) against network sniffers.
+
+---
+
+## 💻 Codebase Deep Dive
+
+### **Directory Structure**
+```bash
+PrivyChat/
+├── public/              # Frontend Assets
+│   ├── index.html       # Single Entry Point (Lobby + Chat)
+│   ├── style.css        # CSS3 (Glassmorphism, Animations)
+│   ├── app.js           # Core Logic (Socket, UI, Events)
+│   ├── crypto-utils.js  # Cryptography Helper Library
+│   ├── manual.html      # User Manual
+│   └── logo.png         # Project Logo
+├── server.js            # Node.js Backend Entry Point
+├── package.json         # Dependencies & Scripts
+└── README.md            # Documentation
+```
+
+### **Frontend: `app.js` & `crypto-utils.js`**
+The frontend is the "Brain" of the security.
+*   **`CryptoUtils.deriveKey(password, salt)`**:
+    Uses `window.crypto.subtle.importKey` and `deriveKey` to turn a text password into a crypto-object.
+*   **`sendMessage()`**:
+    1.  Captures input text.
+    2.  Calls `CryptoUtils.encrypt(text, key)`.
+    3.  Emits `socket.emit('send_message', { data, iv })`.
+*   **`googleJoin()`**:
+    Determines if the user input is a Room Code or a Spy Keyword (`weather`, `guest`).
+    ```javascript
+    if (val === 'weather') {
+        window.location.replace("https://weather-app-url...");
+    }
+    ```
+
+### **Backend: `server.js`**
+The backend is intentionally "dumb".
+*   **`users = {}`**: Maps SocketIDs to Usernames/Rooms.
+*   **`socket.on('join_room')`**:
+    *   Validates room password (if set).
+    *   Adds socket to Socket.io room channel.
+*   **`socket.on('send_message')`**:
+    *   Receives data.
+    *   Broadcasts to `room`.
+    *   **Does NOT store data.** The message object is garbage collected immediately after transmission.
+
+---
+
+## 🚀 Installation & Setup
 
 ### **Prerequisites**
-*   Node.js (v14 or higher)
-*   NPM (Node Package Manager)
+*   **Node.js**: Download and install from [nodejs.org](https://nodejs.org/).
 
-### **Installation**
-1.  **Clone the Repository**
+### **Local Deployment**
+1.  **Clone the Repo**:
     ```bash
-    git clone https://github.com/yourusername/PrivyChat.git
+    git clone https://github.com/rajpratham1/PrivyChat.git
     cd PrivyChat
     ```
 
-2.  **Install Dependencies**
+2.  **Install Dependencies**:
     ```bash
-    npm install
+    npm install express socket.io
     ```
 
-3.  **Start the Server**
+3.  **Run Development Server**:
     ```bash
     npm run dev
+    # or
+    node server.js
     ```
 
-4.  **Open in Browser**
-    Visit `http://localhost:3001`
+4.  **Access App**:
+    Open Browser at `http://localhost:3000`.
 
 ---
 
-## 📖 User Manual
+## ☁️ Deployment Guide
 
-A comprehensive User Manual is included in the application.
-👉 **[View User Manual](public/manual.html)** (or access via the `?` Help icon in the app).
+### **Deploy to Render.com (Recommended)**
+Since PrivyChat uses WebSockets, specific configuration is needed.
+1.  Push code to **GitHub**.
+2.  Create a **New Web Service** on Render.
+3.  Connect your Repo.
+4.  **Build Command**: `npm install`
+5.  **Start Command**: `node server.js`
+6.  **Environment Variables**: None needed for basic usage.
 
----
-
-## 🛠️ Tech Stack
-
-*   **Frontend**: Vanilla JS (ES6+), HTML5, CSS3 Variables.
-*   **Backend**: Node.js, Express.
-*   **Real-Time**: Socket.io v4 (WebSockets).
-*   **Cryptography**: Web Crypto API (`window.crypto.subtle`).
-
----
-
-## ⚠️ Disclaimer
-
-While PrivyChat uses industry-standard encryption algorithms, it is an **open-source educational project**. It has not been audited by external security firms. Use it for personal privacy, but always exercise caution with extremely sensitive data.
+### **Important Note on Vercel/Netlify**
+**Do NOT deploy to Vercel or Netlify.**
+These are "Serverless" platforms. They cannot maintain the persistent WebSocket connections required for Real-Time chat. You **must** use a NodeJS hosting provider like Render, Railway, Fly.io, or DigitalOcean.
 
 ---
 
-### **License**
-MIT License. Free to use, fork, and modify.
+## ⚠️ Disclaimer & License
+
+### **Educational Purpose**
+This software is provided for **educational and research purposes**. While it utilizes industry-standard encryption, it has not undergone a formal third-party security audit. The developers are not liable for any compromises arising from the use of this software.
+
+### **MIT License**
+Copyright (c) 2026 PrivyChat
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+---
+
+**Built with ❤️ and Paranoia.**

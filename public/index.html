@@ -39,51 +39,22 @@
             <!-- Search Bar Area -->
             <div class="search-bar-wrapper">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="google-input" class="google-input" placeholder="Enter Room Code or Name"
+                <input type="text" id="google-input" class="google-input"
+                    placeholder="Enter Room Name (or leave empty for Public Lobby)"
                     onkeypress="handleGoogleEnter(event)">
                 <span class="mic-icon" onclick="startGoogleMic()"
                     title="Voice Search (Just kidding, it's a demo)">�</span>
             </div>
 
             <!-- Buttons -->
-            <div class="google-buttons">
-                <button class="g-btn" onclick="googleJoin()">Join Room</button>
-                <button class="g-btn" onclick="googleCreate()">Create Private Room</button>
-            </div>
-
-            <div style="margin-top:20px; color:#9aa0a6; font-size:0.9rem;">
-                Protected by <span style="color:#34A853">AES-GCM</span> encryption. 100% Client-Side.
-            </div>
+            <button class="g-btn" onclick="googleJoin()">Join / Public</button>
+            <button class="g-btn" onclick="googleCreate()">Create Private</button>
+            <button class="g-btn" onclick="google1v1()">I'm Feeling Lucky (1v1)</button>
         </div>
 
-        <!-- Stealth Calculator Overlay (Preserved) -->
-        <div id="stealth-calculator"
-            style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#202124; z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
-            <div class="calc-body"
-                style="background:#303134; padding:20px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-                <input type="text" id="calc-display" readonly
-                    style="width:100%; border:none; background:#3c4043; color:white; font-size:2rem; padding:15px; margin-bottom:15px; text-align:right; border-radius:10px;">
-                <div class="calc-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;">
-                    <button class="btn-calc" onclick="calcInput('7')">7</button> <button class="btn-calc"
-                        onClick="calcInput('8')">8</button> <button class="btn-calc" onclick="calcInput('9')">9</button>
-                    <button class="btn-calc op" onclick="calcInput('/')">÷</button>
-                    <button class="btn-calc" onclick="calcInput('4')">4</button> <button class="btn-calc"
-                        onClick="calcInput('5')">5</button> <button class="btn-calc" onclick="calcInput('6')">6</button>
-                    <button class="btn-calc op" onclick="calcInput('*')">×</button>
-                    <button class="btn-calc" onclick="calcInput('1')">1</button> <button class="btn-calc"
-                        onClick="calcInput('2')">2</button> <button class="btn-calc" onclick="calcInput('3')">3</button>
-                    <button class="btn-calc op" onclick="calcInput('-')">-</button>
-                    <button class="btn-calc" onclick="calcInput('C')" style="background:#EA4335;">C</button> <button
-                        class="btn-calc" onClick="calcInput('0')">0</button> <button class="btn-calc"
-                        onclick="calcInput('unlock')" style="background:#34A853;">=</button> <button class="btn-calc op"
-                        onclick="calcInput('+')">+</button>
-                </div>
-                <p style="text-align:center; color:#9aa0a6; font-size:0.9rem; margin-top:15px; font-family: monospace;">
-                    🔒 Code: <strong>1337</strong> + <span style="color:#34A853;"><strong>=</strong></span>
-                </p>
-            </div>
+        <div style="margin-top:20px; color:#9aa0a6; font-size:0.9rem;">
+            Protected by <span style="color:#34A853">AES-GCM</span> encryption. 100% Client-Side.
         </div>
-
         <footer class="google-footer">
             <div class="footer-row top">
                 <span>India</span>
@@ -101,8 +72,37 @@
                 </div>
             </div>
         </footer>
-    </div> <!-- END LOBBY WRAPPER -->
+    </div>
+
     <!-- End Lobby -->
+
+    <!-- Stealth Calculator Overlay (Preserved) -->
+    <div id="stealth-calculator"
+        style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#202124; z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+        <div class="calc-body"
+            style="background:#303134; padding:20px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <input type="text" id="calc-display" readonly
+                style="width:100%; border:none; background:#3c4043; color:white; font-size:2rem; padding:15px; margin-bottom:15px; text-align:right; border-radius:10px;">
+            <div class="calc-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;">
+                <button class="btn-calc" onclick="calcInput('7')">7</button> <button class="btn-calc"
+                    onClick="calcInput('8')">8</button> <button class="btn-calc" onclick="calcInput('9')">9</button>
+                <button class="btn-calc op" onclick="calcInput('/')">÷</button>
+                <button class="btn-calc" onclick="calcInput('4')">4</button> <button class="btn-calc"
+                    onClick="calcInput('5')">5</button> <button class="btn-calc" onclick="calcInput('6')">6</button>
+                <button class="btn-calc op" onclick="calcInput('*')">×</button>
+                <button class="btn-calc" onclick="calcInput('1')">1</button> <button class="btn-calc"
+                    onClick="calcInput('2')">2</button> <button class="btn-calc" onclick="calcInput('3')">3</button>
+                <button class="btn-calc op" onclick="calcInput('-')">-</button>
+                <button class="btn-calc" onclick="calcInput('C')" style="background:#EA4335;">C</button> <button
+                    class="btn-calc" onClick="calcInput('0')">0</button> <button class="btn-calc"
+                    onclick="calcInput('unlock')" style="background:#34A853;">=</button> <button class="btn-calc op"
+                    onclick="calcInput('+')">+</button>
+            </div>
+            <p style="text-align:center; color:#9aa0a6; font-size:0.9rem; margin-top:15px; font-family: monospace;">
+                🔒 Code: <strong>1337</strong> + <span style="color:#34A853;"><strong>=</strong></span>
+            </p>
+        </div>
+    </div>
 
     <!-- Chat Room Section -->
     <div class="chat-container" id="chat-room" style="display: none;">

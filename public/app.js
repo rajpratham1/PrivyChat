@@ -162,90 +162,25 @@ const inviteRoom = urlParams.get('room');
 const inviteMode = urlParams.get('mode'); // 'private' or '1v1'
 
 if (inviteRoom) {
-    inputRoom.value = inviteRoom;
-    joinForm.style.display = 'block';
-    formTitle.innerText = "Join Chat";
-    document.querySelector('.modes-grid').style.display = 'none';
+    // Google Theme Auto-Fill
+    document.getElementById('google-input').value = inviteRoom;
+    document.getElementById('google-input').readOnly = true; // Lock it so they don't accidentally change it
 
-    inputRoom.readOnly = true;
+    // Auto-Join if it's a 1v1 link (which usually has no password or key is in URL)
+    // Or just let them click "Join" to enter name.
+    // For better UX, we can show a Toast.
+    setTimeout(() => {
+        showToast("🔗 Invite Link Detected. Enter Name & Join!", "success");
+    }, 500);
 
     if (inviteMode === 'private') {
-        formTitle.innerText = "Join Private Room";
-        inputPass.style.display = 'block'; // Show password field
-        currentMode = 'private'; // Set mode explicitly
-    } else {
-        inputPass.style.display = 'none';
+        currentMode = 'private';
     }
 }
 // --- Google UI Logic ---
 
 // Enter Key Handler
-function handleGoogleEnter(e) {
-    if (e.key === 'Enter') googleJoin();
-}
-
-function googleJoin() {
-    const input = document.getElementById('google-input');
-    const roomCode = input.value.trim();
-
-    if (!roomCode) {
-        // Shake effect or focus
-        input.focus();
-        input.style.borderColor = '#EA4335'; // Red error
-        setTimeout(() => input.style.borderColor = '#5f6368', 500);
-        return;
-    }
-
-    // --- DECOY VAULT LOGIC ---
-    const lowerVal = roomCode.toLowerCase();
-    if (lowerVal === 'weather' || lowerVal === 'guest' || lowerVal === 'aether' || lowerVal === '1234') {
-        showToast("☁️ Loading Weather Data...", "info");
-        setTimeout(() => {
-            window.location.replace("https://rajpratham1.github.io/Aether-Tools/");
-        }, 1000);
-        return;
-    }
-
-    // Since we removed the "Join Form" with nickname input, we need to ask for it now.
-    userLoginFlow(roomCode, null, 'private');
-}
-
-function googleCreate() {
-    // "I'm Feeling Lucky" -> Generate Secure Room
-    const roomUUID = 'secure-' + Math.random().toString(36).substr(2, 6);
-    const secretKey = Math.random().toString(36).substr(2, 8); // Simple password
-
-    // We treat this as a "Unique Code" Private Room
-    // To share it, users will share "Room Name" + "Password" OR we can generate a link.
-    // For this flow, let's auto-join and show the credentials.
-
-    userLoginFlow(roomUUID, secretKey, '1v1');
-}
-
-function userLoginFlow(room, password, mode) {
-    if (!myUsername) {
-        // Simple Prompt for v3.0 (Can be improved to a modal later)
-        const name = prompt("Enter your Nickname to join:");
-        if (!name) return;
-        myUsername = name;
-    }
-
-    // Store globally
-    currentMode = mode;
-    currentRoom = room;
-    if (password) currentPassword = password;
-
-    // Join
-    socket.emit('join_room', { room: room, password: password || '', username: myUsername, type: mode });
-
-    // Hide Lobby (Google page)
-    document.getElementById('lobby').style.display = 'none';
-    document.getElementById('chat-room').style.display = 'flex';
-}
-
-function startGoogleMic() {
-    alert("🎤 Voice Search coming soon in v4.0!");
-}
+// (Duplicate Google Logic removed)
 
 let isCurrentRoomPrivate = false;
 
@@ -600,7 +535,7 @@ function addFileMessage(data, type) {
 
         content = `<div class="file-preview" style="min-width: 200px;">
                      <div style="font-size:0.8rem; opacity:0.7; margin-bottom:5px;">${label}</div>
-                     <audio id="${audioId}" controls src="${data.fileData}" style="width: 100%; border-radius: 20px;"></audio>
+                     <audio id="${audioId}" controls src="${data.fileData}" style="width: 100%; border-radius: 20px;" onerror="console.error('Audio Playback Error', this.error)"></audio>
                    </div>`;
 
 
@@ -740,7 +675,8 @@ async function startRecording() {
         };
 
         mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+            // Use generic webm which is safer for playback
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             sendVoiceNote(audioBlob);
         };
 
@@ -761,7 +697,7 @@ function stopRecording() {
 }
 
 function sendVoiceNote(blob) {
-    if (blob.size < 1000) return; // Ignore accidental clicks (< 1KB)
+    if (blob.size < 100) return; // Allow shorter clips (was 1000)
 
     // Convert Blob to DataURL (Base64) to send via Socket
     const reader = new FileReader();
@@ -785,7 +721,7 @@ function sendVoiceNote(blob) {
             iv: iv,
             fileName: "voice-note.webm",
             fileType: "audio/webm",
-            voiceEffect: document.getElementById('voice-effect').value, // Send Effect Meta
+            voiceEffect: 'normal', // Voice effects disabled in v2.1
             timestamp: Date.now(),
             destruct: document.getElementById('destruct-timer').value
         });
@@ -843,5 +779,78 @@ document.addEventListener('keydown', (e) => {
 });
 
 // --- Google Theme Logic & Decoy Vault ---
+
+function handleGoogleEnter(e) {
+    if (e.key === 'Enter') {
+        googleJoin();
+    }
+}
+
+function googleJoin() {
+    const input = document.getElementById('google-input');
+    const val = input.value.trim();
+
+    if (!val) {
+        showToast("🌍 Joining Public Lobby...", "info");
+        userLoginFlow('General', null, 'group');
+        return;
+    }
+
+    // --- DECOY VAULT LOGIC ---
+    const lowerVal = val.toLowerCase();
+    if (lowerVal === 'weather' || lowerVal === 'guest' || lowerVal === 'aether' || lowerVal === '1234') {
+        showToast("☁️ Loading Weather Data...", "info");
+        setTimeout(() => {
+            window.location.replace("https://rajpratham1.github.io/Aether-Tools/");
+        }, 1000);
+        return;
+    }
+
+    // Normal Join
+    userLoginFlow(val, null, 'group');
+}
+
+function startGoogleMic() {
+    showToast("🎤 Listening... (Just kidding, typing only!)", "info");
+}
+
+function google1v1() {
+    // Mode A: 1v1 Secure Link ("I'm Feeling Lucky")
+    const roomUUID = 'secure-' + Math.random().toString(36).substr(2, 9);
+    // Auto-join this new 1v1 room
+    userLoginFlow(roomUUID, null, '1v1');
+    showToast("🎲 Generating Secure 1v1 Link...", "success");
+}
+
+function googleCreate() {
+    // Switch to the Lobby UI for creation or just prompt password
+    const roomName = prompt("Enter a Name for your Private Room:");
+    if (!roomName) return;
+    const password = prompt("Set a Password:");
+    if (!password) return;
+
+    userLoginFlow(roomName, password, 'private');
+}
+
+function userLoginFlow(room, password, mode) {
+    if (!myUsername) {
+        const name = prompt("Enter your Nickname to join:");
+        if (!name) return;
+        myUsername = name;
+    }
+
+    // Store globally
+    currentMode = mode;
+    currentRoom = room;
+    if (password) currentPassword = password;
+
+    // Join
+    socket.emit('join_room', { room: room, password: password || '', username: myUsername, type: mode });
+
+    // Hide Lobby (Google page)
+    if (lobby) lobby.style.display = 'none';
+    if (chatRoom) chatRoom.style.display = 'flex';
+}
+
 
 

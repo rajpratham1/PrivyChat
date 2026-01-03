@@ -1768,3 +1768,13 @@ body.hacker-theme #user-count {
 }
 
 
+
+/* --- Critical Fix: Modal Visibility (v5.2.2) --- */
+/* The default opacity:0 was hiding modals even when display:flex was set by JS. */
+.modal-overlay[style*='display: flex'],
+.modal-overlay[style*='display:flex'] {
+    opacity: 1 !important;
+    pointer-events: all !important;
+    z-index: 9999 !important;
+}
+

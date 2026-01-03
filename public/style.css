@@ -785,26 +785,41 @@ p {
 }
 
 .input-area .btn {
-    padding: 10px 25px;
-    /* Compact send button */
-    font-size: 1rem;
+    padding: 8px 16px;
+    /* Reduced from 10px 25px */
+    font-size: 0.9rem;
     box-shadow: none;
-    /* remove giant shadow for cleaner look */
+    font-weight: 600;
+    /* Bold text for smaller button */
+    white-space: nowrap;
 }
 
 .input-area .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+    /* Subtle lift */
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .timer-select {
-    padding: 10px;
-    border-radius: 10px;
-    background: rgba(0, 0, 0, 0.3);
+    padding: 8px 5px;
+    /* Compact padding */
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.2);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.1);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 1.1rem;
+    /* Larger icons */
+    text-align: center;
+    appearance: none;
+    /* Hide default arrow to save space if needed, or keep it */
+    min-width: 45px;
+    /* specialized for icon-only usage */
+}
+
+.timer-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
 }
 
 /* Toast Notifications */
@@ -1310,14 +1325,17 @@ p {
 #user-count:active {
     transform: translateY(0);
 }
+
 /* --- Immersion Upgrade --- */
 
 /* 1. System Messages (Pill Style) */
 .message.system {
     color: #cbd5e1;
-    background: rgba(255, 255, 255, 0.08); /* Subtle pill bg */
+    background: rgba(255, 255, 255, 0.08);
+    /* Subtle pill bg */
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 50px; /* Fully rounded */
+    border-radius: 50px;
+    /* Fully rounded */
     padding: 4px 15px;
     font-size: 0.75rem;
     font-weight: 500;
@@ -1335,18 +1353,20 @@ body.hacker-theme {
     --glass-bg: #000000;
     --glass-border: #00ff00;
     --glass-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
-    
+
     font-family: 'Courier New', Courier, monospace !important;
     background: #000 !important;
 }
 
 body.hacker-theme * {
-    font-family: 'Courier New', Courier, monospace !important; /* Force Monospace everywhere */
-    border-radius: 0 !important; /* Sharp edges */
+    font-family: 'Courier New', Courier, monospace !important;
+    /* Force Monospace everywhere */
+    border-radius: 0 !important;
+    /* Sharp edges */
 }
 
 /* Override Glass Cards to be 'Terminal Windows' */
-body.hacker-theme .glass-card, 
+body.hacker-theme .glass-card,
 body.hacker-theme .modal-content,
 body.hacker-theme #reply-banner,
 body.hacker-theme .google-footer {
@@ -1357,19 +1377,20 @@ body.hacker-theme .google-footer {
 }
 
 /* Inputs */
-body.hacker-theme input, 
+body.hacker-theme input,
 body.hacker-theme select {
     background: #000 !important;
     color: #00ff00 !important;
     border: 1px solid #00ff00 !important;
 }
+
 body.hacker-theme input::placeholder {
     color: rgba(0, 255, 0, 0.5) !important;
 }
 
 /* Buttons */
-body.hacker-theme .btn, 
-body.hacker-theme .g-btn, 
+body.hacker-theme .btn,
+body.hacker-theme .g-btn,
 body.hacker-theme button {
     background: #000 !important;
     color: #00ff00 !important;
@@ -1377,7 +1398,9 @@ body.hacker-theme button {
     text-transform: uppercase;
     letter-spacing: 1px;
 }
-body.hacker-theme .btn:hover, body.hacker-theme .g-btn:hover {
+
+body.hacker-theme .btn:hover,
+body.hacker-theme .g-btn:hover {
     background: #00ff00 !important;
     color: #000 !important;
     box-shadow: 0 0 20px #00ff00;
@@ -1389,11 +1412,13 @@ body.hacker-theme .message.sent {
     border: 1px solid #00ff00;
     color: #00ff00;
 }
+
 body.hacker-theme .message.received {
     background: #000;
     border: 1px solid rgba(0, 255, 0, 0.5);
     color: rgba(0, 255, 0, 0.8);
 }
+
 body.hacker-theme .message.system {
     color: #00ff00;
     background: #000;
@@ -1405,5 +1430,3 @@ body.hacker-theme #user-count {
     border-color: #00ff00;
     color: #00ff00;
 }
-
-

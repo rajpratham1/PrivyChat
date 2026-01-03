@@ -650,21 +650,11 @@ function addFileMessage(data, type) {
         content = `<div class="file-preview" style="min-width: 200px;">
                      <div style="font-size:0.8rem; opacity:0.7; margin-bottom:5px;">${label}</div>
                      <audio id="${audioId}" controls src="${safeSrc}" style="width: 100%; border-radius: 20px;" onerror="console.error('Audio Playback Error', this.error)"></audio>
-                   </div>
-                   <script>
-                       (function() {
-                           const a = document.getElementById('${audioId}');
-                           if(a) {
-                               a.playbackRate = ${rate};
-                               a.preservesPitch = ${pitchPreserve};
-                               a.mozPreservesPitch = ${pitchPreserve};
-                               a.webkitPreservesPitch = ${pitchPreserve};
-                           }
-                       })();
-                   </script>`;
+                   </div>`;
 
-
-
+        // Set properties immediately (sync) or after render
+        // Since we return 'div', we can modify its children before it is attached if we want,
+        // but since we rely on ID lookups or structure, let's do it after innerHTML assignment.
     } else {
         // Default / Fallback
         content = `<div class="file-preview" style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
@@ -677,6 +667,24 @@ function addFileMessage(data, type) {
         div.innerHTML = `<span class="sender">${data.username}</span>${content}`;
     } else {
         div.innerHTML = content;
+    }
+
+    // Apply Audio Effects Programmatically (Fix)
+    if (fileType.startsWith('audio/') && fileType !== 'audio/') {
+        // We can find the audio element within 'div' now
+        const audioElement = div.querySelector('audio');
+        if (audioElement) {
+            // We need to wait for metadata or just set it. 
+            // Rate can be set immediately.
+            audioElement.playbackRate = data.voiceEffect === 'robot' ? 0.85 :
+                data.voiceEffect === 'chipmunk' ? 1.5 :
+                    data.voiceEffect === 'monster' ? 0.6 : 1.0;
+
+            const preserve = data.voiceEffect === 'normal' || !data.voiceEffect;
+            if (audioElement.preservesPitch !== undefined) audioElement.preservesPitch = preserve;
+            if (audioElement.mozPreservesPitch !== undefined) audioElement.mozPreservesPitch = preserve;
+            if (audioElement.webkitPreservesPitch !== undefined) audioElement.webkitPreservesPitch = preserve;
+        }
     }
 
     messagesDiv.appendChild(div);

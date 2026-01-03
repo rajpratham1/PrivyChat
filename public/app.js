@@ -15,6 +15,9 @@ let currentMode = '';
 let currentRoom = '';
 let currentPassword = '';
 let myUsername = '';
+let currentReply = null;
+let currentCryptoKey = null;
+let roomUsers = []; // Track connected users
 
 // Initialize Share Link
 const globalUrlInput = document.getElementById('global-url');
@@ -257,6 +260,7 @@ socket.on('password_required', (room) => {
     if (pass) {
         currentPassword = pass; // Store for reconnects
         socket.emit('join_room', { room, password: pass, username: myUsername, type: 'private' });
+        SoundUtils.playJoin(); // SFX
     } else {
         alert("Password required to join.");
         showLobby();
@@ -339,6 +343,7 @@ socket.on('joined_success', async (data) => {
         }
     } else {
         currentCryptoKey = null; // Clear key if public
+        currentReply = null; // Track reply state
     }
 
     lobby.style.display = 'none';
@@ -349,11 +354,23 @@ socket.on('joined_success', async (data) => {
 });
 
 // Socket Listeners
-socket.on('update_user_count', (count) => {
-    const statusSpan = document.getElementById('user-count');
-    if (statusSpan) {
-        statusSpan.innerText = `👥 ${count} Online`;
+// Update Room State (Count + List)
+socket.on('update_room_state', (data) => {
+    // data: { count: number, users: string[] }
+    const userCount = document.getElementById('user-count');
+    userCount.innerText = `👥 ${data.count} Online`;
+    roomUsers = data.users || [];
+
+    // If modal is open, refresh it live
+    const modal = document.getElementById('user-list-modal');
+    if (modal.classList.contains('active')) {
+        renderUserList();
     }
+});
+
+// Legacy fallback (shouldn't receive this anymore if server updated correctly)
+socket.on('update_user_count', (count) => {
+    document.getElementById('user-count').innerText = `👥 ${count} Online`;
 });
 
 // ... (existing listeners)
@@ -500,12 +517,15 @@ async function sendMessage() {
             encrypted: isEncrypted,
             iv: iv,
             username: myUsername,
+            replyTo: currentReply, // Send reply context
             timestamp: Date.now(),
             destruct: document.getElementById('destruct-timer').value
         });
 
         // Sender sees their own message immediately (Plaintext)
-        addMessage(msgText, 'sent');
+        addMessage(msgText, 'sent', myUsername, currentReply);
+        cancelReply(); // Clear reply state after sending
+        SoundUtils.playSend(); // SFX
 
         input.value = '';
         socket.emit('stop_typing', { room: currentRoom, username: myUsername });
@@ -517,6 +537,7 @@ async function sendMessage() {
 
 // Receive Message Listener with Decryption
 socket.on('receive_message', async (data) => {
+    SoundUtils.playReceive(); // SFX
     const type = data.username === myUsername ? 'sent' : 'received';
 
     // If listening to own message broadcast (rare), ignore or handle. 
@@ -535,7 +556,7 @@ socket.on('receive_message', async (data) => {
         }
     }
 
-    const msgElement = addMessage(displayMsg, type, data.username);
+    const msgElement = addMessage(displayMsg, type, data.username, data.replyTo);
 
     // Handle Self-Destruct
     if (data.destruct && data.destruct > 0) {
@@ -555,19 +576,31 @@ socket.on('receive_message', async (data) => {
     }
 });
 
-function addMessage(text, type, sender) {
+function addMessage(text, type, sender, replyContext = null) {
     const div = document.createElement('div');
     div.classList.add('message', type);
 
+    // Render Reply Quote if exists
+    let quoteHtml = '';
+    if (replyContext) {
+        quoteHtml = `
+        <div class="reply-quote" onclick="highlightMessage('msg-${replyContext.id}')">
+            <span class="quote-user">${replyContext.sender}</span>
+            <span style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${replyContext.text}</span>
+        </div>`;
+    }
+
     // Create the message content wrapper for Ghost Mode targeting
-    // We wrap the text in a span with 'message-content' class
     const contentHtml = `<span class="message-content">${text}</span>`;
 
     if (sender && type !== 'sent') {
-        div.innerHTML = `<span class="sender">${sender}</span>${contentHtml}`;
+        div.innerHTML = `${quoteHtml}<span class="sender">${sender}</span>${contentHtml}`;
     } else {
-        div.innerHTML = contentHtml;
+        div.innerHTML = `${quoteHtml}${contentHtml}`;
     }
+
+    // Attach Swipe Logic
+    attachSwipeHandler(div, text, sender || 'You');
 
     messagesDiv.appendChild(div);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -588,22 +621,47 @@ function addFileMessage(data, type) {
         // Calculate Rate based on Effect
         let rate = 1.0;
         let label = "🎤 Voice Note";
-        // Check if voiceEffect exists safely
+        let pitchPreserve = true;
+
         if (data.voiceEffect === 'robot') {
-            rate = 0.75;
+            rate = 0.85; // Slightly slower
             label = "🤖 Robot Voice";
+            pitchPreserve = false;
         } else if (data.voiceEffect === 'chipmunk') {
-            rate = 1.5;
+            rate = 1.5; // Fast & High Pitch
             label = "🐿️ Chipmunk Voice";
+            pitchPreserve = false;
+        } else if (data.voiceEffect === 'monster') {
+            rate = 0.6; // Slow & Deep Pitch
+            label = "👹 Monster Voice";
+            pitchPreserve = false;
         }
 
         // Generate unique ID for this audio to set rate via JS safely
         const audioId = 'audio-' + Math.random().toString(36).substr(2, 9);
 
+        // Ensure the Data URL has the correct MIME type prefix
+        let safeSrc = data.fileData;
+        if (fileType && safeSrc.startsWith('data:') && safeSrc.includes('base64,')) {
+            const base64Content = safeSrc.split('base64,')[1];
+            safeSrc = `data:${fileType};base64,${base64Content}`;
+        }
+
         content = `<div class="file-preview" style="min-width: 200px;">
                      <div style="font-size:0.8rem; opacity:0.7; margin-bottom:5px;">${label}</div>
-                     <audio id="${audioId}" controls src="${data.fileData}" style="width: 100%; border-radius: 20px;" onerror="console.error('Audio Playback Error', this.error)"></audio>
-                   </div>`;
+                     <audio id="${audioId}" controls src="${safeSrc}" style="width: 100%; border-radius: 20px;" onerror="console.error('Audio Playback Error', this.error)"></audio>
+                   </div>
+                   <script>
+                       (function() {
+                           const a = document.getElementById('${audioId}');
+                           if(a) {
+                               a.playbackRate = ${rate};
+                               a.preservesPitch = ${pitchPreserve};
+                               a.mozPreservesPitch = ${pitchPreserve};
+                               a.webkitPreservesPitch = ${pitchPreserve};
+                           }
+                       })();
+                   </script>`;
 
 
 
@@ -725,6 +783,7 @@ function toggleTheme() {
     document.body.classList.toggle('hacker-theme');
     const isHacker = document.body.classList.contains('hacker-theme');
     showToast(isHacker ? "👨‍💻 Hacker Mode" : "🛡️ Secure Mode", "success");
+    if (isHacker) SoundUtils.playHacker(); // SFX
 }
 
 // --- Voice Notes ---
@@ -734,17 +793,31 @@ let audioChunks = [];
 async function startRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+
+        let selectedType = 'audio/webm'; // Default
+        if (MediaRecorder.isTypeSupported('audio/webm')) {
+            selectedType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+            selectedType = 'audio/ogg';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+            selectedType = 'audio/mp4';
+        }
+
+        console.log("🎤 Initializing Recorder with:", selectedType);
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType: selectedType });
         audioChunks = [];
 
         mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
         };
 
         mediaRecorder.onstop = () => {
-            // Use generic webm which is safer for playback
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            sendVoiceNote(audioBlob);
+            // Just use the simple mime type for the blob
+            const audioBlob = new Blob(audioChunks, { type: selectedType });
+            sendVoiceNote(audioBlob, selectedType);
         };
 
         mediaRecorder.start();
@@ -763,7 +836,7 @@ function stopRecording() {
     }
 }
 
-function sendVoiceNote(blob) {
+function sendVoiceNote(blob, mimeType = 'audio/webm') {
     if (blob.size < 100) return; // Allow shorter clips (was 1000)
 
     // Convert Blob to DataURL (Base64) to send via Socket
@@ -786,9 +859,10 @@ function sendVoiceNote(blob) {
             fileData: fileData,
             encrypted: isEncrypted,
             iv: iv,
-            fileName: "voice-note.webm",
-            fileType: "audio/webm",
-            voiceEffect: 'normal', // Voice effects disabled in v2.1
+            // Strip codecs from fileName extension check if possible, or just default to .webm for safety
+            fileName: "voice-note" + (mimeType.includes('mp4') ? '.m4a' : '.webm'),
+            fileType: mimeType, // Send the clean mime type
+            voiceEffect: document.getElementById('voice-effect').value, // Send selected effect
             timestamp: Date.now(),
             destruct: document.getElementById('destruct-timer').value
         });
@@ -817,6 +891,7 @@ function calcInput(val) {
         display.value = '';
     } else if (val === 'unlock') {
         // Magic Code Check
+
         if (calcExpression === '1337' || display.value === '1337') {
             toggleStealth();
             showToast("🔓 Access Granted", "success");
@@ -920,4 +995,71 @@ function userLoginFlow(room, password, mode) {
 }
 
 
+
+
+/* --- Chat UX Helpers --- */
+function attachSwipeHandler(element, text, sender) {
+    let startX = 0;
+    let currentX = 0;
+    const threshold = 50; // px to trigger
+
+    element.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        element.style.transition = 'none'; // Instant drag
+    }, { passive: true });
+
+    element.addEventListener('touchmove', (e) => {
+        currentX = e.touches[0].clientX;
+        const diff = currentX - startX;
+
+        // Only allow dragging Right
+        if (diff > 0 && diff < 150) {
+            element.style.transform = 'translateX(' + diff + 'px)';
+        }
+    }, { passive: true });
+
+    element.addEventListener('touchend', (e) => {
+        const diff = currentX - startX;
+        element.style.transition = 'transform 0.3s ease';
+        element.style.transform = 'translateX(0)'; // Snap back
+
+        if (diff > threshold) {
+            // Trigger Reply
+            triggerReply(text, sender);
+            // Haptic Feedback
+            if (navigator.vibrate) navigator.vibrate(20);
+        }
+    });
+}
+
+function triggerReply(text, sender) {
+    currentReply = {
+        text: text,
+        sender: sender,
+        id: Date.now() // Simple ID
+    };
+
+    const banner = document.getElementById('reply-banner');
+    const preview = document.getElementById('reply-text-preview');
+    // const userLabel = banner.querySelector('.reply-to-user');
+
+    if (banner && preview) {
+        preview.innerText = text;
+        banner.querySelector('.reply-to-user').innerText = 'Replying to ' + sender;
+        banner.classList.add('active');
+        document.getElementById('msg-input').focus();
+    }
+}
+
+function cancelReply() {
+    currentReply = null;
+    const banner = document.getElementById('reply-banner');
+    if (banner) banner.classList.remove('active');
+}
+
+function highlightMessage(elementId) {
+    // Optional: Scroll to message
+    // Since we don't have stable IDs, we skip for now
+    console.log('Highlight requested for', elementId);
+}
 

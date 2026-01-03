@@ -64,6 +64,13 @@ Security is useless if you are forced to give up your password.
 *   **File Sharing**: Send images and documents. Files are encrypted chunk-by-chunk before upload.
 *   **Self-Destruct**: Set messages to auto-delete (5s, 10s, 30s) after being viewed.
 
+### **🎨 Immersion & UX (v3.3)**
+*   **Voice Masks**: Record voice notes with disguises (Robot, Chipmunk, Monster) to protect your identity.
+*   **Matrix Hacker Theme**: A full visual overhaul with terminal green aesthetics, triggered via the 👨‍💻 button.
+*   **Sound Effects**: Satisfying audio feedback for sending, receiving, and joining rooms (using WebAudio synth, no external assets).
+*   **Interactive User List**: Click the "Online Count" to see exactly who is in the room.
+*   **Swipe-to-Reply**: Drag any message to the right to reply to it instantly.
+
 ---
 
 ## 🏗️ Technical Architecture

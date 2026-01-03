@@ -37,11 +37,14 @@ const rooms = {}; // { roomName: { password: '...', users: [] } }
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
-    // Helper to broadcast user count
-    const broadcastUserCount = (room) => {
+    // Helper to broadcast user count AND list
+    const broadcastRoomUpdate = (room) => {
         if (rooms[room]) {
-            const count = rooms[room].users.length;
-            io.to(room).emit('update_user_count', count);
+            const users = rooms[room].users.map(u => u.username);
+            io.to(room).emit('update_room_state', {
+                count: users.length,
+                users: users
+            });
         }
     };
 
@@ -107,8 +110,8 @@ io.on('connection', (socket) => {
         // Update User List (simplified)
         if (rooms[room]) {
             // Remove if already exists (avoid duplicates if re-joining)
-            rooms[room].users = rooms[room].users.filter(id => id !== socket.id);
-            rooms[room].users.push(socket.id);
+            rooms[room].users = rooms[room].users.filter(u => u.id !== socket.id);
+            rooms[room].users.push({ id: socket.id, username: username });
         }
 
         socket.to(room).emit('system_msg', `${username} has joined the chat`);
@@ -122,7 +125,7 @@ io.on('connection', (socket) => {
             isPrivate: !!(rooms[room] && rooms[room].password)
         });
 
-        broadcastUserCount(room);
+        broadcastRoomUpdate(room);
     });
 
     // Send Message
@@ -147,12 +150,17 @@ io.on('connection', (socket) => {
         io.to(data.room).emit('file_share', data);
     });
 
-    // Leave/Disconnect
     socket.on('disconnecting', () => {
-        const rooms = [...socket.rooms];
-        rooms.forEach((room) => {
-            if (room !== socket.id) {
-                socket.to(room).emit('system_msg', `A user has left`);
+        const roomsToUpdate = [...socket.rooms];
+        roomsToUpdate.forEach((room) => {
+            if (room !== socket.id && rooms[room]) {
+                // Remove user from room state
+                const user = rooms[room].users.find(u => u.id === socket.id);
+                if (user) {
+                    rooms[room].users = rooms[room].users.filter(u => u.id !== socket.id);
+                    socket.to(room).emit('system_msg', `${user.username} has left`);
+                    broadcastRoomUpdate(room);
+                }
             }
         });
     });

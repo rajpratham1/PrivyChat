@@ -9,8 +9,9 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
     <!-- Use CDN for Socket.IO Client (Critical for Vercel/Static deployment) -->
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="crypto-utils.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="crypto-utils.js?v=3.2.2"></script>
+    <script src="sound-utils.js"></script>
 </head>
 
 <body>
@@ -131,6 +132,15 @@
         <div id="typing-indicator"
             style="padding: 0 20px; font-size: 0.8rem; color: #f472b6; height: 20px; font-style: italic;"></div>
 
+        <!-- Reply Banner -->
+        <div id="reply-banner">
+            <div class="reply-content">
+                <span class="reply-to-user">Replying to...</span>
+                <span id="reply-text-preview" style="color: #cbd5e1;">Message content...</span>
+            </div>
+            <button class="reply-close" onclick="cancelReply()">✕</button>
+        </div>
+
         <div class="input-area glass-card">
             <input type="file" id="file-input" hidden>
             <button class="btn" onclick="document.getElementById('file-input').click()"
@@ -139,6 +149,12 @@
                 onmouseleave="stopRecording()"
                 style="padding: 0.8rem 1.2rem; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; margin-right: 10px; background: #ec4899;">🎤</button>
             <input type="text" id="msg-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+            <select id="voice-effect" class="timer-select" title="Voice Mask" style="margin-right: 5px;">
+                <option value="normal">🎙️ Normal</option>
+                <option value="robot">🤖 Robot</option>
+                <option value="chipmunk">🐿️ Chipmunk</option>
+                <option value="monster">👹 Monster</option>
+            </select>
             <select id="destruct-timer" class="timer-select" title="Self-Destruct Timer">
                 <option value="0">⏱️ Off</option>
                 <option value="5000">💣 5s</option>
@@ -182,7 +198,19 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- User List Modal -->
+    <div class="modal-overlay" id="user-list-modal" onclick="if(event.target === this) toggleUserList()">
+        <div class="modal-content">
+            <h2>👥 Online Users</h2>
+            <div id="user-list-container"
+                style="text-align: left; max-height: 300px; overflow-y: auto; margin: 20px 0;">
+                <!-- Users injected here -->
+            </div>
+            <button class="btn delete-btn" style="padding: 0.8rem 2rem;" onclick="toggleUserList()">Close</button>
+        </div>
+    </div>
+
+    <script src="app.js?v=3.3.0"></script>
 </body>
 
 </html>

@@ -397,7 +397,10 @@ body {
     align-items: center;
     /* Center horizontally */
     min-height: 100vh;
-    overflow-y: auto;
+    min-height: 100dvh;
+    /* Mobile Browser Bar Fix */
+    overflow-y: hidden;
+    /* Prevent body scroll, let chat container scroll */
     background: radial-gradient(circle at center, #1e293b, #0f172a);
     overflow-x: hidden;
 }
@@ -1092,7 +1095,9 @@ p {
     .chat-header h3 {
         font-size: 1rem;
     }
-}/* Google Style Buttons */
+}
+
+/* Google Style Buttons */
 .g-btn {
     background-color: #303134;
     border: 1px solid #303134;
@@ -1122,3 +1127,283 @@ p {
     border: 1px solid #4285f4;
     outline: none;
 }
+
+/* --- Mobile Responsive Input --- */
+@media (max-width: 768px) {
+    .input-area {
+        flex-wrap: wrap;
+        padding: 10px !important;
+        gap: 5px;
+        border-radius: 15px;
+    }
+
+    .input-area input[type="text"] {
+        order: 1;
+        width: 100%;
+        min-width: 100%;
+        margin-bottom: 5px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+    }
+
+    .input-area .btn {
+        padding: 8px 12px;
+        font-size: 0.9rem;
+    }
+
+    /* Hide destructive timer label on mobile, just show icon/value if possible or shrink it */
+    .timer-select {
+        width: auto;
+        font-size: 0.8rem;
+    }
+
+    /* Make buttons smaller/icon-only if needed */
+    #mic-btn,
+    .input-area .btn {
+        transform: scale(0.9);
+    }
+}
+
+/* --- Reply System --- */
+/* Reply Banner (Above Input) */
+#reply-banner {
+    position: absolute;
+    bottom: 80px;
+    /* Just above input */
+    left: 20px;
+    right: 20px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-left: 4px solid var(--accent-color);
+    padding: 10px 15px;
+    border-radius: 10px;
+    display: none;
+    /* Hidden by default */
+    justify-content: space-between;
+    align-items: center;
+    z-index: 50;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+#reply-banner.active {
+    display: flex;
+}
+
+.reply-content {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.reply-to-user {
+    color: var(--accent-color);
+    font-weight: bold;
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+}
+
+.reply-close {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 5px;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Quoted Message (In Chat) */
+.reply-quote {
+    background: rgba(0, 0, 0, 0.2);
+    border-left: 3px solid var(--accent-color);
+    padding: 5px 8px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.reply-quote .quote-user {
+    color: var(--accent-color);
+    font-weight: bold;
+    font-size: 0.7rem;
+    display: block;
+}
+
+/* Swipe Interaction Classes */
+.message {
+    transition: transform 0.1s linear;
+    /* Smooth drag */
+    touch-action: pan-y;
+    /* Allow vertical scroll, handle horizontal in JS */
+    position: relative;
+}
+
+.swiping {
+    transition: none;
+    /* Instant follow finger */
+}
+
+/* User List Item */
+.user-list-item {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-list-item:before {
+    content: '';
+    font-size: 1.2rem;
+}
+
+.user-list-item.me {
+    border: 1px solid var(--accent-color);
+}
+
+.user-list-item.me:before {
+    content: '';
+}
+
+/* User Count Button */
+#user-count {
+    cursor: pointer;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    /* Subtle bg */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+}
+
+#user-count:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    border-color: var(--accent-color);
+}
+
+#user-count:active {
+    transform: translateY(0);
+}
+/* --- Immersion Upgrade --- */
+
+/* 1. System Messages (Pill Style) */
+.message.system {
+    color: #cbd5e1;
+    background: rgba(255, 255, 255, 0.08); /* Subtle pill bg */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 50px; /* Fully rounded */
+    padding: 4px 15px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    display: inline-block;
+    align-self: center;
+    margin: 10px 0;
+    backdrop-filter: blur(4px);
+}
+
+/* 2. HACKER MODE OVERRIDES (The Matrix) */
+body.hacker-theme {
+    --bg-color: #000000;
+    --text-color: #00ff00;
+    --accent-color: #00ff00;
+    --glass-bg: #000000;
+    --glass-border: #00ff00;
+    --glass-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+    
+    font-family: 'Courier New', Courier, monospace !important;
+    background: #000 !important;
+}
+
+body.hacker-theme * {
+    font-family: 'Courier New', Courier, monospace !important; /* Force Monospace everywhere */
+    border-radius: 0 !important; /* Sharp edges */
+}
+
+/* Override Glass Cards to be 'Terminal Windows' */
+body.hacker-theme .glass-card, 
+body.hacker-theme .modal-content,
+body.hacker-theme #reply-banner,
+body.hacker-theme .google-footer {
+    background: #000 !important;
+    border: 1px solid #00ff00 !important;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.2) !important;
+    backdrop-filter: none !important;
+}
+
+/* Inputs */
+body.hacker-theme input, 
+body.hacker-theme select {
+    background: #000 !important;
+    color: #00ff00 !important;
+    border: 1px solid #00ff00 !important;
+}
+body.hacker-theme input::placeholder {
+    color: rgba(0, 255, 0, 0.5) !important;
+}
+
+/* Buttons */
+body.hacker-theme .btn, 
+body.hacker-theme .g-btn, 
+body.hacker-theme button {
+    background: #000 !important;
+    color: #00ff00 !important;
+    border: 1px solid #00ff00 !important;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+body.hacker-theme .btn:hover, body.hacker-theme .g-btn:hover {
+    background: #00ff00 !important;
+    color: #000 !important;
+    box-shadow: 0 0 20px #00ff00;
+}
+
+/* Chat Messages */
+body.hacker-theme .message.sent {
+    background: #000;
+    border: 1px solid #00ff00;
+    color: #00ff00;
+}
+body.hacker-theme .message.received {
+    background: #000;
+    border: 1px solid rgba(0, 255, 0, 0.5);
+    color: rgba(0, 255, 0, 0.8);
+}
+body.hacker-theme .message.system {
+    color: #00ff00;
+    background: #000;
+    border: 1px solid #00ff00;
+}
+
+/* User Count */
+body.hacker-theme #user-count {
+    border-color: #00ff00;
+    color: #00ff00;
+}
+
+

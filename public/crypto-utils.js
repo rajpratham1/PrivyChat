@@ -36,11 +36,22 @@ const CryptoUtils = {
             encoded
         );
 
-        // Return as base64 strings so they can be sent via JSON
-        return {
-            iv: btoa(String.fromCharCode(...iv)),
-            data: btoa(String.fromCharCode(...new Uint8Array(ciphertext)))
-        };
+        // SUPER ROBUST: Use FileReader to convert buffer to base64. 
+        // This avoids ANY stack size limits because it happens in C++ land.
+        const blob = new Blob([ciphertext]);
+        const reader = new FileReader();
+
+        return new Promise((resolve, reject) => {
+            reader.onload = () => {
+                const base64Data = reader.result.split(',')[1];
+                resolve({
+                    iv: btoa(String.fromCharCode(...iv)),
+                    data: base64Data
+                });
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
     },
 
     // 3. Decrypt Message

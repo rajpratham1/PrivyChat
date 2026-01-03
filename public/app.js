@@ -1239,6 +1239,7 @@ function createPeerConnection() {
 
 // 6. End Call
 function endCall() {
+    SoundUtils.stopRing(); // Stop ringtone if active
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
@@ -1247,10 +1248,13 @@ function endCall() {
         localStream.getTracks().forEach(track => track.stop());
     }
     videoOverlay.style.display = 'none';
+    incomingModal.style.display = 'none'; // Ensure modal closes
+    incomingCallData = null;
     socket.emit('end_call', { room: currentRoom });
 }
 
 socket.on('end_call', () => {
+    SoundUtils.stopRing(); // Stop ringtone
     if (peerConnection) {
         peerConnection.close();
         peerConnection = null;
@@ -1259,6 +1263,8 @@ socket.on('end_call', () => {
         localStream.getTracks().forEach(track => track.stop());
     }
     videoOverlay.style.display = 'none';
+    incomingModal.style.display = 'none'; // Close modal if open
+    incomingCallData = null;
     showToast('Call Ended', 'info');
 });
 

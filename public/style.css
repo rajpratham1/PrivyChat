@@ -1755,3 +1755,16 @@ body.hacker-theme #user-count {
         animation: pulseText 2s infinite;
     }
 }
+/* --- Fix: Ensure Incoming Call Modal is Always Visible --- */
+#incoming-call-modal {
+    z-index: 9999 !important; /* Force on top of everything */
+    display: none; /* Default hidden */
+    align-items: center;
+    justify-content: center;
+}
+
+#incoming-call-modal[style*='display: flex'] {
+    display: flex !important; /* Force flex when shown */
+}
+
+

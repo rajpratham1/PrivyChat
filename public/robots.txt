@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://privychat.render.com/sitemap.xml

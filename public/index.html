@@ -20,9 +20,26 @@
     <meta property="og:image" content="https://privychat.render.com/logo.png">
     <meta property="og:url" content="https://privychat.render.com">
     <meta property="og:type" content="website">
+
+    <!-- PWA Settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="logo.png">
+
     <link rel="icon" type="image/png" href="logo.png">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+
+    <!-- Register Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SW Registered!', reg.scope))
+                    .catch(err => console.log('SW Failed:', err));
+            });
+        }
+    </script>
     <!-- Use CDN for Socket.IO Client (Critical for Vercel/Static deployment) -->
     <script src="/socket.io/socket.io.js"></script>
     <script src="crypto-utils.js?v=3.2.2"></script>

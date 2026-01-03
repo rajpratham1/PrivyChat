@@ -62,7 +62,10 @@ Security is useless if you are forced to give up your password.
 *   **Private Rooms**: Password-protected named rooms (e.g., "TeamAlpha").
 *   **Voice Notes**: Record encrypted audio clips (`Opus/WebM`).
 *   **File Sharing**: Send images and documents. Files are encrypted chunk-by-chunk before upload.
-*   **Self-Destruct**: Set messages to auto-delete (5s, 10s, 30s) after being viewed.
+### **UI Polish (v5.1.1)**
+-   **Mobile Fit**: Implements `100dvh` to prevent address bar glitches.
+-   **Smooth Scrolling**: Optimized message flow and container overflow.
+-   **Compact Input**: Redesigned input bar for better mobile typing.
 
 ### **Secure Calling (v5.1)**
 -   **Video Calls (WebRTC)**: High-definition, P2P video chat. No server recording.

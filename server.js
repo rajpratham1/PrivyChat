@@ -7,12 +7,29 @@ const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+// Strict CORS Policy
+const allowedOrigins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    process.env.RENDER_EXTERNAL_URL // Dynamic from Render
+].filter(Boolean); // Remove nulls
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
     },
-    maxHttpBufferSize: 1e7 // 10MB Limit (Default is 1MB)
+    methods: ["GET", "POST"]
+};
+
+const io = new Server(server, {
+    cors: corsOptions,
+    maxHttpBufferSize: 1e7 // 10MB Limit
 });
 
 // ...
@@ -39,7 +56,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-app.use(cors()); // TODO: Restrict this in production
+app.use(cors(corsOptions)); // Apply strict CORS to Express too
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
@@ -50,6 +67,9 @@ app.get('/', (req, res) => {
 
 // --- Chat Logic ---
 const rooms = {}; // { roomName: { password: '...', users: [] } }
+
+// Validation Regex
+const SAFE_INPUT_REGEX = /^[a-zA-Z0-9_\- ]{1,30}$/;
 
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -69,9 +89,9 @@ io.on('connection', (socket) => {
     socket.on('join_room', (data) => {
         const { room, password, username, type } = data; // type: '1v1', 'private', 'group'
 
-        // Guard: inputs
-        if (!room || !username) {
-            socket.emit('error_msg', 'Invalid room or username');
+        // 1. Strict Input Validation (Guard)
+        if (!room || !username || !SAFE_INPUT_REGEX.test(room) || !SAFE_INPUT_REGEX.test(username)) {
+            socket.emit('error_msg', '❌ Invalid Input: Use alphanumeric characters only (max 30).');
             return;
         }
 

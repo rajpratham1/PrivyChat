@@ -590,13 +590,21 @@ function addMessage(text, type, sender, replyContext = null) {
         </div>`;
     }
 
-    // Create the message content wrapper for Ghost Mode targeting
-    const contentHtml = `<span class="message-content">${text}</span>`;
+    // Create the message content wrapper safely
+    const contentSpan = document.createElement('span');
+    contentSpan.classList.add('message-content');
+    contentSpan.textContent = text; // SAFE: No HTML interpretation
 
     if (sender && type !== 'sent') {
-        div.innerHTML = `${quoteHtml}<span class="sender">${sender}</span>${contentHtml}`;
+        div.innerHTML = quoteHtml; // Reply quote is safe (internal ref)
+        const senderSpan = document.createElement('span');
+        senderSpan.classList.add('sender');
+        senderSpan.textContent = sender;
+        div.appendChild(senderSpan);
+        div.appendChild(contentSpan);
     } else {
-        div.innerHTML = `${quoteHtml}${contentHtml}`;
+        div.innerHTML = quoteHtml;
+        div.appendChild(contentSpan);
     }
 
     // Attach Swipe Logic

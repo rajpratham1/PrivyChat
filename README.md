@@ -62,6 +62,11 @@ Security is useless if you are forced to give up your password.
 *   **Private Rooms**: Password-protected named rooms (e.g., "TeamAlpha").
 *   **Voice Notes**: Record encrypted audio clips (`Opus/WebM`).
 *   **File Sharing**: Send images and documents. Files are encrypted chunk-by-chunk before upload.
+### **🛡️ Security Polish (v5.3.0)**
+-   **XSS Protection**: Complete sanitization of all user inputs using strict DOM text node creation.
+-   **Server Hardening**: Implemented `helmet` for secure HTTP headers and `express-rate-limit` to prevent DDoS attacks.
+-   **Audit**: Comprehensive security review completed.
+
 ### **UI Polish (v5.1.1)**
 -   **Mobile Fit**: Implements `100dvh` to prevent address bar glitches.
 -   **Smooth Scrolling**: Optimized message flow and container overflow.

@@ -18,11 +18,28 @@ const io = new Server(server, {
 // ...
 
 
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
+// ...
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
+// --- Security Middleware ---
+// 1. Helmet: Protects headers
+app.use(helmet({
+    contentSecurityPolicy: false, // Disabled for now to allow inline scripts/images without headache
+}));
+
+// 2. Rate Limiting: Prevent Brute Force / DoS
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200, // Limit each IP to 200 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+app.use(limiter);
+
+app.use(cors()); // TODO: Restrict this in production
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 

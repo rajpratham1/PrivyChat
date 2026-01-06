@@ -218,7 +218,7 @@ module.exports = app;
 
 // --- Keep-Alive Optimization (User Request) ---
 // Prevents Render free tier from sleeping after 15 mins of inactivity.
-const keepAliveURL = process.env.RENDER_EXTERNAL_URL || \http://localhost:\\;
+const keepAliveURL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
 // 3. Health Check Route
 app.get('/health', (req, res) => {
@@ -226,9 +226,9 @@ app.get('/health', (req, res) => {
 });
 
 if (process.env.RENDER_EXTERNAL_URL) {
-    console.log(' Keep-Alive Activated for:', keepAliveURL);
+    console.log('⚡ Keep-Alive Activated for:', keepAliveURL);
     setInterval(() => {
-        http.get(\\/health\, (resp) => {
+        http.get(`${keepAliveURL}/health`, (resp) => {
             if (resp.statusCode === 200) {
                 // console.log('Keep-Alive Ping: Success'); 
             } else {

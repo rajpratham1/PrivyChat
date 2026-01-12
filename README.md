@@ -243,7 +243,3 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 ---
 
 **Built with ❤️ and Paranoia.**
-
-
----
-created by pratham

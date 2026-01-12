@@ -16,6 +16,5 @@
             "src": "/(.*)",
             "dest": "/server.js"
         }
- "route":serve
     ]
 }

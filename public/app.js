@@ -38,7 +38,7 @@ const infoContent = {
         title: "Advanced Feature Suite",
         body: `
             <div style="font-size: 0.95rem; text-align: left;">
-                <h3 style="color:var(--accent-color); margin-top:0;">ðŸ•µï¸â€â™‚ï¸ Spy & Stealth Tools</h3>
+                <h3 style="color:var(--accent-color); margin-top:0;">Spy & Stealth Tools</h3>
                 <p>PrivyChat is built for the physical world, where privacy is often compromised by prying eyes.</p>
                 <ul style="list-style: none; padding-left: 0;">
                     <li style="margin-bottom: 10px;"><strong> Stealth Mode (Calculator)</strong><br>
@@ -327,15 +327,15 @@ socket.on('joined_success', async (data) => {
             // Verify CryptoUtils
             if (typeof CryptoUtils === 'undefined') {
                 console.error("CryptoUtils is not defined!");
-                addMessage("âŒ Encryption Error: Library missing", 'system');
+                addMessage("Encryption Error: Library missing", 'system');
             } else {
-                addMessage("ðŸ”’ Securing Encryption Keys...", 'system');
+                addMessage("🔒 Securing Encryption Keys...", 'system');
                 currentCryptoKey = await CryptoUtils.deriveKey(currentPassword, currentRoom);
-                addMessage("ðŸ” End-to-End Encryption Enabled", 'system');
+                addMessage("🔐 End-to-End Encryption Enabled", 'system');
             }
         } catch (e) {
             console.error("Encryption Setup Error:", e);
-            addMessage("âŒ Encryption Setup Failed", 'system');
+            addMessage("Encryption Setup Failed", 'system');
         }
     } else {
         currentCryptoKey = null; // Clear key if public
@@ -406,7 +406,7 @@ socket.on('file_share', async (data) => {
                 data.fileData = null;
             }
         } else {
-            data.fileName = "ðŸ”’ Encrypted File";
+            data.fileName = "Encrypted File";
             data.fileData = null; // Cannot view
         }
     }
@@ -444,7 +444,7 @@ const fileInput = document.getElementById('file-input');
 const uploadBtn = document.querySelector('.input-area button'); // The paperclip button
 
 fileInput.addEventListener('change', (e) => {
-    console.log("ðŸ“‚ File Selected");
+    console.log("📂 File Selected");
     const file = e.target.files[0];
     if (file) {
         if (file.size > 5 * 1024 * 1024) {
@@ -452,34 +452,34 @@ fileInput.addEventListener('change', (e) => {
             return;
         }
 
-        uploadBtn.innerText = "â³";
+        uploadBtn.innerText = "⏳";
         uploadBtn.disabled = true;
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
-            console.log("ðŸ“‚ File Read Complete");
+            console.log("📂 File Read Complete");
             let fileData = evt.target.result;
             let isEncrypted = false;
             let iv = null;
 
             if (currentCryptoKey) {
-                console.log("ðŸ”’ Encrypting File...");
+                console.log("🔒 Encrypting File...");
                 try {
                     const encrypted = await CryptoUtils.encrypt(fileData, currentCryptoKey);
                     fileData = encrypted.data;
                     iv = encrypted.iv;
                     isEncrypted = true;
-                    console.log("ðŸ”’ Encryption Success");
+                    console.log("🔐 Encryption Success");
                 } catch (err) {
-                    console.error("âŒ Encryption Failed:", err);
+                    console.error("Encryption Failed:", err);
                     alert("Encryption Failed!");
-                    uploadBtn.innerText = "ðŸ“Ž";
+                    uploadBtn.innerText = "📂";
                     uploadBtn.disabled = false;
                     return;
                 }
             }
 
-            console.log("ðŸ“¡ Emitting file_share event");
+            console.log("📡 Emitting file_share event");
             socket.emit('file_share', {
                 room: currentRoom,
                 username: myUsername,
@@ -491,7 +491,7 @@ fileInput.addEventListener('change', (e) => {
                 timestamp: Date.now()
             });
 
-            uploadBtn.innerText = "ðŸ“Ž";
+            uploadBtn.innerText = "📂";
             uploadBtn.disabled = false;
         };
         reader.readAsDataURL(file);
@@ -712,7 +712,7 @@ function addFileMessage(data, type) {
     } else {
         // Default / Fallback
         content = `<div class="file-preview" style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
-                     ðŸ“„ ${data.fileName || 'Unknown File'} <br>
+                     📄 ${data.fileName || 'Unknown File'} <br>
                      <a href="${data.fileData}" download="${data.fileName || 'file'}" style="color: #fbcfe8; text-decoration: underline;">Download</a>
                    </div>`;
     }
@@ -754,7 +754,7 @@ function copyLink() {
     // Visual feedback
     const btn = document.querySelector('#generated-link button');
     const originalText = btn.innerText;
-    btn.innerText = "âœ… Copied!";
+    btn.innerText = "✔️ Copied!";
     setTimeout(() => {
         btn.innerText = originalText;
     }, 2000);
@@ -764,14 +764,14 @@ function copyLink() {
 window.addEventListener('blur', () => {
     if (currentRoom) {
         document.body.style.filter = 'blur(10px)';
-        document.title = "ðŸ”’ Privacy Mode";
+        document.title = "🔒 Privacy Mode";
     }
 });
 
 window.addEventListener('focus', () => {
     if (currentRoom) {
         document.body.style.filter = 'none';
-        document.title = "ðŸ›¡ï¸ PrivyChat";
+        document.title = "🔐 PrivyChat";
     }
 });
 
@@ -825,10 +825,10 @@ function toggleGhostMode() {
     // Toggle Icon
     const btn = document.querySelector('.chat-header .btn-icon');
     if (messages.classList.contains('ghost-active')) {
-        btn.innerText = 'ðŸ‘»'; // Active
+        btn.innerText = '👁️‍🗨️'; // Active
         showToast("Ghost Mode ON: Messages Blurred", "info");
     } else {
-        btn.innerText = 'ðŸ‘ï¸'; // Inactive
+        btn.innerText = '👁️'; // Inactive
         showToast("Ghost Mode OFF", "info");
     }
 }
@@ -836,7 +836,7 @@ function toggleGhostMode() {
 function toggleTheme() {
     document.body.classList.toggle('hacker-theme');
     const isHacker = document.body.classList.contains('hacker-theme');
-    showToast(isHacker ? "ðŸ‘¨â€ðŸ’» Hacker Mode" : "ðŸ›¡ï¸ Secure Mode", "success");
+    showToast(isHacker ? "👨‍💻 Hacker Mode" : "🔐 Secure Mode", "success");
     if (isHacker) SoundUtils.playHacker(); // SFX
 }
 
@@ -857,7 +857,7 @@ async function startRecording() {
             selectedType = 'audio/mp4';
         }
 
-        console.log("ðŸŽ¤ Initializing Recorder with:", selectedType);
+        console.log("🎤 Initializing Recorder with:", selectedType);
 
         mediaRecorder = new MediaRecorder(stream, { mimeType: selectedType });
         audioChunks = [];
@@ -875,7 +875,7 @@ async function startRecording() {
         };
 
         mediaRecorder.start();
-        document.getElementById('mic-btn').innerText = "ðŸ”´"; // Visual Feedback
+        document.getElementById('mic-btn').innerText = "🎙️"; // Visual Feedback
         showToast("Recording...", "info");
     } catch (err) {
         console.error("Mic Error:", err);
@@ -886,7 +886,7 @@ async function startRecording() {
 function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
-        document.getElementById('mic-btn').innerText = "ðŸŽ¤";
+        document.getElementById('mic-btn').innerText = "🎤";
     }
 }
 
@@ -930,7 +930,7 @@ function toggleStealth() {
     const overlay = document.getElementById('stealth-calculator');
     const isHidden = overlay.style.display === 'none';
     overlay.style.display = isHidden ? 'flex' : 'none';
-    document.title = isHidden ? "Calculator" : "ðŸ›¡ï¸ PrivyChat";
+    document.title = isHidden ? "Calculator" : "PrivyChat";
     if (isHidden) {
         calcExpression = '';
         document.getElementById('calc-display').value = '';
@@ -948,7 +948,7 @@ function calcInput(val) {
 
         if (calcExpression === '1337' || display.value === '1337') {
             toggleStealth();
-            showToast("ðŸ”“ Access Granted", "success");
+            showToast("🔓 Access Granted", "success");
         } else {
             // Perform actual math to fake it
             try {
@@ -997,7 +997,7 @@ function googleJoin() {
     // --- DECOY VAULT LOGIC ---
     const lowerVal = val.toLowerCase();
     if (lowerVal === 'weather' || lowerVal === 'guest' || lowerVal === 'aether' || lowerVal === '1234') {
-        showToast("â˜ï¸ Loading Weather Data...", "info");
+        showToast("Loading Weather Data...", "info");
         setTimeout(() => {
             window.location.replace("https://rajpratham1.github.io/Aether-Tools/");
         }, 1000);
@@ -1009,7 +1009,7 @@ function googleJoin() {
 }
 
 function startGoogleMic() {
-    showToast("ðŸŽ¤ Listening... (Just kidding, typing only!)", "info");
+    showToast("🎤 Listening... (Just kidding, typing only!)", "info");
 }
 
 function google1v1() {
@@ -1018,7 +1018,7 @@ function google1v1() {
     console.log('Creating 1v1 room:', roomUUID);
     // Auto-join this new 1v1 room
     userLoginFlow(roomUUID, null, '1v1');
-    showToast("ðŸŽ² Generating Secure 1v1 Link...", "success");
+    showToast("🎲 Generating Secure 1v1 Link...", "success");
 }
 
 function googleCreate() {
@@ -1135,23 +1135,23 @@ function createPrivateRoom() {
     console.log('Create room called:', { roomName, roomPassword });
     
     if (!roomName) {
-        showToast('âŒ Please enter a room name', 'error');
+        showToast('Please enter a room name', 'error');
         return;
     }
     
     if (!roomPassword) {
-        showToast('âŒ Please enter a room password', 'error');
+        showToast('Please enter a room password', 'error');
         return;
     }
     
     if (roomName.length > 30) {
-        showToast('âŒ Room name too long (max 30 characters)', 'error');
+        showToast('Room name too long (max 30 characters)', 'error');
         return;
     }
     
     // Validate room name with the same regex as server
     if (!/^[a-zA-Z0-9_\- ]{1,30}$/.test(roomName)) {
-        showToast('âŒ Invalid characters in room name', 'error');
+        showToast('Invalid characters in room name', 'error');
         return;
     }
     
@@ -1240,7 +1240,7 @@ function submitPasswordModal() {
     const password = input.value.trim();
     
     if (!password) {
-        showToast('âŒ Please enter password', 'error');
+        showToast('Please enter password', 'error');
         return;
     }
     
@@ -1606,10 +1606,10 @@ async function startCall(type = 'video') {
         videoOverlay.style.display = 'flex'; // Show UI
         if (type === 'voice') {
             document.getElementById('remote-video').style.display = 'none'; // Hide big video area
-            callStatus.innerText = "ðŸ“ž Calling...";
+            callStatus.innerText = "Calling...";
         } else {
             document.getElementById('remote-video').style.display = 'block';
-            callStatus.innerText = "ðŸŽ¥ Calling...";
+            callStatus.innerText = "Calling...";
         }
 
         peerConnection = createPeerConnection();
@@ -1622,7 +1622,7 @@ async function startCall(type = 'video') {
 
         // Send Offer
         socket.emit('call_user', { room: currentRoom, offer: offer, callType: type });
-        callStatus.innerText = "ðŸ”” Ringing..."; // Update status after send
+        callStatus.innerText = "Ringing..."; // Update status after send
         showToast('Calling...', 'info');
     } catch (err) {
         console.error('Call Error:', err);
@@ -1635,7 +1635,7 @@ socket.on('call_user', (data) => {
     // data: { offer, socketId, callType }
     incomingCallData = data;
     const modalTitle = document.querySelector('#incoming-call-modal h2');
-    modalTitle.innerText = data.callType === 'voice' ? 'ðŸ“ž Incoming Voice Call...' : 'ðŸŽ¥ Incoming Video Call...';
+    modalTitle.innerText = data.callType === 'voice' ? 'Incoming Voice Call...' : 'Incoming Video Call...';
 
     incomingModal.style.display = 'flex';
     SoundUtils.playRing(); // Start Ringing!
@@ -1647,7 +1647,7 @@ async function acceptCall() {
     incomingModal.style.display = 'none';
     try {
         const type = incomingCallData.callType || 'video';
-        callStatus.innerText = "ðŸ”„ Connecting..."; // Initial output
+        callStatus.innerText = "Connecting..."; // Initial output
 
         const constraints = type === 'voice' ? { video: false, audio: true } : { video: true, audio: true };
 
@@ -1723,10 +1723,10 @@ function createPeerConnection() {
         const state = pc.iceConnectionState;
         console.log("ICE State:", state);
         if (state === 'disconnected') {
-            callStatus.innerText = "âš ï¸ Reconnecting...";
+            callStatus.innerText = "Reconnecting...";
             // showToast("Call Reconnecting...", "info");
         } else if (state === 'failed') {
-            callStatus.innerText = "âŒ Call Failed";
+            callStatus.innerText = "Call Failed";
             endCall();
         } else if (state === 'connected') {
             callStatus.innerText = ""; // Clear status when live

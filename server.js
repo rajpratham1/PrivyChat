@@ -4,6 +4,10 @@ const { Server } = require("socket.io");
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const Joi = require('joi');
+const bcrypt = require('bcrypt');
 
 const app = express();
 const server = http.createServer(app);
@@ -35,21 +39,29 @@ const io = new Server(server, {
 // ...
 
 
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 
-// ...
 const PORT = process.env.PORT || 3001;
 
 // --- Security Middleware ---
 // 1. Helmet: Protects headers
 app.use(helmet({
-    contentSecurityPolicy: false, // Disabled for now to allow inline scripts/images without headache
+    contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+            "default-src": ["'self'"],
+            "script-src": ["'self'", "https://trusted.cdn.com"],
+            "script-src-attr": ["'none'"],
+            "style-src": ["'self'", "'unsafe-inline'", "https://trusted.cdn.com", "https://fonts.googleapis.com"],
+            "font-src": ["'self'", "https://fonts.gstatic.com"],
+            "img-src": ["'self'", "data:", "https://trusted.cdn.com"],
+            "connect-src": ["'self'", "https://api.trusted.com"],
+        },
+    },
 }));
 
 // 2. Rate Limiting: Prevent Brute Force / DoS
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 2 * 60 * 1000, // 2 minutes
     max: 200, // Limit each IP to 200 requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
@@ -71,6 +83,14 @@ const rooms = {}; // { roomName: { password: '...', users: [] } }
 // Validation Regex
 const SAFE_INPUT_REGEX = /^[a-zA-Z0-9_\- ]{1,30}$/;
 
+// Validation Schema
+const roomSchema = Joi.object({
+    room: Joi.string().pattern(/^[a-zA-Z0-9_\- ]{1,30}$/).required(),
+    username: Joi.string().pattern(/^[a-zA-Z0-9_\- ]{1,30}$/).required(),
+    password: Joi.string().allow(null, '').optional(),
+    type: Joi.string().valid('1v1', 'private', 'group').required(),
+});
+
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
 
@@ -86,14 +106,14 @@ io.on('connection', (socket) => {
     };
 
     // Join Room
-    socket.on('join_room', (data) => {
-        const { room, password, username, type } = data; // type: '1v1', 'private', 'group'
-
-        // 1. Strict Input Validation (Guard)
-        if (!room || !username || !SAFE_INPUT_REGEX.test(room) || !SAFE_INPUT_REGEX.test(username)) {
-            socket.emit('error_msg', '❌ Invalid Input: Use alphanumeric characters only (max 30).');
+    socket.on('join_room', async (data) => {
+        const { error, value } = roomSchema.validate(data);
+        if (error) {
+            socket.emit('error_msg', `❌ Invalid Input: ${error.details[0].message}`);
             return;
         }
+
+        const { room, password, username, type } = value;
 
         const existingRoom = rooms[room];
 
@@ -109,7 +129,8 @@ io.on('connection', (socket) => {
             // --- EXISTING ROOM ---
             if (existingRoom.password) {
                 // Private Room Logic
-                if (existingRoom.password !== password) {
+                const isPasswordValid = await bcrypt.compare(password || '', existingRoom.password);
+                if (!isPasswordValid) {
                     if (!password) {
                         // 1. Ask for password if missing
                         socket.emit('password_required', room);
@@ -127,11 +148,11 @@ io.on('connection', (socket) => {
                 // Creating PRIVATE room
                 if (!password) {
                     // If trying to create/join private without password, ask for it.
-                    // This handles the case where user joins via link mode=private but server restarted.
                     socket.emit('password_required', room);
                     return;
                 }
-                rooms[room] = { password, users: [], type: 'private' };
+                const hashedPassword = await bcrypt.hash(password, 10);
+                rooms[room] = { password: hashedPassword, users: [], type: 'private' };
             } else if (type === '1v1') {
                 // Creating 1v1 room
                 rooms[room] = { password: null, users: [], type: '1v1' };
@@ -257,7 +278,18 @@ if (process.env.RENDER_EXTERNAL_URL) {
         }).on('error', (err) => {
             console.error('Keep-Alive Error:', err.message);
         });
-    }, 14 * 60 * 1000); // Ping every 14 minutes
+    }, 2 * 60 * 1000); // Ping every 2 minutes
 }
+
+// Centralized Error Handling Middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack); // Log the error stack for debugging
+
+    res.status(err.status || 500).json({
+        error: {
+            message: err.message || 'Internal Server Error',
+        },
+    });
+});
 
 

@@ -3,20 +3,20 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>PrivyChat - Secure & Ephemeral Spy Messenger</title>
+    
     <!-- Google Site Verification -->
     <meta name="google-site-verification" content="rj4B0ZyeR3GAOLlJIlLMnVgJeJXm-yil0V5uUsSzXMQ" />
+    
     <!-- SEO Meta Tags -->
-    <meta name="description"
-        content="PrivyChat is an ultra-secure, ephemeral messaging app designed for privacy. Features end-to-end encryption, self-destructing messages, voice masks, and a RAM-only zero-knowledge server.">
-    <meta name="keywords"
-        content="secure chat, ephemeral messaging, privacy app, end-to-end encryption, spy messenger, self-destruct, voice mask, anonymous chat">
+    <meta name="description" content="PrivyChat is an ultra-secure, ephemeral messaging app designed for privacy. Features end-to-end encryption, self-destructing messages, voice masks, and a RAM-only zero-knowledge server.">
+    <meta name="keywords" content="secure chat, ephemeral messaging, privacy app, end-to-end encryption, spy messenger, self-destruct, voice mask, anonymous chat">
     <meta name="author" content="PrivyChat Team">
+    
     <!-- Open Graph / Social -->
     <meta property="og:title" content="PrivyChat - The Zero-Trace Spy Messenger">
-    <meta property="og:description"
-        content="Chat securely with military-grade encryption, voice disguises, and instant self-destruction. No logs, no trace.">
+    <meta property="og:description" content="Chat securely with military-grade encryption, voice disguises, and instant self-destruction. No logs, no trace.">
     <meta property="og:image" content="https://privychat.render.com/logo.png">
     <meta property="og:url" content="https://privychat.render.com">
     <meta property="og:type" content="website">
@@ -25,24 +25,15 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0f172a">
     <link rel="apple-touch-icon" href="logo.png">
-
     <link rel="icon" type="image/png" href="logo.png">
+    
+    <!-- Styles & Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&family=Product+Sans:wght@400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
 
-    <!-- Register Service Worker -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(reg => console.log('SW Registered!', reg.scope))
-                    .catch(err => console.log('SW Failed:', err));
-            });
-        }
-    </script>
-    <!-- Use CDN for Socket.IO Client (Critical for Vercel/Static deployment) -->
+    <!-- Scripts -->
     <script src="/socket.io/socket.io.js"></script>
-    <script src="crypto-utils.js?v=3.2.2"></script>
+    <script src="crypto-utils.js"></script>
     <script src="sound-utils.js"></script>
 </head>
 
@@ -52,208 +43,226 @@
     <div id="lobby">
         <!-- Top Right Tools -->
         <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 15px; z-index: 100;">
-            <a href="manual.html" target="_blank" title="Manual"
-                style="color:white; text-decoration:none; display:flex; align-items:center;">📘</a>
-            <button class="btn-icon" onclick="toggleStealth()" title="Calculator (Stealth)">🎭</button>
-            <button class="btn-icon" onclick="toggleTheme()" title="Hacker Mode">👨‍💻</button>
-            <button class="btn-panic" onclick="panicMode()" title="Panic Button">�</button>
+            <a href="manual.html" target="_blank" title="Manual" class="btn-icon" style="text-decoration:none;">📘</a>
+            <button class="btn-icon" id="stealth-btn" title="Calculator (Stealth)">🎭</button>
+            <button class="btn-icon" id="theme-btn" title="Hacker Mode">👨‍💻</button>
+            <button class="btn-panic" id="panic-btn" title="Panic Button">⚠️</button>
         </div>
 
         <div class="google-container">
             <!-- Logo -->
             <h1 class="google-logo">
-                <span style="color:#4285F4">P</span><span style="color:#EA4335">r</span><span
-                    style="color:#FBBC05">i</span><span style="color:#4285F4">v</span><span
-                    style="color:#34A853">y</span><span style="color:#EA4335">C</span><span
-                    style="color:#4285F4">h</span><span style="color:#FBBC05">a</span><span
-                    style="color:#34A853">t</span>
+                <span style="color:var(--g-blue)">P</span><span style="color:var(--g-red)">r</span><span
+                    style="color:var(--g-yellow)">i</span><span style="color:var(--g-blue)">v</span><span
+                    style="color:var(--g-green)">y</span><span style="color:var(--g-red)">C</span><span
+                    style="color:var(--g-blue)">h</span><span style="color:var(--g-yellow)">a</span><span
+                    style="color:var(--g-green)">t</span>
             </h1>
 
             <!-- Search Bar Area -->
             <div class="search-bar-wrapper">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="google-input" class="google-input"
-                    placeholder="Enter Room Name (or leave empty for Public Lobby)"
-                    onkeypress="handleGoogleEnter(event)">
-                <span class="mic-icon" onclick="startGoogleMic()"
-                    title="Voice Search (Just kidding, it's a demo)">�</span>
+                    placeholder="Enter Room Name (or leave blank for Public Lobby)">
+                <span class="mic-icon" id="mic-btn-google" title="Start Dictation">🎙️</span>
             </div>
 
             <!-- Buttons -->
-            <button class="g-btn" onclick="googleJoin()">Join / Public</button>
-            <button class="g-btn" onclick="googleCreate()">Create Private</button>
-            <button class="g-btn" onclick="google1v1()">I'm Feeling Lucky (1v1)</button>
+            <div class="google-buttons">
+                <button class="g-btn" id="google-join-btn">Join / Public Space</button>
+                <button class="g-btn" id="google-create-btn">Create Private Relay</button>
+                <button class="g-btn" id="google-1v1-btn">I'm Feeling Lucky (1v1)</button>
+            </div>
         </div>
 
-        <div style="margin-top:20px; color:#9aa0a6; font-size:0.9rem;">
-            Protected by <span style="color:#34A853">AES-GCM</span> encryption. 100% Client-Side.
+        <div style="margin-top:20px; color:var(--text-secondary); font-size:0.9rem; z-index: 10;">
+            Protected by <span style="color:var(--g-green)">AES-GCM</span> encryption. Zero-Knowledge.
         </div>
+
         <footer class="google-footer">
             <div class="footer-row top">
-                <a href="javascript:void(0)" onclick="openInfo('location')"
-                    style="color:#9aa0a6; text-decoration:none; cursor:pointer;">India</a>
+                <a href="javascript:void(0)" id="location-link">Secure Node: Asia-Pacific</a>
             </div>
             <div class="footer-row bottom">
-                <div class="left">
-                    <a href="javascript:void(0)" onclick="openInfo('about')">About</a>
-                    <a href="javascript:void(0)" onclick="openInfo('feature')">Features</a>
-                    <a href="javascript:void(0)" onclick="openInfo('security')">Security</a>
+                <div class="left footer-links">
+                    <a href="javascript:void(0)" id="about-link">About</a>
+                    <a href="javascript:void(0)" id="feature-link">Features</a>
+                    <a href="javascript:void(0)" id="security-link">Security</a>
                 </div>
-                <div class="right">
-                    <a href="javascript:void(0)" onclick="openInfo('privacy')">Privacy</a>
-                    <a href="javascript:void(0)" onclick="openInfo('terms')">Terms</a>
-                    <a href="manual.html" target="_blank">User Manual</a>
+                <div class="right footer-links">
+                    <a href="javascript:void(0)" id="privacy-link">Privacy</a>
+                    <a href="javascript:void(0)" id="terms-link">Terms</a>
+                    <a href="manual.html" target="_blank">Manual</a>
                 </div>
             </div>
         </footer>
     </div>
-
     <!-- End Lobby -->
 
-    <!-- Stealth Calculator Overlay (Preserved) -->
-    <div id="stealth-calculator"
-        style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:#202124; z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
-        <div class="calc-body"
-            style="background:#303134; padding:20px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
-            <input type="text" id="calc-display" readonly
-                style="width:100%; border:none; background:#3c4043; color:white; font-size:2rem; padding:15px; margin-bottom:15px; text-align:right; border-radius:10px;">
-            <div class="calc-grid" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px;">
-                <button class="btn-calc" onclick="calcInput('7')">7</button> <button class="btn-calc"
-                    onClick="calcInput('8')">8</button> <button class="btn-calc" onclick="calcInput('9')">9</button>
-                <button class="btn-calc op" onclick="calcInput('/')">÷</button>
-                <button class="btn-calc" onclick="calcInput('4')">4</button> <button class="btn-calc"
-                    onClick="calcInput('5')">5</button> <button class="btn-calc" onclick="calcInput('6')">6</button>
-                <button class="btn-calc op" onclick="calcInput('*')">×</button>
-                <button class="btn-calc" onclick="calcInput('1')">1</button> <button class="btn-calc"
-                    onClick="calcInput('2')">2</button> <button class="btn-calc" onclick="calcInput('3')">3</button>
-                <button class="btn-calc op" onclick="calcInput('-')">-</button>
-                <button class="btn-calc" onclick="calcInput('C')" style="background:#EA4335;">C</button> <button
-                    class="btn-calc" onClick="calcInput('0')">0</button> <button class="btn-calc"
-                    onclick="calcInput('unlock')" style="background:#34A853;">=</button> <button class="btn-calc op"
-                    onclick="calcInput('+')">+</button>
-            </div>
-            <p style="text-align:center; color:#9aa0a6; font-size:0.9rem; margin-top:15px; font-family: monospace;">
-                🔒 Code: <strong>1337</strong> + <span style="color:#34A853;"><strong>=</strong></span>
-            </p>
-        </div>
-    </div>
-
     <!-- Chat Room Section -->
-    <div class="chat-container" id="chat-room" style="display: none;">
-        <div class="chat-header glass-card">
-            <h3 id="current-room" style="display:flex; align-items:center; gap:10px;">
-                Room: General
-            </h3>
+    <!-- Removed 'hidden' class and used inline style to prevent !important override issues with JS -->
+    <div class="chat-container fade-in" id="chat-room" style="display: none;">
+        <div class="chat-header glass-card" style="border-radius: 0; padding: 1rem;">
+            <div class="chat-room-info">
+                <h3 id="current-room">Room: General</h3>
+            </div>
+            
             <div style="display:flex; align-items:center; gap:10px;">
-                <button class="btn-icon" onclick="toggleGhostMode()" title="👻 Ghost Mode (Blur Messages)"
-                    style="font-size:1.2rem;">👁️</button>
-                <button class="btn-icon" onclick="startCall('voice')" title="📞 Voice Call"
-                    style="font-size:1.2rem;">📞</button>
-                <button class="btn-icon" onclick="startCall('video')" title="🎥 Video Call"
-                    style="font-size:1.2rem;">🎥</button>
-                <span id="user-count" onclick="toggleUserList()"
-                    style="font-size: 0.8rem; opacity: 0.8; margin-right: 5px;">👥 0 Online</span>
-                <span id="connection-status"
-                    style="width: 12px; height: 12px; background: #ef4444; border-radius: 50%; display: inline-block;"
-                    title="Connecting..."></span>
-                <button class="btn delete-btn" onclick="leaveChat()"
-                    style="padding: 0.5rem 1rem; font-size: 0.8rem;">Leave</button>
+                <button class="btn-icon" id="ghost-mode-btn" title="Ghost Mode (Blur Messages)">👻</button>
+                <button class="btn-icon" id="voice-call-btn" title="Voice Call">📞</button>
+                <button class="btn-icon" id="video-call-btn" title="Video Call">🎥</button>
+                
+                <!-- Fixed Structure for JS Compatibility -->
+                <span id="user-count" title="View Users" style="cursor: pointer; background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 20px; font-size: 0.85rem;">👥 0 Online</span>
+                <span id="connection-status" title="Connecting..." style="width: 10px; height: 10px; background: #ef4444; border-radius: 50%; display: inline-block;"></span>
+
+                <button class="btn delete-btn" id="leave-chat-btn" style="padding: 0.5rem 1rem; height: 36px; font-size: 0.85rem;">Exit</button>
             </div>
         </div>
 
         <div class="messages" id="messages">
-            <!-- Messages will appear here -->
-            <div class="message system">Welcome to the secure chat.</div>
+            <div class="message system">Initializing secure session keys...</div>
+            <div class="message system">Welcome to PrivyChat. Messages are ephemeral.</div>
         </div>
 
-        <div id="typing-indicator"
-            style="padding: 0 20px; font-size: 0.8rem; color: #f472b6; height: 20px; font-style: italic;"></div>
+        <div id="typing-indicator" style="padding: 0 20px; font-size: 0.8rem; color: var(--pink-accent); min-height: 20px; font-style: italic;"></div>
 
         <!-- Reply Banner -->
         <div id="reply-banner">
             <div class="reply-content">
-                <span class="reply-to-user">Replying to...</span>
-                <span id="reply-text-preview" style="color: #cbd5e1;">Message content...</span>
+                <span class="reply-to-user">Replying...</span>
+                <span id="reply-text-preview" style="color: var(--text-secondary);">...</span>
             </div>
-            <button class="reply-close" onclick="cancelReply()">✕</button>
+            <button class="reply-close" id="cancel-reply-btn">✕</button>
         </div>
 
-        <div class="input-area glass-card">
+        <div class="input-area">
             <input type="file" id="file-input" hidden>
-            <button class="btn btn-attach" onclick="document.getElementById('file-input').click()">📎</button>
-            <button class="btn btn-mic" id="mic-btn" onmousedown="startRecording()" onmouseup="stopRecording()"
-                onmouseleave="stopRecording()">🎤</button>
-            <input type="text" id="msg-input" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
-            <select id="voice-effect" class="timer-select" title="Voice Mask" style="margin-right: 5px;">
-                <option value="normal" title="Normal">🎙️</option>
-                <option value="robot" title="Robot">🤖</option>
-                <option value="chipmunk" title="Chipmunk">🐿️</option>
-                <option value="monster" title="Monster">👹</option>
+            
+            <button class="btn-attach" id="attach-btn" title="Send File">📎</button>
+            <button class="btn-mic" id="mic-btn" title="Record Voice Note">🎤</button>
+            
+            <input type="text" id="msg-input" placeholder="Type a message..." autocomplete="off">
+            
+            <select id="voice-effect" class="timer-select" title="Voice Mask">
+                <option value="normal">Normal</option>
+                <option value="robot">🤖 Robot</option>
+                <option value="chipmunk">🐿️ High</option>
+                <option value="monster">👹 Low</option>
             </select>
+            
             <select id="destruct-timer" class="timer-select" title="Self-Destruct Timer">
-                <option value="0" title="Timer Off">⏱️</option>
+                <option value="0">Off</option>
                 <option value="5000">💣 5s</option>
                 <option value="10000">💣 10s</option>
                 <option value="30000">💣 30s</option>
             </select>
-            <button class="btn" onclick="sendMessage()">Send</button>
+            
+            <button class="btn" id="send-btn" title="Send">Send</button>
         </div>
     </div>
 
-    <!-- Background Elements -->
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
+    <!-- Features: Stealth Calculator -->
+    <div id="stealth-calculator" class="modal-overlay" style="display:none; background:#202124;">
+        <div class="calc-body">
+            <input type="text" id="calc-display" readonly style="width:100%; border:none; background:#3c4043; color:white; font-size:2rem; padding:15px; margin-bottom:15px; text-align:right; border-radius:8px;">
+            <div class="calc-grid">
+                <button class="btn-calc" data-input="7">7</button> 
+                <button class="btn-calc" data-input="8">8</button> 
+                <button class="btn-calc" data-input="9">9</button>
+                <button class="btn-calc op" data-input="/">÷</button>
+                
+                <button class="btn-calc" data-input="4">4</button> 
+                <button class="btn-calc" data-input="5">5</button> 
+                <button class="btn-calc" data-input="6">6</button>
+                <button class="btn-calc op" data-input="*">×</button>
+                
+                <button class="btn-calc" data-input="1">1</button> 
+                <button class="btn-calc" data-input="2">2</button> 
+                <button class="btn-calc" data-input="3">3</button>
+                <button class="btn-calc op" data-input="-">-</button>
+                
+                <button class="btn-calc" data-input="C" style="background:var(--g-red);">C</button> 
+                <button class="btn-calc" data-input="0">0</button> 
+                <button class="btn-calc" data-input="unlock" style="background:var(--g-green);">=</button> 
+                <button class="btn-calc op" data-input="+">+</button>
+            </div>
+            <p style="text-align:center; color:#9aa0a6; font-size:0.9rem; margin-top:15px; font-family: monospace;">
+                Access Code: <strong>1337</strong> + <span style="color:var(--g-green);"><strong>=</strong></span>
+            </p>
+        </div>
+    </div>
 
-    <!-- UI Overlays -->
-    <div class="toast-container" id="toast-container"></div>
-
-    <div class="modal-overlay" id="password-modal">
+    <!-- Modals -->
+    <!-- Room Creation -->
+    <div class="modal-overlay" id="room-creation-modal" style="display: none;">
         <div class="modal-content">
-            <h2>🔒 Password Required</h2>
-            <p>This room is private. Please enter the access code.</p>
-            <input type="password" id="modal-pass-input" class="input-field" placeholder="Enter Password..."
-                onkeypress="handleModalKey(event)">
-            <div style="margin-top: 1.5rem; display: flex; gap: 10px; justify-content: center;">
-                <button class="btn" style="padding: 0.8rem 2rem; font-size: 1rem;"
-                    onclick="submitPasswordModal()">Join</button>
-                <button class="btn delete-btn" style="padding: 0.8rem 2rem; font-size: 1rem;"
-                    onclick="closePasswordModal()">Cancel</button>
+            <h2>🔒 Create Private Room</h2>
+            <p style="color: var(--text-secondary);">Set up an encrypted private channel.</p>
+            <input type="text" id="room-name-input" placeholder="Room Name..." maxlength="30" style="width:100%; margin-bottom:10px;">
+            <input type="password" id="room-password-input" placeholder="Room Password (Optional)..." maxlength="50" style="width:100%;">
+            <div style="margin-top: 2rem; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn" id="create-room-btn">Create</button>
+                <button class="btn delete-btn" id="cancel-room-creation-btn">Cancel</button>
             </div>
         </div>
     </div>
 
-    <!-- Generic Info Modal -->
-    <div class="modal-overlay" id="info-modal" onclick="if(event.target === this) closeInfoModal()">
+    <!-- Username Input -->
+    <div class="modal-overlay" id="username-modal" style="display: none;">
+        <div class="modal-content">
+            <h2>👤 Identity</h2>
+            <p style="color: var(--text-secondary);">Choose a display name for this session.</p>
+            <input type="text" id="username-input" placeholder="Code Name..." maxlength="30" style="width:100%;">
+            <div style="margin-top: 2rem; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn" id="submit-username-btn">Enter</button>
+                <button class="btn delete-btn" id="cancel-username-btn">Abort</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Input -->
+    <div class="modal-overlay" id="password-modal" style="display: none;">
+        <div class="modal-content">
+            <h2>🔑 Access Restricted</h2>
+            <p style="color: var(--text-secondary);">This channel requires a security clearance key.</p>
+            <input type="password" id="modal-pass-input" placeholder="Enter Password..." style="width:100%;">
+            <div style="margin-top: 2rem; display: flex; gap: 10px; justify-content: center;">
+                <button class="btn" id="submit-password-btn">Decrypt</button>
+                <button class="btn delete-btn" id="close-password-modal-btn">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div class="modal-overlay" id="info-modal" style="display: none;">
         <div class="modal-content large">
-            <h2 id="info-title">Title</h2>
-            <div id="info-body">Content goes here...</div>
+            <h2 id="info-title">Information</h2>
+            <div id="info-body" style="color: var(--text-secondary);">...</div>
             <div style="margin-top: 2rem; text-align: center;">
-                <button class="btn" style="padding: 0.8rem 3rem;" onclick="closeInfoModal()">Close</button>
+                <button class="btn" id="close-info-modal-btn">Close</button>
             </div>
         </div>
     </div>
 
     <!-- User List Modal -->
-    <div class="modal-overlay" id="user-list-modal" onclick="if(event.target === this) toggleUserList()">
+    <div class="modal-overlay" id="user-list-modal" style="display: none;">
         <div class="modal-content">
-            <h2>👥 Online Users</h2>
-            <div id="user-list-container"
-                style="text-align: left; max-height: 300px; overflow-y: auto; margin: 20px 0;">
-                <!-- Users injected here -->
-            </div>
-            <button class="btn delete-btn" style="padding: 0.8rem 2rem;" onclick="toggleUserList()">Close</button>
+            <h2>👥 Active Agents</h2>
+            <div id="user-list-container" style="text-align: left; max-height: 300px; overflow-y: auto; margin: 20px 0;"></div>
+            <button class="btn delete-btn" style="width:100%" id="close-user-list-btn">Close</button>
         </div>
     </div>
 
-    <!-- Incoming Call Modal -->
-    <div class="modal-overlay" id="incoming-call-modal">
-        <div class="modal-content">
-            <h2>📞 Incoming Call...</h2>
-            <div style="margin: 20px 0;">Someone is requesting a secure video link.</div>
-            <div class="flex-center" style="gap: 15px;">
-                <button class="btn" style="background: #10b981; border-color: #10b981;"
-                    onclick="acceptCall()">Accept</button>
-                <button class="btn delete-btn" onclick="rejectCall()">Decline</button>
+    <!-- Incoming Call -->
+    <div class="modal-overlay" id="incoming-call-modal" style="display: none;">
+        <div class="modal-content" style="text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 20px;">📞</div>
+            <h2>Incoming Transmission</h2>
+            <p style="color: var(--text-secondary);">Secure video link requested.</p>
+            <div style="margin-top: 2rem; display: flex; gap: 20px; justify-content: center;">
+                <button class="btn" style="background: var(--green-success);" id="accept-call-btn">Accept</button>
+                <button class="btn delete-btn" id="reject-call-btn">Decline</button>
             </div>
         </div>
     </div>
@@ -262,18 +271,19 @@
     <div id="video-call-overlay" style="display: none;">
         <video id="remote-video" autoplay playsinline></video>
         <video id="local-video" autoplay playsinline muted></video>
-        <!-- Status Indicator -->
-        <h2 id="call-status"
-            style="position:absolute; top:20%; width:100%; text-align:center; color:white; text-shadow:0 0 10px black; z-index:10; font-weight:300;">
-        </h2>
+        <h2 id="call-status" style="position:absolute; top:20%; width:100%; text-align:center; color:white; text-shadow:0 2px 4px rgba(0,0,0,0.8); z-index:10; font-weight:300;"></h2>
         <div class="call-controls">
-            <button class="btn-icon" onclick="toggleMute()">🎤</button>
-            <button class="btn-icon" onclick="toggleCam()">📷</button>
-            <button class="btn-icon delete-btn" onclick="endCall()">❌</button>
+            <button class="btn-icon" id="toggle-mute-btn" title="Toggle Mic">🎤</button>
+            <button class="btn-icon" id="toggle-cam-btn" title="Toggle Camera">📷</button>
+            <button class="btn-icon delete-btn" id="end-call-btn" title="End Call">❌</button>
         </div>
     </div>
 
-    <script src="app.js?v=5.3.0"></script>
-</body>
+    <!-- Background Elements -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="toast-container" id="toast-container"></div>
 
+    <script src="app.js"></script>
+</body>
 </html>

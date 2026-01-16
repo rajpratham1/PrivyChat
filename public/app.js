@@ -1,4 +1,4 @@
-const socket = io({
+﻿const socket = io({
     transports: ['websocket'],
     upgrade: false
 });
@@ -18,6 +18,7 @@ let myUsername = '';
 let currentReply = null;
 let currentCryptoKey = null;
 let roomUsers = []; // Track connected users
+let eventListenersInitialized = false; // Prevent duplicate event listeners
 
 // Initialize Share Link
 const globalUrlInput = document.getElementById('global-url');
@@ -34,37 +35,37 @@ if (globalUrlInput) {
 // --- INFO CONTENT (Footer Sections) ---
 const infoContent = {
     feature: {
-        title: "✨ Advanced Feature Suite",
+        title: "Advanced Feature Suite",
         body: `
             <div style="font-size: 0.95rem; text-align: left;">
-                <h3 style="color:var(--accent-color); margin-top:0;">🕵️‍♂️ Spy & Stealth Tools</h3>
+                <h3 style="color:var(--accent-color); margin-top:0;">ðŸ•µï¸â€â™‚ï¸ Spy & Stealth Tools</h3>
                 <p>PrivyChat is built for the physical world, where privacy is often compromised by prying eyes.</p>
                 <ul style="list-style: none; padding-left: 0;">
-                    <li style="margin-bottom: 10px;"><strong>🎭 Stealth Mode (Calculator)</strong><br>
+                    <li style="margin-bottom: 10px;"><strong> Stealth Mode (Calculator)</strong><br>
                         Click the mask icon to hide the chat behind a functional scientific calculator.<br>
                         <span style="opacity:0.7">Unlock: Type <code>1337</code> and press <code>=</code>.</span>
                     </li>
-                    <li style="margin-bottom: 10px;"><strong>🌦️ Decoy Vault</strong><br>
+                    <li style="margin-bottom: 10px;"><strong> Decoy Vault</strong><br>
                         Need an escape? Type <code>weather</code>, <code>guest</code>, or <code>1234</code> into the main login box.<br>
                         <span style="opacity:0.7">Effect: Instant redirect to a harmless Weather App for plausible deniability.</span>
                     </li>
-                    <li style="margin-bottom: 10px;"><strong>👻 Ghost Mode</strong><br>
+                    <li style="margin-bottom: 10px;"><strong> Ghost Mode</strong><br>
                         Prevents "Shoulder Surfing". All messages are heavily blurred until you hover your mouse over them.
                     </li>
-                    <li style="margin-bottom: 10px;"><strong>🚨 Panic Button</strong><br>
+                    <li style="margin-bottom: 10px;"><strong> Panic Button</strong><br>
                         The Nuclear Option. Instantly disconnects, wipes all RAM/Storage, and redirects to Google.
                     </li>
                 </ul>
 
-                <h3 style="color:var(--accent-color);">💬 Rich Messaging</h3>
+                <h3 style="color:var(--accent-color);"> Rich Messaging</h3>
                 <ul style="list-style: none; padding-left: 0;">
-                    <li style="margin-bottom: 10px;"><strong>🎤 Encrypted Voice Notes</strong><br>
+                    <li style="margin-bottom: 10px;"><strong> Encrypted Voice Notes</strong><br>
                         Send crystal-clear voice messages (Opus/WebM). Encrypted before upload.
                     </li>
-                    <li style="margin-bottom: 10px;"><strong>📎 Secure File Sharing</strong><br>
+                    <li style="margin-bottom: 10px;"><strong> Secure File Sharing</strong><br>
                         Share images and documents. Files are encrypted chunk-by-chunk in the browser.
                     </li>
-                    <li style="margin-bottom: 10px;"><strong>💣 Self-Destruct Timers</strong><br>
+                    <li style="margin-bottom: 10px;"><strong> Self-Destruct Timers</strong><br>
                         Set messages to auto-burn (5s, 10s, 30s) after reading.
                     </li>
                 </ul>
@@ -72,12 +73,12 @@ const infoContent = {
         `
     },
     security: {
-        title: "🔐 Zero-Knowledge Security",
+        title: " Zero-Knowledge Security",
         body: `
             <div style="font-size: 0.95rem; text-align: left;">
                 <p>We use a <strong>Zero-Trust Architecture</strong>. We assume the server is compromised, the network is tapped, and the device might be seized.</p>
                 
-                <h3 style="color:var(--accent-color);">🛡️ Encryption Protocol</h3>
+                <h3 style="color:var(--accent-color);"> Encryption Protocol</h3>
                 <p>All encryption happens in your browser using the <strong>Web Crypto API</strong>.</p>
                 <table style="width:100%; border-collapse: collapse; margin-bottom: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden;">
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
@@ -98,16 +99,16 @@ const infoContent = {
                     </tr>
                 </table>
 
-                <h3 style="color:var(--accent-color);">🔒 Server Blindness</h3>
+                <h3 style="color:var(--accent-color);"> Server Blindness</h3>
                 <p>The server acts as a "dumb relay". It routes encrypted blobs but <strong>never</strong> holds the decryption keys. Even if we wanted to read your messages, we couldn't.</p>
                 
-                <h3 style="color:var(--accent-color);">⚡ RAM-Only Storage</h3>
+                <h3 style="color:var(--accent-color);"> RAM-Only Storage</h3>
                 <p>We use no persistent databases (No MongoDB, No SQL). Data lives only in the volatile Random Access Memory. If the server loses power or restarts, 100% of the data is physically destroyed.</p>
             </div>
         `
     },
     about: {
-        title: "ℹ️ About PrivyChat",
+        title: "About PrivyChat",
         body: `
             <div style="font-size: 0.95rem; text-align: left;">
                 <div style="text-align:center; margin-bottom: 20px;">
@@ -126,20 +127,20 @@ const infoContent = {
         `
     },
     privacy: {
-        title: "👁️ Privacy Policy",
+        title: " Privacy Policy",
         body: `
             <div style="font-size: 0.95rem; text-align: left;">
                 <h3 style="color:var(--accent-color);">The "No-Log" Guarantee</h3>
                 <p>We take this literally.</p>
                 <ul style="list-style: none; padding-left: 0;">
                     <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
-                        <strong>🚫 No IP Logging</strong><br>We do not store or track user IP addresses.
+                        <strong> No IP Logging</strong><br>We do not store or track user IP addresses.
                     </li>
                     <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
-                        <strong>🚫 No Metadata</strong><br>We do not archive timestamps, sender IDs, or session durations.
+                        <strong> No Metadata</strong><br>We do not archive timestamps, sender IDs, or session durations.
                     </li>
                     <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
-                        <strong>🚫 No Analytics</strong><br>No Google Analytics. No Facebook Pixels. No Cookies.
+                        <strong> No Analytics</strong><br>No Google Analytics. No Facebook Pixels. No Cookies.
                     </li>
                 </ul>
 
@@ -149,7 +150,7 @@ const infoContent = {
         `
     },
     terms: {
-        title: "📝 Terms of Service",
+        title: " Terms of Service",
         body: `
             <div style="font-size: 0.95rem; text-align: left;">
                 <p>By using PrivyChat, you agree to the following:</p>
@@ -164,12 +165,12 @@ const infoContent = {
         `
     },
     location: {
-        title: "🇮🇳 Development HQ: India",
+        title: "Development HQ: India",
         body: `
             <div style="font-size: 0.95rem; text-align: left;">
                 <p><strong>PrivyChat</strong> is proudly developed and maintained in <strong>India</strong>, a growing hub for global cyber-security innovation.</p>
                 
-                <h3 style="color:var(--accent-color);">📍 Server Infrastructure</h3>
+                <h3 style="color:var(--accent-color);">ðŸ“ Server Infrastructure</h3>
                 <ul style="list-style: none; padding-left: 0;">
                     <li style="margin-bottom: 10px;">
                         <strong>Node Region:</strong> <span style="color:#10b981">Asia-Pacific (Mumbai)</span><br>
@@ -181,7 +182,7 @@ const infoContent = {
                     </li>
                 </ul>
 
-                <h3 style="color:var(--accent-color);">⚖️ Jurisdiction</h3>
+                <h3 style="color:var(--accent-color);">âš–ï¸ Jurisdiction</h3>
                 <p>While developed in India, PrivyChat operates on a <strong>Code-is-Law</strong> principle.</p>
                 <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; font-size: 0.9rem; border-left: 3px solid #f59e0b;">
                     "We cannot comply with data requests because we do not possess the data. Technology, not policy, guarantees your privacy."
@@ -217,14 +218,9 @@ function copyGlobalLink() {
 // DOM Elements
 const lobby = document.getElementById('lobby');
 const chatRoom = document.getElementById('chat-room');
-const joinForm = document.getElementById('join-form');
-const formTitle = document.getElementById('form-title');
-const inputRoom = document.getElementById('room-name');
-const inputPass = document.getElementById('room-pass');
-const inputUser = document.getElementById('username');
-const linkDisplay = document.getElementById('generated-link');
 const messagesDiv = document.getElementById('messages');
 const roomTitle = document.getElementById('current-room');
+const googleInput = document.getElementById('google-input');
 
 // Check URL Params for invite
 const urlParams = new URLSearchParams(window.location.search);
@@ -240,7 +236,7 @@ if (inviteRoom) {
     // Or just let them click "Join" to enter name.
     // For better UX, we can show a Toast.
     setTimeout(() => {
-        showToast("🔗 Invite Link Detected. Enter Name & Join!", "success");
+        showToast("Invite Link Detected. Enter Name & Join!", "success");
     }, 500);
 
     if (inviteMode === 'private') {
@@ -256,7 +252,7 @@ let isCurrentRoomPrivate = false;
 
 socket.on('password_required', (room) => {
     // Server says we need a password
-    const pass = prompt("🔒 This room is password protected.\nPlease enter the password:");
+    const pass = prompt("ðŸ”’ This room is password protected.\nPlease enter the password:");
     if (pass) {
         currentPassword = pass; // Store for reconnects
         socket.emit('join_room', { room, password: pass, username: myUsername, type: 'private' });
@@ -297,7 +293,7 @@ socket.on('connect_error', (err) => {
         // Show critical error modal
         document.body.innerHTML = `
             <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#0f172a; color:white; font-family:'Outfit',sans-serif; text-align:center; padding:20px;">
-                <h1 style="color:#ef4444; font-size:3rem; margin-bottom:10px;">⚠️ Deployment Error</h1>
+                <h1 style="color:#ef4444; font-size:3rem; margin-bottom:10px;">âš ï¸ Deployment Error</h1>
                 <p style="font-size:1.2rem; max-width:600px; line-height:1.6;">
                     You are trying to run a <strong>Real-Time WebSocket App</strong> on <strong>Vercel</strong>.<br>
                     Vercel does not support persistent connections needed for this chat.
@@ -331,15 +327,15 @@ socket.on('joined_success', async (data) => {
             // Verify CryptoUtils
             if (typeof CryptoUtils === 'undefined') {
                 console.error("CryptoUtils is not defined!");
-                addMessage("❌ Encryption Error: Library missing", 'system');
+                addMessage("âŒ Encryption Error: Library missing", 'system');
             } else {
-                addMessage("🔒 Securing Encryption Keys...", 'system');
+                addMessage("ðŸ”’ Securing Encryption Keys...", 'system');
                 currentCryptoKey = await CryptoUtils.deriveKey(currentPassword, currentRoom);
-                addMessage("🔐 End-to-End Encryption Enabled", 'system');
+                addMessage("ðŸ” End-to-End Encryption Enabled", 'system');
             }
         } catch (e) {
             console.error("Encryption Setup Error:", e);
-            addMessage("❌ Encryption Setup Failed", 'system');
+            addMessage("âŒ Encryption Setup Failed", 'system');
         }
     } else {
         currentCryptoKey = null; // Clear key if public
@@ -348,9 +344,32 @@ socket.on('joined_success', async (data) => {
 
     lobby.style.display = 'none';
     chatRoom.style.display = 'flex';
-    roomTitle.innerHTML = `Room: ${data.room} <button class="btn" onclick="copyRoomLink('${data.room}')" style="padding: 5px 10px; font-size: 0.7rem; margin-left: 10px;">🔗 Invite</button>`;
+    roomTitle.innerHTML = `Room: ${data.room}`;
+
+    // Replace inline event handler for copying room link
+    const copyRoomLink = (room) => {
+        const link = `${window.location.origin}/?room=${room}`;
+        navigator.clipboard.writeText(link).then(() => {
+            alert('Room link copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy room link:', err);
+        });
+    };
+
+    // Attach event listener dynamically
+    const inviteButton = document.createElement('button');
+    inviteButton.className = 'btn';
+    inviteButton.textContent = 'Copy Invite Link';
+    inviteButton.style = 'padding: 5px 10px; font-size: 0.7rem; margin-left: 10px;';
+    inviteButton.addEventListener('click', () => copyRoomLink(data.room));
+    roomTitle.appendChild(inviteButton);
 
     addMessage("You are connected.", 'system');
+    
+    // Initialize event listeners only once
+    if (!eventListenersInitialized) {
+        initializeChatRoomEventListeners();
+    }
 });
 
 // Socket Listeners
@@ -358,7 +377,7 @@ socket.on('joined_success', async (data) => {
 socket.on('update_room_state', (data) => {
     // data: { count: number, users: string[] }
     const userCount = document.getElementById('user-count');
-    userCount.innerText = `👥 ${data.count} Online`;
+    userCount.innerText = `${data.count} Online`;
     roomUsers = data.users || [];
 
     // If modal is open, refresh it live
@@ -370,7 +389,7 @@ socket.on('update_room_state', (data) => {
 
 // Legacy fallback (shouldn't receive this anymore if server updated correctly)
 socket.on('update_user_count', (count) => {
-    document.getElementById('user-count').innerText = `👥 ${count} Online`;
+    document.getElementById('user-count').innerText = ` ${count} Online`;
 });
 
 // ... (existing listeners)
@@ -383,11 +402,11 @@ socket.on('file_share', async (data) => {
                 data.fileData = await CryptoUtils.decrypt({ iv: data.iv, data: data.fileData }, currentCryptoKey);
             } catch (e) {
                 console.error("File Decrypt Fail:", e);
-                data.fileName = "⚠️ Decryption Failed";
+                data.fileName = "âš ï¸ Decryption Failed";
                 data.fileData = null;
             }
         } else {
-            data.fileName = "🔒 Encrypted File";
+            data.fileName = "ðŸ”’ Encrypted File";
             data.fileData = null; // Cannot view
         }
     }
@@ -396,18 +415,9 @@ socket.on('file_share', async (data) => {
     addFileMessage(data, type);
 });
 
-function copyRoomLink(room) {
-    let link = `${window.location.origin}?room=${room}`;
-    if (isCurrentRoomPrivate) {
-        link += `&mode=private`;
-    }
-    navigator.clipboard.writeText(link);
-    alert("Invite link copied to clipboard! 📋");
-}
-
 socket.on('display_typing', (data) => {
     const typingDiv = document.getElementById('typing-indicator');
-    typingDiv.innerHTML = `<span class="typing-dots">💬</span> <strong style="color:white; text-shadow: 0 0 5px rgba(255,255,255,0.5);">${data.username}</strong> is typing...`;
+    typingDiv.innerHTML = `<span class="typing-dots">ðŸ’¬</span> <strong style="color:white; text-shadow: 0 0 5px rgba(255,255,255,0.5);">${data.username}</strong> is typing...`;
     typingDiv.style.opacity = '1';
 });
 
@@ -434,7 +444,7 @@ const fileInput = document.getElementById('file-input');
 const uploadBtn = document.querySelector('.input-area button'); // The paperclip button
 
 fileInput.addEventListener('change', (e) => {
-    console.log("📂 File Selected");
+    console.log("ðŸ“‚ File Selected");
     const file = e.target.files[0];
     if (file) {
         if (file.size > 5 * 1024 * 1024) {
@@ -442,34 +452,34 @@ fileInput.addEventListener('change', (e) => {
             return;
         }
 
-        uploadBtn.innerText = "⏳";
+        uploadBtn.innerText = "â³";
         uploadBtn.disabled = true;
 
         const reader = new FileReader();
         reader.onload = async (evt) => {
-            console.log("📂 File Read Complete");
+            console.log("ðŸ“‚ File Read Complete");
             let fileData = evt.target.result;
             let isEncrypted = false;
             let iv = null;
 
             if (currentCryptoKey) {
-                console.log("🔒 Encrypting File...");
+                console.log("ðŸ”’ Encrypting File...");
                 try {
                     const encrypted = await CryptoUtils.encrypt(fileData, currentCryptoKey);
                     fileData = encrypted.data;
                     iv = encrypted.iv;
                     isEncrypted = true;
-                    console.log("🔒 Encryption Success");
+                    console.log("ðŸ”’ Encryption Success");
                 } catch (err) {
-                    console.error("❌ Encryption Failed:", err);
+                    console.error("âŒ Encryption Failed:", err);
                     alert("Encryption Failed!");
-                    uploadBtn.innerText = "📎";
+                    uploadBtn.innerText = "ðŸ“Ž";
                     uploadBtn.disabled = false;
                     return;
                 }
             }
 
-            console.log("📡 Emitting file_share event");
+            console.log("ðŸ“¡ Emitting file_share event");
             socket.emit('file_share', {
                 room: currentRoom,
                 username: myUsername,
@@ -481,7 +491,7 @@ fileInput.addEventListener('change', (e) => {
                 timestamp: Date.now()
             });
 
-            uploadBtn.innerText = "📎";
+            uploadBtn.innerText = "ðŸ“Ž";
             uploadBtn.disabled = false;
         };
         reader.readAsDataURL(file);
@@ -497,6 +507,8 @@ async function sendMessage() {
     const input = document.getElementById('msg-input');
     const msgText = input.value.trim();
 
+    console.log('SendMessage called:', { msgText, currentRoom, myUsername, socketConnected: socket.connected });
+
     if (msgText && currentRoom) {
 
         let protocolMsg = msgText;
@@ -511,7 +523,7 @@ async function sendMessage() {
             isEncrypted = true;
         }
 
-        socket.emit('send_message', {
+        const messageData = {
             room: currentRoom,
             message: protocolMsg,
             encrypted: isEncrypted,
@@ -520,10 +532,13 @@ async function sendMessage() {
             replyTo: currentReply, // Send reply context
             timestamp: Date.now(),
             destruct: document.getElementById('destruct-timer').value
-        });
+        };
 
-        // Sender sees their own message immediately (Plaintext)
-        addMessage(msgText, 'sent', myUsername, currentReply);
+        console.log('Emitting send_message:', messageData);
+        socket.emit('send_message', messageData);
+
+        // Don't add message immediately - let server echo it back
+        // This prevents duplicate messages
         cancelReply(); // Clear reply state after sending
         SoundUtils.playSend(); // SFX
 
@@ -537,13 +552,27 @@ async function sendMessage() {
 
 // Receive Message Listener with Decryption
 socket.on('receive_message', async (data) => {
+    console.log('Received message:', data);    
+    console.log('DEBUG DETAILED:', 
+    {'data.username': data.username,
+    'myUsername': myUsername,     
+    'usernames match': data.username === myUsername,
+    'message preview': data.message ? data.message.substring(0, 30) : 'no message'   
+    });
     SoundUtils.playReceive(); // SFX
-    const type = data.username === myUsername ? 'sent' : 'received';
 
-    // If listening to own message broadcast (rare), ignore or handle. 
-    // Here we usually only listen to others, or server echo.
-    // If username is mine, I already added it via sendMessage.
-    if (data.username === myUsername) return;
+    // Prevent duplicate messages by checking message metadata
+    const existingMessages = Array.from(messagesDiv.children).map(msg => {
+        return {
+            text: msg.querySelector('.message-content')?.textContent,
+            sender: msg.querySelector('.sender')?.textContent
+        };
+    });
+
+    if (existingMessages.some(msg => msg.text === data.message && msg.sender === data.username)) {
+        console.log('Duplicate message detected, skipping.');
+        return;
+    }
 
     let displayMsg = data.message;
 
@@ -556,6 +585,7 @@ socket.on('receive_message', async (data) => {
         }
     }
 
+    const type = data.username === myUsername ? 'sent' : 'received';   
     const msgElement = addMessage(displayMsg, type, data.username, data.replyTo);
 
     // Handle Self-Destruct
@@ -581,13 +611,22 @@ function addMessage(text, type, sender, replyContext = null) {
     div.classList.add('message', type);
 
     // Render Reply Quote if exists
-    let quoteHtml = '';
+    let replyQuoteElement = null;
     if (replyContext) {
-        quoteHtml = `
-        <div class="reply-quote" onclick="highlightMessage('msg-${replyContext.id}')">
-            <span class="quote-user">${replyContext.sender}</span>
-            <span style="display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${replyContext.text}</span>
-        </div>`;
+        replyQuoteElement = document.createElement('div');
+        replyQuoteElement.className = 'reply-quote';
+        replyQuoteElement.addEventListener('click', () => highlightMessage(`msg-${replyContext.id}`));
+        
+        const userSpan = document.createElement('span');
+        userSpan.className = 'quote-user';
+        userSpan.textContent = replyContext.sender;
+        
+        const textSpan = document.createElement('span');
+        textSpan.style.cssText = 'display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
+        textSpan.textContent = replyContext.text;
+        
+        replyQuoteElement.appendChild(userSpan);
+        replyQuoteElement.appendChild(textSpan);
     }
 
     // Create the message content wrapper safely
@@ -596,14 +635,21 @@ function addMessage(text, type, sender, replyContext = null) {
     contentSpan.textContent = text; // SAFE: No HTML interpretation
 
     if (sender && type !== 'sent') {
-        div.innerHTML = quoteHtml; // Reply quote is safe (internal ref)
+        // Add reply quote element if exists
+        if (replyQuoteElement) {
+            div.appendChild(replyQuoteElement);
+        }
+        
         const senderSpan = document.createElement('span');
         senderSpan.classList.add('sender');
         senderSpan.textContent = sender;
         div.appendChild(senderSpan);
         div.appendChild(contentSpan);
     } else {
-        div.innerHTML = quoteHtml;
+        // Add reply quote element if exists
+        if (replyQuoteElement) {
+            div.appendChild(replyQuoteElement);
+        }
         div.appendChild(contentSpan);
     }
 
@@ -628,20 +674,20 @@ function addFileMessage(data, type) {
     } else if (fileType.startsWith('audio/')) {
         // Calculate Rate based on Effect
         let rate = 1.0;
-        let label = "🎤 Voice Note";
+        let label = "ðŸŽ¤ Voice Note";
         let pitchPreserve = true;
 
         if (data.voiceEffect === 'robot') {
             rate = 0.85; // Slightly slower
-            label = "🤖 Robot Voice";
+            label = "ðŸ¤– Robot Voice";
             pitchPreserve = false;
         } else if (data.voiceEffect === 'chipmunk') {
             rate = 1.5; // Fast & High Pitch
-            label = "🐿️ Chipmunk Voice";
+            label = "ðŸ¿ï¸ Chipmunk Voice";
             pitchPreserve = false;
         } else if (data.voiceEffect === 'monster') {
             rate = 0.6; // Slow & Deep Pitch
-            label = "👹 Monster Voice";
+            label = "ðŸ‘¹ Monster Voice";
             pitchPreserve = false;
         }
 
@@ -666,7 +712,7 @@ function addFileMessage(data, type) {
     } else {
         // Default / Fallback
         content = `<div class="file-preview" style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;">
-                     📄 ${data.fileName || 'Unknown File'} <br>
+                     ðŸ“„ ${data.fileName || 'Unknown File'} <br>
                      <a href="${data.fileData}" download="${data.fileName || 'file'}" style="color: #fbcfe8; text-decoration: underline;">Download</a>
                    </div>`;
     }
@@ -682,15 +728,6 @@ function addFileMessage(data, type) {
         // We can find the audio element within 'div' now
         const audioElement = div.querySelector('audio');
         if (audioElement) {
-            // We need to wait for metadata or just set it. 
-            // Rate can be set immediately.
-            audioElement.playbackRate = data.voiceEffect === 'robot' ? 0.85 :
-                data.voiceEffect === 'chipmunk' ? 1.5 :
-                    data.voiceEffect === 'monster' ? 0.6 : 1.0;
-
-            const preserve = data.voiceEffect === 'normal' || !data.voiceEffect;
-            if (audioElement.preservesPitch !== undefined) audioElement.preservesPitch = preserve;
-            if (audioElement.mozPreservesPitch !== undefined) audioElement.mozPreservesPitch = preserve;
             if (audioElement.webkitPreservesPitch !== undefined) audioElement.webkitPreservesPitch = preserve;
         }
     }
@@ -704,6 +741,7 @@ function handleKeyPress(e) {
 }
 
 function leaveChat() {
+    eventListenersInitialized = false; // Reset flag for next join
     location.reload(); // Simple reload to leave
 }
 
@@ -716,7 +754,7 @@ function copyLink() {
     // Visual feedback
     const btn = document.querySelector('#generated-link button');
     const originalText = btn.innerText;
-    btn.innerText = "✅ Copied!";
+    btn.innerText = "âœ… Copied!";
     setTimeout(() => {
         btn.innerText = originalText;
     }, 2000);
@@ -726,14 +764,14 @@ function copyLink() {
 window.addEventListener('blur', () => {
     if (currentRoom) {
         document.body.style.filter = 'blur(10px)';
-        document.title = "🔒 Privacy Mode";
+        document.title = "ðŸ”’ Privacy Mode";
     }
 });
 
 window.addEventListener('focus', () => {
     if (currentRoom) {
         document.body.style.filter = 'none';
-        document.title = "🛡️ PrivyChat";
+        document.title = "ðŸ›¡ï¸ PrivyChat";
     }
 });
 
@@ -787,10 +825,10 @@ function toggleGhostMode() {
     // Toggle Icon
     const btn = document.querySelector('.chat-header .btn-icon');
     if (messages.classList.contains('ghost-active')) {
-        btn.innerText = '👻'; // Active
+        btn.innerText = 'ðŸ‘»'; // Active
         showToast("Ghost Mode ON: Messages Blurred", "info");
     } else {
-        btn.innerText = '👁️'; // Inactive
+        btn.innerText = 'ðŸ‘ï¸'; // Inactive
         showToast("Ghost Mode OFF", "info");
     }
 }
@@ -798,7 +836,7 @@ function toggleGhostMode() {
 function toggleTheme() {
     document.body.classList.toggle('hacker-theme');
     const isHacker = document.body.classList.contains('hacker-theme');
-    showToast(isHacker ? "👨‍💻 Hacker Mode" : "🛡️ Secure Mode", "success");
+    showToast(isHacker ? "ðŸ‘¨â€ðŸ’» Hacker Mode" : "ðŸ›¡ï¸ Secure Mode", "success");
     if (isHacker) SoundUtils.playHacker(); // SFX
 }
 
@@ -819,7 +857,7 @@ async function startRecording() {
             selectedType = 'audio/mp4';
         }
 
-        console.log("🎤 Initializing Recorder with:", selectedType);
+        console.log("ðŸŽ¤ Initializing Recorder with:", selectedType);
 
         mediaRecorder = new MediaRecorder(stream, { mimeType: selectedType });
         audioChunks = [];
@@ -837,7 +875,7 @@ async function startRecording() {
         };
 
         mediaRecorder.start();
-        document.getElementById('mic-btn').innerText = "🔴"; // Visual Feedback
+        document.getElementById('mic-btn').innerText = "ðŸ”´"; // Visual Feedback
         showToast("Recording...", "info");
     } catch (err) {
         console.error("Mic Error:", err);
@@ -848,7 +886,7 @@ async function startRecording() {
 function stopRecording() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
-        document.getElementById('mic-btn').innerText = "🎤";
+        document.getElementById('mic-btn').innerText = "ðŸŽ¤";
     }
 }
 
@@ -892,7 +930,7 @@ function toggleStealth() {
     const overlay = document.getElementById('stealth-calculator');
     const isHidden = overlay.style.display === 'none';
     overlay.style.display = isHidden ? 'flex' : 'none';
-    document.title = isHidden ? "Calculator" : "🛡️ PrivyChat";
+    document.title = isHidden ? "Calculator" : "ðŸ›¡ï¸ PrivyChat";
     if (isHidden) {
         calcExpression = '';
         document.getElementById('calc-display').value = '';
@@ -910,7 +948,7 @@ function calcInput(val) {
 
         if (calcExpression === '1337' || display.value === '1337') {
             toggleStealth();
-            showToast("🔓 Access Granted", "success");
+            showToast("ðŸ”“ Access Granted", "success");
         } else {
             // Perform actual math to fake it
             try {
@@ -946,10 +984,12 @@ function handleGoogleEnter(e) {
 
 function googleJoin() {
     const input = document.getElementById('google-input');
-    const val = input.value.trim();
+    const val = input ? input.value.trim() : '';
+
+    console.log('Google Join called with value:', val);
 
     if (!val) {
-        showToast("🌍 Joining Public Lobby...", "info");
+        showToast("ðŸŒ Joining Public Lobby...", "info");
         userLoginFlow('General', null, 'group');
         return;
     }
@@ -957,7 +997,7 @@ function googleJoin() {
     // --- DECOY VAULT LOGIC ---
     const lowerVal = val.toLowerCase();
     if (lowerVal === 'weather' || lowerVal === 'guest' || lowerVal === 'aether' || lowerVal === '1234') {
-        showToast("☁️ Loading Weather Data...", "info");
+        showToast("â˜ï¸ Loading Weather Data...", "info");
         setTimeout(() => {
             window.location.replace("https://rajpratham1.github.io/Aether-Tools/");
         }, 1000);
@@ -969,33 +1009,96 @@ function googleJoin() {
 }
 
 function startGoogleMic() {
-    showToast("🎤 Listening... (Just kidding, typing only!)", "info");
+    showToast("ðŸŽ¤ Listening... (Just kidding, typing only!)", "info");
 }
 
 function google1v1() {
     // Mode A: 1v1 Secure Link ("I'm Feeling Lucky")
     const roomUUID = 'secure-' + Math.random().toString(36).substr(2, 9);
+    console.log('Creating 1v1 room:', roomUUID);
     // Auto-join this new 1v1 room
     userLoginFlow(roomUUID, null, '1v1');
-    showToast("🎲 Generating Secure 1v1 Link...", "success");
+    showToast("ðŸŽ² Generating Secure 1v1 Link...", "success");
 }
 
 function googleCreate() {
-    // Switch to the Lobby UI for creation or just prompt password
-    const roomName = prompt("Enter a Name for your Private Room:");
-    if (!roomName) return;
-    const password = prompt("Set a Password:");
-    if (!password) return;
+    // Show room creation modal instead of using prompt
+    showRoomCreationModal();
+}
 
-    userLoginFlow(roomName, password, 'private');
+function initializeChatRoomEventListeners() {
+    if (eventListenersInitialized) {
+        console.log('Event listeners already initialized, skipping...');
+        return;
+    }
+    
+    console.log('Initializing chat room event listeners...');
+    
+    // Direct event listener attachment
+    const sendBtn = document.getElementById('send-btn');
+    const attachBtn = document.getElementById('attach-btn');
+    const msgInput = document.getElementById('msg-input');
+    const micBtn = document.getElementById('mic-btn');
+    
+    console.log('Found elements:', {
+        sendBtn: !!sendBtn,
+        attachBtn: !!attachBtn, 
+        msgInput: !!msgInput,
+        micBtn: !!micBtn
+    });
+    
+    if (sendBtn) {
+        sendBtn.onclick = null; // Clear any existing handlers
+        sendBtn.removeEventListener('click', sendMessage); // Remove any existing
+        sendBtn.addEventListener('click', function(e) {
+            console.log('Send button clicked!');
+            e.preventDefault();
+            sendMessage();
+        });
+        console.log('Send button listener attached');
+    }
+    
+    if (attachBtn) {
+        attachBtn.onclick = null;
+        attachBtn.addEventListener('click', function(e) {
+            console.log('Attach button clicked!');
+            e.preventDefault();
+            document.getElementById('file-input').click();
+        });
+        console.log('Attach button listener attached');
+    }
+    
+    if (msgInput) {
+        msgInput.onkeypress = null;
+        msgInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                console.log('Enter key pressed in message input');
+                sendMessage();
+            }
+        });
+        console.log('Message input listener attached');
+    }
+    
+    if (micBtn) {
+        micBtn.onmousedown = null;
+        micBtn.onmouseup = null;
+        micBtn.onmouseleave = null;
+        micBtn.addEventListener('mousedown', startRecording);
+        micBtn.addEventListener('mouseup', stopRecording);  
+        micBtn.addEventListener('mouseleave', stopRecording);
+        console.log('Mic button listeners attached');
+    }
+    
+    eventListenersInitialized = true;
+    console.log('All chat room event listeners initialized successfully');
 }
 
 function userLoginFlow(room, password, mode) {
     SoundUtils.init(); // Initialize Audio Context on user interaction (Click/Enter)
     if (!myUsername) {
-        const name = prompt("Enter your Nickname to join:");
-        if (!name) return;
-        myUsername = name;
+        // Show username modal instead of prompt (CSP blocks prompt)
+        showUsernameModal(room, password, mode);
+        return;
     }
 
     // Store globally
@@ -1011,10 +1114,402 @@ function userLoginFlow(room, password, mode) {
     if (chatRoom) chatRoom.style.display = 'flex';
 }
 
+// Room Creation Modal Functions
+function showRoomCreationModal() {
+    const modal = document.getElementById('room-creation-modal');
+    const roomNameInput = document.getElementById('room-name-input');
+    
+    if (modal && roomNameInput) {
+        modal.style.display = 'flex';
+        roomNameInput.focus();
+    }
+}
 
+function createPrivateRoom() {
+    const roomNameInput = document.getElementById('room-name-input');
+    const roomPasswordInput = document.getElementById('room-password-input');
+    
+    const roomName = roomNameInput.value.trim();
+    const roomPassword = roomPasswordInput.value.trim();
+    
+    console.log('Create room called:', { roomName, roomPassword });
+    
+    if (!roomName) {
+        showToast('âŒ Please enter a room name', 'error');
+        return;
+    }
+    
+    if (!roomPassword) {
+        showToast('âŒ Please enter a room password', 'error');
+        return;
+    }
+    
+    if (roomName.length > 30) {
+        showToast('âŒ Room name too long (max 30 characters)', 'error');
+        return;
+    }
+    
+    // Validate room name with the same regex as server
+    if (!/^[a-zA-Z0-9_\- ]{1,30}$/.test(roomName)) {
+        showToast('âŒ Invalid characters in room name', 'error');
+        return;
+    }
+    
+    closeRoomCreationModal();
+    userLoginFlow(roomName, roomPassword, 'private');
+}
 
+function closeRoomCreationModal() {
+    const modal = document.getElementById('room-creation-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        const roomNameInput = document.getElementById('room-name-input');
+        const roomPasswordInput = document.getElementById('room-password-input');
+        if (roomNameInput) roomNameInput.value = '';
+        if (roomPasswordInput) roomPasswordInput.value = '';
+    }
+}
+
+// Username Modal Functions
+function showUsernameModal(room, password, mode) {
+    const modal = document.getElementById('username-modal');
+    const input = document.getElementById('username-input');
+    
+    if (modal && input) {
+        input.value = ''; // Clear any existing value
+        modal.style.display = 'flex';
+        input.focus();
+        
+        // Store the pending join data
+        window.pendingJoin = { room, password, mode };
+    }
+}
+
+function submitUsername() {
+    const input = document.getElementById('username-input');
+    const username = input.value.trim();
+
+    console.log('Submit username called with:', username);
+
+    if (!username || username.length === 0) {
+        showToast('❌ Please enter a nickname', 'error');
+        return;
+    }
+
+    if (username.toLowerCase() === 'na') {
+        showToast('❌ Username cannot be "na"', 'error');
+        return;
+    }
+
+    if (username.length > 30) {
+        showToast('❌ Nickname too long (max 30 characters)', 'error');
+        return;
+    }
+
+    // Validate username with the same regex as server
+    if (!/^[a-zA-Z0-9_\- ]{1,30}$/.test(username)) {
+        showToast('❌ Invalid characters in nickname', 'error');
+        return;
+    }
+
+    myUsername = username;
+    console.log('Username set to:', myUsername);
+    console.log('Global username variable:', window.myUsername);
+    closeUsernameModal();
+
+    // Continue with the join flow
+    if (window.pendingJoin) {
+        const { room, password, mode } = window.pendingJoin;
+        console.log('Continuing join flow with username:', myUsername);
+        userLoginFlow(room, password, mode);
+        window.pendingJoin = null;
+    }
+}
+
+function closeUsernameModal() {
+    const modal = document.getElementById('username-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        const input = document.getElementById('username-input');
+        if (input) input.value = '';
+    }
+}
+
+function submitPasswordModal() {
+    const input = document.getElementById('modal-pass-input');
+    const password = input.value.trim();
+    
+    if (!password) {
+        showToast('âŒ Please enter password', 'error');
+        return;
+    }
+    
+    closePasswordModal();
+    
+    // Continue with stored join flow
+    if (window.pendingPasswordJoin) {
+        const { room, mode } = window.pendingPasswordJoin;
+        currentPassword = password;
+        socket.emit('join_room', { room, password, username: myUsername, type: mode });
+        window.pendingPasswordJoin = null;
+    }
+}
+
+function closePasswordModal() {
+    const modal = document.getElementById('password-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        const input = document.getElementById('modal-pass-input');
+        if (input) input.value = '';
+    }
+}
+
+function showPasswordModal(room, mode) {
+    const modal = document.getElementById('password-modal');
+    const input = document.getElementById('modal-pass-input');
+    
+    if (modal && input) {
+        modal.style.display = 'flex';
+        input.focus();
+        
+        // Store the pending join data
+        window.pendingPasswordJoin = { room, mode };
+    }
+}
+
+function handleModalKey(e) {
+    if (e.key === 'Enter') {
+        const activeModal = document.querySelector('.modal-overlay[style*="flex"]');
+        if (activeModal) {
+            if (activeModal.id === 'password-modal') {
+                submitPasswordModal();
+            } else if (activeModal.id === 'username-modal') {
+                submitUsername();
+            }
+        }
+    }
+}
+
+// Initialize Event Listeners when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM Content Loaded - Starting initialization');
+    
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW Registered!', reg.scope))
+            .catch(err => console.log('SW Failed:', err));
+    }
+
+    // Check if all main elements exist
+    const elementsCheck = {
+        'send-btn': document.getElementById('send-btn'),
+        'attach-btn': document.getElementById('attach-btn'),
+        'msg-input': document.getElementById('msg-input'),
+        'mic-btn': document.getElementById('mic-btn'),
+        'google-input': document.getElementById('google-input'),
+        'google-join-btn': document.getElementById('google-join-btn')
+    };
+    
+    console.log('Element availability check:', elementsCheck);
+    
+    // Add global click debugging
+    document.addEventListener('click', function(e) {
+        if (e.target.tagName === 'BUTTON') {
+            console.log('Button clicked:', {
+                id: e.target.id,
+                className: e.target.className,
+                text: e.target.textContent,
+                target: e.target
+            });
+        }
+    });
+
+    // Header buttons
+    const stealthBtn = document.getElementById('stealth-btn');
+    const themeBtn = document.getElementById('theme-btn');
+    const panicBtn = document.getElementById('panic-btn');
+    
+    if (stealthBtn) stealthBtn.addEventListener('click', toggleStealth);
+    if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
+    if (panicBtn) panicBtn.addEventListener('click', panicMode);
+    
+    // Google input handlers
+    const googleInput = document.getElementById('google-input');
+    const micBtn = document.getElementById('mic-btn-google');
+    
+    if (googleInput) googleInput.addEventListener('keypress', handleGoogleEnter);
+    if (micBtn) micBtn.addEventListener('click', startGoogleMic);
+    
+    // Google buttons
+    const joinBtn = document.getElementById('google-join-btn');
+    const createBtn = document.getElementById('google-create-btn');
+    const luckyBtn = document.getElementById('google-1v1-btn');
+    
+    if (joinBtn) joinBtn.addEventListener('click', googleJoin);
+    if (createBtn) createBtn.addEventListener('click', googleCreate);
+    if (luckyBtn) luckyBtn.addEventListener('click', google1v1);
+    
+    // Footer links
+    const locationLink = document.getElementById('location-link');
+    const aboutLink = document.getElementById('about-link');
+    const featureLink = document.getElementById('feature-link');
+    const securityLink = document.getElementById('security-link');
+    const privacyLink = document.getElementById('privacy-link');
+    const termsLink = document.getElementById('terms-link');
+    
+    if (locationLink) locationLink.addEventListener('click', () => openInfo('location'));
+    if (aboutLink) aboutLink.addEventListener('click', () => openInfo('about'));
+    if (featureLink) featureLink.addEventListener('click', () => openInfo('feature'));
+    if (securityLink) securityLink.addEventListener('click', () => openInfo('security'));
+    if (privacyLink) privacyLink.addEventListener('click', () => openInfo('privacy'));
+    if (termsLink) termsLink.addEventListener('click', () => openInfo('terms'));
+    
+    // Chat room elements - Add direct listeners
+    const sendBtn = document.getElementById('send-btn');
+    const attachBtn = document.getElementById('attach-btn');
+    const msgInput = document.getElementById('msg-input');
+    
+    if (sendBtn) {
+        sendBtn.addEventListener('click', function(e) {
+            console.log('Send button clicked (main)!');
+            e.preventDefault();
+            sendMessage();
+        });
+    }
+    
+    if (attachBtn) {
+        attachBtn.addEventListener('click', function(e) {
+            console.log('Attach button clicked (main)!');
+            e.preventDefault();
+            document.getElementById('file-input').click();
+        });
+    }
+    
+    if (msgInput) {
+        msgInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                console.log('Enter pressed (main)!');
+                sendMessage();
+            }
+        });
+    }
+
+    // Chat room elements
+    const ghostModeBtn = document.getElementById('ghost-mode-btn');
+    const voiceCallBtn = document.getElementById('voice-call-btn');
+    const videoCallBtn = document.getElementById('video-call-btn');
+    const userCount = document.getElementById('user-count');
+    const leaveChatBtn = document.getElementById('leave-chat-btn');
+    const micBtnChat = document.getElementById('mic-btn');
+    const cancelReplyBtn = document.getElementById('cancel-reply-btn');
+    const submitPasswordBtn = document.getElementById('submit-password-btn');
+    const closePasswordModalBtn = document.getElementById('close-password-modal-btn');
+    const modalPassInput = document.getElementById('modal-pass-input');
+    const submitUsernameBtn = document.getElementById('submit-username-btn');
+    const cancelUsernameBtn = document.getElementById('cancel-username-btn');
+    const usernameInput = document.getElementById('username-input');
+    const createRoomBtn = document.getElementById('create-room-btn');
+    const cancelRoomCreationBtn = document.getElementById('cancel-room-creation-btn');
+    const roomNameInput = document.getElementById('room-name-input');
+    const roomPasswordInput = document.getElementById('room-password-input');
+    
+    if (ghostModeBtn) ghostModeBtn.addEventListener('click', toggleGhostMode);
+    if (voiceCallBtn) voiceCallBtn.addEventListener('click', () => startCall('voice'));
+    if (videoCallBtn) videoCallBtn.addEventListener('click', () => startCall('video'));
+    if (userCount) userCount.addEventListener('click', toggleUserList);
+    if (leaveChatBtn) leaveChatBtn.addEventListener('click', leaveChat);
+    if (cancelReplyBtn) cancelReplyBtn.addEventListener('click', cancelReply);
+    if (submitPasswordBtn) submitPasswordBtn.addEventListener('click', submitPasswordModal);
+    if (closePasswordModalBtn) closePasswordModalBtn.addEventListener('click', closePasswordModal);
+    if (submitUsernameBtn) submitUsernameBtn.addEventListener('click', submitUsername);
+    if (cancelUsernameBtn) cancelUsernameBtn.addEventListener('click', closeUsernameModal);
+    if (createRoomBtn) createRoomBtn.addEventListener('click', createPrivateRoom);
+    if (cancelRoomCreationBtn) cancelRoomCreationBtn.addEventListener('click', closeRoomCreationModal);
+    
+    // Input event handlers  
+    if (modalPassInput) modalPassInput.addEventListener('keypress', handleModalKey);
+    if (usernameInput) usernameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') submitUsername();
+    });
+    if (roomNameInput) roomNameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('room-password-input').focus();
+    });
+    if (roomPasswordInput) roomPasswordInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') createPrivateRoom();
+    });
+    
+    // Mic button mouse events
+    if (micBtnChat) {
+        micBtnChat.addEventListener('mousedown', startRecording);
+        micBtnChat.addEventListener('mouseup', stopRecording);
+        micBtnChat.addEventListener('mouseleave', stopRecording);
+    }
+    
+    // Modal event listeners
+    const infoModal = document.getElementById('info-modal');
+    const userListModal = document.getElementById('user-list-modal');
+    const closeInfoModalBtn = document.getElementById('close-info-modal-btn');
+    const closeUserListBtn = document.getElementById('close-user-list-btn');
+    const acceptCallBtn = document.getElementById('accept-call-btn');
+    const rejectCallBtn = document.getElementById('reject-call-btn');
+    const toggleMuteBtn = document.getElementById('toggle-mute-btn');
+    const toggleCamBtn = document.getElementById('toggle-cam-btn');
+    const endCallBtn = document.getElementById('end-call-btn');
+    
+    if (infoModal) infoModal.addEventListener('click', (e) => { if(e.target === infoModal) closeInfoModal(); });
+    if (userListModal) userListModal.addEventListener('click', (e) => { if(e.target === userListModal) toggleUserList(); });
+    if (closeInfoModalBtn) closeInfoModalBtn.addEventListener('click', closeInfoModal);
+    if (closeUserListBtn) closeUserListBtn.addEventListener('click', toggleUserList);
+    if (acceptCallBtn) acceptCallBtn.addEventListener('click', acceptCall);
+    if (rejectCallBtn) rejectCallBtn.addEventListener('click', rejectCall);
+    if (toggleMuteBtn) toggleMuteBtn.addEventListener('click', toggleMute);
+    if (toggleCamBtn) toggleCamBtn.addEventListener('click', toggleCam);
+    if (endCallBtn) endCallBtn.addEventListener('click', endCall);
+    
+    // Calculator buttons event delegation
+    const calcGrid = document.querySelector('.calc-grid');
+    if (calcGrid) {
+        calcGrid.addEventListener('click', (e) => {
+            if (e.target.classList.contains('btn-calc')) {
+                const input = e.target.getAttribute('data-input');
+                if (input) calcInput(input);
+            }
+        });
+    }
+});
 
 /* --- Chat UX Helpers --- */
+// User List Modal Toggle
+function toggleUserList() {
+    const modal = document.getElementById('user-list-modal');
+    if (modal) {
+        modal.classList.toggle('active');
+        if (modal.classList.contains('active')) {
+            renderUserList();
+        }
+    }
+}
+
+function renderUserList() {
+    const container = document.getElementById('user-list-container');
+    if (container && roomUsers) {
+        if (roomUsers.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#9aa0a6;">No users online</div>';
+            return;
+        }
+        
+        let html = '';
+        roomUsers.forEach(user => {
+            const isSelf = user === myUsername;
+            html += `<div style="padding:8px; background:rgba(255,255,255,0.05); margin:5px 0; border-radius:8px; display:flex; align-items:center; gap:10px;">
+                <span style="width:8px; height:8px; background:#10b981; border-radius:50%;"></span>
+                <span>${user}${isSelf ? ' (You)' : ''}</span>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+}
 function attachSwipeHandler(element, text, sender) {
     let startX = 0;
     let currentX = 0;
@@ -1111,10 +1606,10 @@ async function startCall(type = 'video') {
         videoOverlay.style.display = 'flex'; // Show UI
         if (type === 'voice') {
             document.getElementById('remote-video').style.display = 'none'; // Hide big video area
-            callStatus.innerText = "📞 Calling...";
+            callStatus.innerText = "ðŸ“ž Calling...";
         } else {
             document.getElementById('remote-video').style.display = 'block';
-            callStatus.innerText = "🎥 Calling...";
+            callStatus.innerText = "ðŸŽ¥ Calling...";
         }
 
         peerConnection = createPeerConnection();
@@ -1127,7 +1622,7 @@ async function startCall(type = 'video') {
 
         // Send Offer
         socket.emit('call_user', { room: currentRoom, offer: offer, callType: type });
-        callStatus.innerText = "🔔 Ringing..."; // Update status after send
+        callStatus.innerText = "ðŸ”” Ringing..."; // Update status after send
         showToast('Calling...', 'info');
     } catch (err) {
         console.error('Call Error:', err);
@@ -1140,7 +1635,7 @@ socket.on('call_user', (data) => {
     // data: { offer, socketId, callType }
     incomingCallData = data;
     const modalTitle = document.querySelector('#incoming-call-modal h2');
-    modalTitle.innerText = data.callType === 'voice' ? '📞 Incoming Voice Call...' : '🎥 Incoming Video Call...';
+    modalTitle.innerText = data.callType === 'voice' ? 'ðŸ“ž Incoming Voice Call...' : 'ðŸŽ¥ Incoming Video Call...';
 
     incomingModal.style.display = 'flex';
     SoundUtils.playRing(); // Start Ringing!
@@ -1152,7 +1647,7 @@ async function acceptCall() {
     incomingModal.style.display = 'none';
     try {
         const type = incomingCallData.callType || 'video';
-        callStatus.innerText = "🔄 Connecting..."; // Initial output
+        callStatus.innerText = "ðŸ”„ Connecting..."; // Initial output
 
         const constraints = type === 'voice' ? { video: false, audio: true } : { video: true, audio: true };
 
@@ -1228,10 +1723,10 @@ function createPeerConnection() {
         const state = pc.iceConnectionState;
         console.log("ICE State:", state);
         if (state === 'disconnected') {
-            callStatus.innerText = "⚠️ Reconnecting...";
+            callStatus.innerText = "âš ï¸ Reconnecting...";
             // showToast("Call Reconnecting...", "info");
         } else if (state === 'failed') {
-            callStatus.innerText = "❌ Call Failed";
+            callStatus.innerText = "âŒ Call Failed";
             endCall();
         } else if (state === 'connected') {
             callStatus.innerText = ""; // Clear status when live
@@ -1288,5 +1783,3 @@ function toggleCam() {
     videoTrack.enabled = !videoTrack.enabled;
     showToast(videoTrack.enabled ? 'Cam On' : 'Cam Off', 'info');
 }
-
-

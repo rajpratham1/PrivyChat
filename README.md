@@ -67,10 +67,15 @@ Security is useless if you are forced to give up your password.
 -   **Server Hardening**: Implemented `helmet` for secure HTTP headers and `express-rate-limit` to prevent DDoS attacks.
 -   **Audit**: Comprehensive security review completed.
 
-### **UI Polish (v5.1.1)**
--   **Mobile Fit**: Implements `100dvh` to prevent address bar glitches.
--   **Smooth Scrolling**: Optimized message flow and container overflow.
--   **Compact Input**: Redesigned input bar for better mobile typing.
+### **🎨 Modern UI/UX (v5.4.0)**
+-   **Speech Bubble Messages**: Transformed chat into modern bubble design with tails for better visual hierarchy.
+-   **Glassmorphism Design**: Implemented consistent glass-morphism effects across all UI components.
+-   **Dark Spy Theme**: Professional dark theme with consistent color variables and improved contrast.
+-   **Floating Input**: Detached, glowing input capsule that responds to user focus with smooth animations.
+-   **Custom Scrollbars**: Replaced default scrollbars with minimal, themed alternatives.
+-   **Mobile Optimization**: Perfect mobile responsiveness with `100dvh`, touch-friendly buttons, and compact layouts.
+-   **Enhanced Animations**: Smooth message entry animations and micro-interactions throughout the interface.
+-   **Typography**: Clear font hierarchy with improved readability across all screen sizes.
 
 ### **Secure Calling (v5.1)**
 -   **Video Calls (WebRTC)**: High-definition, P2P video chat. No server recording.
@@ -140,15 +145,18 @@ All data is transmitted over **HTTPS / WSS** (Secure WebSockets), providing a se
 ```bash
 PrivyChat/
 ├── public/              # Frontend Assets
-│   ├── index.html       # Single Entry Point (Lobby + Chat)
-│   ├── style.css        # CSS3 (Glassmorphism, Animations)
+│   ├── index.html       # Single Entry Point (Modern UI Structure)
+│   ├── style.css        # CSS3 (Glassmorphism, Dark Theme, Responsive)
 │   ├── app.js           # Core Logic (Socket, UI, Events)
 │   ├── crypto-utils.js  # Cryptography Helper Library
-│   ├── manual.html      # User Manual
+│   ├── sound-utils.js   # Audio Effects & Voice Processing
+│   ├── manual.html      # User Manual & Documentation
+│   ├── manifest.json    # PWA Configuration
 │   └── logo.png         # Project Logo
 ├── server.js            # Node.js Backend Entry Point
 ├── package.json         # Dependencies & Scripts
-└── README.md            # Documentation
+├── improvement.md       # Development Progress & Enhancements
+└── README.md            # Comprehensive Documentation
 ```
 
 ### **Frontend: `app.js` & `crypto-utils.js`**
@@ -226,6 +234,13 @@ These are "Serverless" platforms. They cannot maintain the persistent WebSocket 
 
 ---
 
+## 👥 Contributors
+
+- **Pratham Kumar** ([@rajpratham1](https://github.com/rajpratham1)) - *Original Creator & Core Developer*
+- **Ayush Gangwar** ([@Arya182-ui](https://github.com/Arya182-ui)) - *UI/UX Enhancement, Security Improvements & Code Quality*
+
+---
+
 ## ⚠️ Disclaimer & License
 
 ### **Educational Purpose**
@@ -242,4 +257,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
 
 ---
 
-**Built with ❤️ and Paranoia.**
+**Built with ❤️ and Paranoia by [Pratham Kumar](https://github.com/rajpratham1) & [Arya182-ui](https://github.com/Arya182-ui).**

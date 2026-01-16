@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const https = require('https');
 const { Server } = require("socket.io");
 const cors = require('cors');
 const path = require('path');
@@ -269,7 +270,8 @@ app.get('/health', (req, res) => {
 if (process.env.RENDER_EXTERNAL_URL) {
     console.log('⚡ Keep-Alive Activated for:', keepAliveURL);
     setInterval(() => {
-        http.get(`${keepAliveURL}/health`, (resp) => {
+        const client = keepAliveURL.startsWith('https') ? https : http;
+        client.get(`${keepAliveURL}/health`, (resp) => {
             if (resp.statusCode === 200) {
                 // console.log('Keep-Alive Ping: Success'); 
             } else {

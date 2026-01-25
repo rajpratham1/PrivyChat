@@ -1668,8 +1668,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
-
-/* --- Chat UX Helpers --- */
 // User List Modal Toggle
 function toggleUserList() {
     const modal = document.getElementById('user-list-modal');
@@ -1972,4 +1970,30 @@ function toggleCam() {
     const videoTrack = localStream.getVideoTracks()[0];
     videoTrack.enabled = !videoTrack.enabled;
     showToast(videoTrack.enabled ? 'Cam On' : 'Cam Off', 'info');
+}
+
+/* --- Header Kebab Menu Logic --- */
+const headerKebabBtn = document.getElementById('header-kebab-btn');
+const headerDropdown = document.getElementById('header-dropdown');
+
+if (headerKebabBtn && headerDropdown) {
+    // Toggle Menu
+    headerKebabBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        headerDropdown.classList.toggle('show');
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!headerDropdown.contains(e.target) && e.target !== headerKebabBtn) {
+            headerDropdown.classList.remove('show');
+        }
+    });
+
+    // Close when an item is clicked
+    headerDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+            headerDropdown.classList.remove('show');
+        });
+    });
 }

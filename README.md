@@ -1,5 +1,5 @@
-# 🛡️ PrivyChat - The Zero-Trace Spy Messenger
-
+# 🛡️ PrivyChat(SecureChat) - The Zero-Trace Spy Messenger
+--------------------------------------------------
 ![PrivyChat Banner](public/logo.png)
 
 > **"Privacy is not a crime. It is a fundamental human right."**

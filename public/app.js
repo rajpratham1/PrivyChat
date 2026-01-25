@@ -55,10 +55,16 @@ const infoContent = {
                     <li style="margin-bottom: 10px;"><strong> Panic Button</strong><br>
                         The Nuclear Option. Instantly disconnects, wipes all RAM/Storage, and redirects to Google.
                     </li>
+                    <li style="margin-bottom: 10px;"><strong> Invisible Ink (Steganography)</strong><br>
+                        Hide secret messages inside innocent image files. To the naked eye, it's just a cat photo. To PrivyChat, it's a hidden dossier.
+                    </li>
                 </ul>
 
                 <h3 style="color:var(--accent-color);"> Rich Messaging</h3>
                 <ul style="list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 10px;"><strong> Protocol: Matrix</strong><br>
+                        Visual Polish: Received messages "decode" character-by-character. Self-destructing messages physically burn away.
+                    </li>
                     <li style="margin-bottom: 10px;"><strong> Encrypted Voice Notes</strong><br>
                         Send crystal-clear voice messages (Opus/WebM). Encrypted before upload.
                     </li>
@@ -599,11 +605,15 @@ socket.on('receive_message', async (data) => {
         timerSpan.innerText = `💣 ${timerSec}s`;
         msgElement.appendChild(timerSpan);
 
+        // Burn Effect (Matrix Protocol)
+        const burnDuration = 600; // Match CSS
+        const burnStart = Math.max(0, data.destruct - burnDuration);
+
         setTimeout(() => {
-            msgElement.style.transition = "opacity 0.5s";
-            msgElement.style.opacity = "0";
-            setTimeout(() => msgElement.remove(), 500);
-        }, data.destruct);
+            msgElement.classList.add('burn-out');
+            // Play burn sound if available? SoundUtils.playBurn()?
+            setTimeout(() => msgElement.remove(), burnDuration);
+        }, burnStart);
     }
 });
 
@@ -633,7 +643,13 @@ function addMessage(text, type, sender, replyContext = null) {
     // Create the message content wrapper safely
     const contentSpan = document.createElement('span');
     contentSpan.classList.add('message-content');
-    contentSpan.textContent = text; // SAFE: No HTML interpretation
+
+    // Matrix Protocol: Scramble Effect for Received Messages
+    if (type === 'received') {
+        scrambleText(contentSpan, text);
+    } else {
+        contentSpan.textContent = text;
+    }
 
     if (sender && type !== 'sent') {
         // Add reply quote element if exists
@@ -660,6 +676,35 @@ function addMessage(text, type, sender, replyContext = null) {
     messagesDiv.appendChild(div);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
     return div;
+}
+
+// Matrix Protocol: Hacker Typing Effect
+function scrambleText(element, finalString) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()";
+    let iterations = 0;
+
+    element.classList.add('scramble-text');
+    element.classList.add('scramble-active');
+
+    const interval = setInterval(() => {
+        element.innerText = finalString
+            .split("")
+            .map((letter, index) => {
+                if (index < iterations) {
+                    return finalString[index];
+                }
+                return chars[Math.floor(Math.random() * chars.length)];
+            })
+            .join("");
+
+        if (iterations >= finalString.length) {
+            clearInterval(interval);
+            element.classList.remove('scramble-active');
+            element.innerText = finalString;
+        }
+
+        iterations += 1 / 2; // Speed
+    }, 30);
 }
 
 function addFileMessage(data, type) {
@@ -1475,6 +1520,150 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.classList.contains('btn-calc')) {
                 const input = e.target.getAttribute('data-input');
                 if (input) calcInput(input);
+            }
+        });
+    }
+
+    /* --- Operation Invisible Ink (Steganography) --- */
+    const stegBtn = document.getElementById('steg-btn');
+    const stegModal = document.getElementById('steg-modal');
+    const closeStegBtn = document.getElementById('close-steg-modal-btn');
+    const stegTabs = document.querySelectorAll('.steg-tab');
+
+    // Toggle Modal
+    if (stegBtn) stegBtn.addEventListener('click', () => {
+        stegModal.style.display = 'flex';
+    });
+
+    if (closeStegBtn) closeStegBtn.addEventListener('click', () => {
+        stegModal.style.display = 'none';
+    });
+
+    // Tab Switching
+    stegTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active class from all tabs & panels
+            stegTabs.forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.steg-panel').forEach(p => p.classList.remove('active'));
+
+            // Activate clicked tab
+            tab.classList.add('active');
+            const targetPanel = document.getElementById(`steg-${tab.dataset.tab}-panel`);
+            if (targetPanel) targetPanel.classList.add('active');
+        });
+    });
+
+    // --- ENCODE LOGIC ---
+    const stegDropZone = document.getElementById('steg-drop-zone');
+    const stegUploadInput = document.getElementById('steg-upload-input');
+    const stegPreviewImg = document.getElementById('steg-preview-img');
+    const stegEncodeBtn = document.getElementById('steg-encode-btn');
+    let stegSelectedFile = null;
+
+    if (stegDropZone) {
+        stegDropZone.addEventListener('click', () => stegUploadInput.click());
+
+        stegDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            stegDropZone.style.borderColor = 'var(--g-blue)';
+        });
+
+        stegDropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            stegDropZone.style.borderColor = 'rgba(255,255,255,0.2)';
+        });
+
+        stegDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            stegDropZone.style.borderColor = 'rgba(255,255,255,0.2)';
+            if (e.dataTransfer.files.length > 0) handleStegFile(e.dataTransfer.files[0]);
+        });
+    }
+
+    if (stegUploadInput) {
+        stegUploadInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleStegFile(e.target.files[0]);
+        });
+    }
+
+    function handleStegFile(file) {
+        if (!file.type.startsWith('image/')) {
+            showToast('❌ Not an image file', 'error');
+            return;
+        }
+        stegSelectedFile = file;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            stegPreviewImg.src = e.target.result;
+            document.getElementById('steg-preview-container').style.display = 'block';
+            stegDropZone.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    if (stegEncodeBtn) {
+        stegEncodeBtn.addEventListener('click', async () => {
+            const secretText = document.getElementById('steg-text-input').value;
+            if (!stegSelectedFile || !secretText) {
+                showToast('❌ Please select image and enter text', 'error');
+                return;
+            }
+
+            stegEncodeBtn.innerText = "🔒 Processing...";
+            stegEncodeBtn.disabled = true;
+
+            try {
+                // Encode
+                const encodedDataUrl = await StegUtils.encode(stegSelectedFile, secretText);
+
+                // Trigger Download
+                const link = document.createElement('a');
+                link.download = 'secret_image.png'; // Force PNG
+                link.href = encodedDataUrl;
+                link.click();
+
+                showToast('✅ Encrypted Image Downloaded!', 'success');
+                stegEncodeBtn.innerText = "🔒 Encrypt & Download";
+                stegEncodeBtn.disabled = false;
+
+                // Clear inputs
+                document.getElementById('steg-text-input').value = '';
+
+            } catch (err) {
+                console.error("Steg Error:", err);
+                showToast('❌ Failed: Message too long or bad image', 'error');
+                stegEncodeBtn.innerText = "🔒 Encrypt & Download";
+                stegEncodeBtn.disabled = false;
+            }
+        });
+    }
+
+    // --- DECODE LOGIC ---
+    const stegDecodeBtn = document.getElementById('steg-decode-btn');
+    const stegDecodeInput = document.getElementById('steg-decode-input');
+
+    if (stegDecodeBtn) stegDecodeBtn.addEventListener('click', () => stegDecodeInput.click());
+
+    if (stegDecodeInput) {
+        stegDecodeInput.addEventListener('change', async (e) => {
+            if (e.target.files.length === 0) return;
+            const file = e.target.files[0];
+
+            try {
+                const message = await StegUtils.decode(file);
+                if (message) {
+                    document.getElementById('steg-result-text').innerText = message;
+                    document.getElementById('steg-result-area').style.display = 'block';
+                    showToast('🔓 Message Found!', 'success');
+                } else {
+                    document.getElementById('steg-result-text').innerText = "(No hidden data found)";
+                    document.getElementById('steg-result-area').style.display = 'block';
+                    showToast('⚠️ No secret message detected', 'error');
+                }
+            } catch (err) {
+                console.error("Decode Error:", err);
+                showToast('❌ Decoding Failed', 'error');
             }
         });
     }

@@ -54,6 +54,13 @@ Security is useless if you are forced to give up your password.
 - **Panic Button:** 
   - **Trigger:** Click the Red Siren 🚨.
   - **Effect:** Instantly disconnects socket, clears `localStorage`, `sessionStorage`, and redirects to `google.com`.
+- **Operation Invisible Ink (Steganography):**
+  - Hide secret text messages inside innocent image files (PNG).
+  - Use the "Spy Tool" 🕵️‍♂️ to Encode (Hide) or Decode (Read) hidden data.
+
+### 🎭 Protocol: Matrix (Visual Polish)
+- **Hacker Typing:** Messages don't just appear; they "decode" character-by-character (`H` -> `X5` -> `He`...).
+- **Visual Self-Destruct:** Expiring messages burn away with a distortion effect instead of vanishing.
 
 ### 💬 Messaging
 - **1v1 Secure Links:** "I'm Feeling Lucky" button generates a unique UUID room. The encryption key is embedded in the URL hash (`#key`) so the server never receives it.

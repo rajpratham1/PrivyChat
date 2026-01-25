@@ -49,6 +49,7 @@
         <!-- Top Right Tools -->
         <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 15px; z-index: 100;">
             <a href="manual.html" target="_blank" title="Manual" class="btn-icon" style="text-decoration:none;">📘</a>
+            <button class="btn-icon" id="steg-btn" title="Invisible Ink (Steganography)">🕵️‍♂️</button>
             <button class="btn-icon" id="stealth-btn" title="Calculator (Stealth)">🎭</button>
             <button class="btn-icon" id="theme-btn" title="Hacker Mode">👨‍💻</button>
             <button class="btn-panic" id="panic-btn" title="Panic Button">⚠️</button>
@@ -296,11 +297,65 @@
         </div>
     </div>
 
+    <!-- Steganography Modal -->
+    <div class="modal-overlay" id="steg-modal" style="display: none;">
+        <div class="modal-content large">
+            <h2>🕵️‍♂️ Operation Invisible Ink</h2>
+            <div class="steg-tabs">
+                <button class="steg-tab active" data-tab="hide">Hide Message</button>
+                <button class="steg-tab" data-tab="read">Read Message</button>
+            </div>
+
+            <!-- Hide Tab -->
+            <div id="steg-hide-panel" class="steg-panel active">
+                <p style="color:var(--text-secondary); margin-bottom:15px;">Hide secret text inside an innocent image.
+                </p>
+
+                <input type="file" id="steg-upload-input" accept="image/*" hidden>
+                <div class="drop-zone" id="steg-drop-zone">
+                    <span style="font-size:2rem;">📁</span><br>
+                    <span>Click or Drag Image Here</span>
+                </div>
+
+                <div id="steg-preview-container" style="display:none; margin:15px 0; text-align:center;">
+                    <img id="steg-preview-img"
+                        style="max-width:100%; max-height:200px; border-radius:8px; border:1px solid #333;">
+                </div>
+
+                <textarea id="steg-text-input" placeholder="Enter your secret message..." rows="3"
+                    style="width:100%; background:rgba(0,0,0,0.3); border:1px solid #333; color:white; padding:10px; border-radius:8px; margin-bottom:15px;"></textarea>
+
+                <button class="btn" id="steg-encode-btn" style="width:100%; background:var(--g-blue);">🔒 Encrypt &
+                    Download</button>
+            </div>
+
+            <!-- Read Tab -->
+            <div id="steg-read-panel" class="steg-panel">
+                <p style="color:var(--text-secondary); margin-bottom:15px;">Upload a suspicious image to reveal hidden
+                    data.</p>
+
+                <input type="file" id="steg-decode-input" accept="image/*" hidden>
+                <button class="btn" id="steg-decode-btn" style="width:100%; margin-bottom:15px;">📂 Open Image</button>
+
+                <div id="steg-result-area"
+                    style="display:none; background:rgba(0,100,0,0.2); padding:15px; border-radius:8px; border:1px solid var(--g-green);">
+                    <h4 style="color:var(--g-green); margin:0 0 10px 0;">Decoded Message:</h4>
+                    <p id="steg-result-text" style="word-break: break-all; font-family:monospace;"></p>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; text-align: center;">
+                <button class="btn delete-btn" id="close-steg-modal-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Background Elements -->
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="toast-container" id="toast-container"></div>
 
+    <script src="steg-utils.js"></script>
     <script src="app.js"></script>
 </body>
 

@@ -50,12 +50,12 @@ app.use(helmet({
         useDefaults: true,
         directives: {
             "default-src": ["'self'"],
-            "script-src": ["'self'", "https://trusted.cdn.com"],
+            "script-src": ["'self'", "'unsafe-eval'", "https://trusted.cdn.com", "https://cdn.tailwindcss.com", "https://unpkg.com"],
             "script-src-attr": ["'none'"],
             "style-src": ["'self'", "'unsafe-inline'", "https://trusted.cdn.com", "https://fonts.googleapis.com"],
             "font-src": ["'self'", "https://fonts.gstatic.com"],
-            "img-src": ["'self'", "data:", "https://trusted.cdn.com"],
-            "connect-src": ["'self'", "https://api.trusted.com"],
+            "img-src": ["'self'", "data:", "https://trusted.cdn.com", "https://github.com", "https://via.placeholder.com"],
+            "connect-src": ["'self'", "https://api.trusted.com", "https://cdn.tailwindcss.com"],
         },
     },
 }));

@@ -365,7 +365,7 @@ socket.on('joined_success', async (data) => {
     roomTitle.appendChild(inviteButton);
 
     addMessage("You are connected.", 'system');
-    
+
     // Initialize event listeners only once
     if (!eventListenersInitialized) {
         initializeChatRoomEventListeners();
@@ -552,13 +552,14 @@ async function sendMessage() {
 
 // Receive Message Listener with Decryption
 socket.on('receive_message', async (data) => {
-    console.log('Received message:', data);    
-    console.log('DEBUG DETAILED:', 
-    {'data.username': data.username,
-    'myUsername': myUsername,     
-    'usernames match': data.username === myUsername,
-    'message preview': data.message ? data.message.substring(0, 30) : 'no message'   
-    });
+    console.log('Received message:', data);
+    console.log('DEBUG DETAILED:',
+        {
+            'data.username': data.username,
+            'myUsername': myUsername,
+            'usernames match': data.username === myUsername,
+            'message preview': data.message ? data.message.substring(0, 30) : 'no message'
+        });
     SoundUtils.playReceive(); // SFX
 
     // Prevent duplicate messages by checking message metadata
@@ -585,7 +586,7 @@ socket.on('receive_message', async (data) => {
         }
     }
 
-    const type = data.username === myUsername ? 'sent' : 'received';   
+    const type = data.username === myUsername ? 'sent' : 'received';
     const msgElement = addMessage(displayMsg, type, data.username, data.replyTo);
 
     // Handle Self-Destruct
@@ -616,15 +617,15 @@ function addMessage(text, type, sender, replyContext = null) {
         replyQuoteElement = document.createElement('div');
         replyQuoteElement.className = 'reply-quote';
         replyQuoteElement.addEventListener('click', () => highlightMessage(`msg-${replyContext.id}`));
-        
+
         const userSpan = document.createElement('span');
         userSpan.className = 'quote-user';
         userSpan.textContent = replyContext.sender;
-        
+
         const textSpan = document.createElement('span');
         textSpan.style.cssText = 'display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
         textSpan.textContent = replyContext.text;
-        
+
         replyQuoteElement.appendChild(userSpan);
         replyQuoteElement.appendChild(textSpan);
     }
@@ -639,7 +640,7 @@ function addMessage(text, type, sender, replyContext = null) {
         if (replyQuoteElement) {
             div.appendChild(replyQuoteElement);
         }
-        
+
         const senderSpan = document.createElement('span');
         senderSpan.classList.add('sender');
         senderSpan.textContent = sender;
@@ -1031,46 +1032,46 @@ function initializeChatRoomEventListeners() {
         console.log('Event listeners already initialized, skipping...');
         return;
     }
-    
+
     console.log('Initializing chat room event listeners...');
-    
+
     // Direct event listener attachment
     const sendBtn = document.getElementById('send-btn');
     const attachBtn = document.getElementById('attach-btn');
     const msgInput = document.getElementById('msg-input');
     const micBtn = document.getElementById('mic-btn');
-    
+
     console.log('Found elements:', {
         sendBtn: !!sendBtn,
-        attachBtn: !!attachBtn, 
+        attachBtn: !!attachBtn,
         msgInput: !!msgInput,
         micBtn: !!micBtn
     });
-    
+
     if (sendBtn) {
         sendBtn.onclick = null; // Clear any existing handlers
         sendBtn.removeEventListener('click', sendMessage); // Remove any existing
-        sendBtn.addEventListener('click', function(e) {
+        sendBtn.addEventListener('click', function (e) {
             console.log('Send button clicked!');
             e.preventDefault();
             sendMessage();
         });
         console.log('Send button listener attached');
     }
-    
+
     if (attachBtn) {
         attachBtn.onclick = null;
-        attachBtn.addEventListener('click', function(e) {
+        attachBtn.addEventListener('click', function (e) {
             console.log('Attach button clicked!');
             e.preventDefault();
             document.getElementById('file-input').click();
         });
         console.log('Attach button listener attached');
     }
-    
+
     if (msgInput) {
         msgInput.onkeypress = null;
-        msgInput.addEventListener('keypress', function(e) {
+        msgInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 console.log('Enter key pressed in message input');
                 sendMessage();
@@ -1078,17 +1079,17 @@ function initializeChatRoomEventListeners() {
         });
         console.log('Message input listener attached');
     }
-    
+
     if (micBtn) {
         micBtn.onmousedown = null;
         micBtn.onmouseup = null;
         micBtn.onmouseleave = null;
         micBtn.addEventListener('mousedown', startRecording);
-        micBtn.addEventListener('mouseup', stopRecording);  
+        micBtn.addEventListener('mouseup', stopRecording);
         micBtn.addEventListener('mouseleave', stopRecording);
         console.log('Mic button listeners attached');
     }
-    
+
     eventListenersInitialized = true;
     console.log('All chat room event listeners initialized successfully');
 }
@@ -1118,7 +1119,7 @@ function userLoginFlow(room, password, mode) {
 function showRoomCreationModal() {
     const modal = document.getElementById('room-creation-modal');
     const roomNameInput = document.getElementById('room-name-input');
-    
+
     if (modal && roomNameInput) {
         modal.style.display = 'flex';
         roomNameInput.focus();
@@ -1128,33 +1129,33 @@ function showRoomCreationModal() {
 function createPrivateRoom() {
     const roomNameInput = document.getElementById('room-name-input');
     const roomPasswordInput = document.getElementById('room-password-input');
-    
+
     const roomName = roomNameInput.value.trim();
     const roomPassword = roomPasswordInput.value.trim();
-    
+
     console.log('Create room called:', { roomName, roomPassword });
-    
+
     if (!roomName) {
         showToast('Please enter a room name', 'error');
         return;
     }
-    
+
     if (!roomPassword) {
         showToast('Please enter a room password', 'error');
         return;
     }
-    
+
     if (roomName.length > 30) {
         showToast('Room name too long (max 30 characters)', 'error');
         return;
     }
-    
+
     // Validate room name with the same regex as server
     if (!/^[a-zA-Z0-9_\- ]{1,30}$/.test(roomName)) {
         showToast('Invalid characters in room name', 'error');
         return;
     }
-    
+
     closeRoomCreationModal();
     userLoginFlow(roomName, roomPassword, 'private');
 }
@@ -1174,12 +1175,12 @@ function closeRoomCreationModal() {
 function showUsernameModal(room, password, mode) {
     const modal = document.getElementById('username-modal');
     const input = document.getElementById('username-input');
-    
+
     if (modal && input) {
         input.value = ''; // Clear any existing value
         modal.style.display = 'flex';
         input.focus();
-        
+
         // Store the pending join data
         window.pendingJoin = { room, password, mode };
     }
@@ -1238,14 +1239,14 @@ function closeUsernameModal() {
 function submitPasswordModal() {
     const input = document.getElementById('modal-pass-input');
     const password = input.value.trim();
-    
+
     if (!password) {
         showToast('Please enter password', 'error');
         return;
     }
-    
+
     closePasswordModal();
-    
+
     // Continue with stored join flow
     if (window.pendingPasswordJoin) {
         const { room, mode } = window.pendingPasswordJoin;
@@ -1267,11 +1268,11 @@ function closePasswordModal() {
 function showPasswordModal(room, mode) {
     const modal = document.getElementById('password-modal');
     const input = document.getElementById('modal-pass-input');
-    
+
     if (modal && input) {
         modal.style.display = 'flex';
         input.focus();
-        
+
         // Store the pending join data
         window.pendingPasswordJoin = { room, mode };
     }
@@ -1293,7 +1294,7 @@ function handleModalKey(e) {
 // Initialize Event Listeners when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM Content Loaded - Starting initialization');
-    
+
     // Register Service Worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
@@ -1310,11 +1311,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'google-input': document.getElementById('google-input'),
         'google-join-btn': document.getElementById('google-join-btn')
     };
-    
+
     console.log('Element availability check:', elementsCheck);
-    
+
     // Add global click debugging
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', function (e) {
         if (e.target.tagName === 'BUTTON') {
             console.log('Button clicked:', {
                 id: e.target.id,
@@ -1329,27 +1330,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const stealthBtn = document.getElementById('stealth-btn');
     const themeBtn = document.getElementById('theme-btn');
     const panicBtn = document.getElementById('panic-btn');
-    
+
     if (stealthBtn) stealthBtn.addEventListener('click', toggleStealth);
     if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
     if (panicBtn) panicBtn.addEventListener('click', panicMode);
-    
+
     // Google input handlers
     const googleInput = document.getElementById('google-input');
     const micBtn = document.getElementById('mic-btn-google');
-    
+
     if (googleInput) googleInput.addEventListener('keypress', handleGoogleEnter);
     if (micBtn) micBtn.addEventListener('click', startGoogleMic);
-    
+
     // Google buttons
     const joinBtn = document.getElementById('google-join-btn');
     const createBtn = document.getElementById('google-create-btn');
     const luckyBtn = document.getElementById('google-1v1-btn');
-    
+
     if (joinBtn) joinBtn.addEventListener('click', googleJoin);
     if (createBtn) createBtn.addEventListener('click', googleCreate);
     if (luckyBtn) luckyBtn.addEventListener('click', google1v1);
-    
+
     // Footer links
     const locationLink = document.getElementById('location-link');
     const aboutLink = document.getElementById('about-link');
@@ -1357,37 +1358,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const securityLink = document.getElementById('security-link');
     const privacyLink = document.getElementById('privacy-link');
     const termsLink = document.getElementById('terms-link');
-    
+
     if (locationLink) locationLink.addEventListener('click', () => openInfo('location'));
-    if (aboutLink) aboutLink.addEventListener('click', () => openInfo('about'));
+    // if (aboutLink) aboutLink.addEventListener('click', () => openInfo('about'));
     if (featureLink) featureLink.addEventListener('click', () => openInfo('feature'));
     if (securityLink) securityLink.addEventListener('click', () => openInfo('security'));
     if (privacyLink) privacyLink.addEventListener('click', () => openInfo('privacy'));
     if (termsLink) termsLink.addEventListener('click', () => openInfo('terms'));
-    
+
     // Chat room elements - Add direct listeners
     const sendBtn = document.getElementById('send-btn');
     const attachBtn = document.getElementById('attach-btn');
     const msgInput = document.getElementById('msg-input');
-    
+
     if (sendBtn) {
-        sendBtn.addEventListener('click', function(e) {
+        sendBtn.addEventListener('click', function (e) {
             console.log('Send button clicked (main)!');
             e.preventDefault();
             sendMessage();
         });
     }
-    
+
     if (attachBtn) {
-        attachBtn.addEventListener('click', function(e) {
+        attachBtn.addEventListener('click', function (e) {
             console.log('Attach button clicked (main)!');
             e.preventDefault();
             document.getElementById('file-input').click();
         });
     }
-    
+
     if (msgInput) {
-        msgInput.addEventListener('keypress', function(e) {
+        msgInput.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 console.log('Enter pressed (main)!');
                 sendMessage();
@@ -1413,7 +1414,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cancelRoomCreationBtn = document.getElementById('cancel-room-creation-btn');
     const roomNameInput = document.getElementById('room-name-input');
     const roomPasswordInput = document.getElementById('room-password-input');
-    
+
     if (ghostModeBtn) ghostModeBtn.addEventListener('click', toggleGhostMode);
     if (voiceCallBtn) voiceCallBtn.addEventListener('click', () => startCall('voice'));
     if (videoCallBtn) videoCallBtn.addEventListener('click', () => startCall('video'));
@@ -1426,7 +1427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cancelUsernameBtn) cancelUsernameBtn.addEventListener('click', closeUsernameModal);
     if (createRoomBtn) createRoomBtn.addEventListener('click', createPrivateRoom);
     if (cancelRoomCreationBtn) cancelRoomCreationBtn.addEventListener('click', closeRoomCreationModal);
-    
+
     // Input event handlers  
     if (modalPassInput) modalPassInput.addEventListener('keypress', handleModalKey);
     if (usernameInput) usernameInput.addEventListener('keypress', (e) => {
@@ -1438,14 +1439,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (roomPasswordInput) roomPasswordInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') createPrivateRoom();
     });
-    
+
     // Mic button mouse events
     if (micBtnChat) {
         micBtnChat.addEventListener('mousedown', startRecording);
         micBtnChat.addEventListener('mouseup', stopRecording);
         micBtnChat.addEventListener('mouseleave', stopRecording);
     }
-    
+
     // Modal event listeners
     const infoModal = document.getElementById('info-modal');
     const userListModal = document.getElementById('user-list-modal');
@@ -1456,9 +1457,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleMuteBtn = document.getElementById('toggle-mute-btn');
     const toggleCamBtn = document.getElementById('toggle-cam-btn');
     const endCallBtn = document.getElementById('end-call-btn');
-    
-    if (infoModal) infoModal.addEventListener('click', (e) => { if(e.target === infoModal) closeInfoModal(); });
-    if (userListModal) userListModal.addEventListener('click', (e) => { if(e.target === userListModal) toggleUserList(); });
+
+    if (infoModal) infoModal.addEventListener('click', (e) => { if (e.target === infoModal) closeInfoModal(); });
+    if (userListModal) userListModal.addEventListener('click', (e) => { if (e.target === userListModal) toggleUserList(); });
     if (closeInfoModalBtn) closeInfoModalBtn.addEventListener('click', closeInfoModal);
     if (closeUserListBtn) closeUserListBtn.addEventListener('click', toggleUserList);
     if (acceptCallBtn) acceptCallBtn.addEventListener('click', acceptCall);
@@ -1466,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (toggleMuteBtn) toggleMuteBtn.addEventListener('click', toggleMute);
     if (toggleCamBtn) toggleCamBtn.addEventListener('click', toggleCam);
     if (endCallBtn) endCallBtn.addEventListener('click', endCall);
-    
+
     // Calculator buttons event delegation
     const calcGrid = document.querySelector('.calc-grid');
     if (calcGrid) {
@@ -1498,7 +1499,7 @@ function renderUserList() {
             container.innerHTML = '<div style="text-align:center; padding:20px; color:#9aa0a6;">No users online</div>';
             return;
         }
-        
+
         let html = '';
         roomUsers.forEach(user => {
             const isSelf = user === myUsername;

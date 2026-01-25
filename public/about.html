@@ -16,6 +16,21 @@
     <style>
         body {
             font-family: 'Outfit', sans-serif;
+            background-color: #111827;
+            /* Tailwind gray-900 */
+            color: white;
+            opacity: 0;
+            animation: fadeIn 0.5s ease-in forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         .blob {

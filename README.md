@@ -1,105 +1,96 @@
 # 🛡️ PrivyChat(SecureChat) - The Zero-Trace Spy Messenger
---------------------------------------------------
+
 ![PrivyChat Banner](public/logo.png)
 
-> **"Privacy is not a crime. It is a fundamental human right."**
+> *"Privacy is not a crime. It is a fundamental human right."*
 
 **PrivyChat** is an open-source, ultra-secure, and ephemeral messaging platform designed for journalists, activists, whistleblowers, and privacy enthusiasts. It is engineered with a **"Zero-Trust"** philosophy: we assume the server is compromised, the network is tapped, and the device might be seized.
 
-To combat this, PrivyChat operates entirely in **RAM (Random Access Memory)**, uses **Military-Grade End-to-End Encryption**, and includes distinct **"Spy Features"** like a decoy calculator mode and browser panic button.
+To combat this, PrivyChat operates **entirely in RAM** (Random Access Memory), uses **Military-Grade End-to-End Encryption**, and includes distinct "Spy Features" like a decoy calculator mode and browser panic button.
 
 ---
 
 ## 📑 Table of Contents
 
-1.  [Philosophy & Core Concepts](#-philosophy--core-concepts)
-2.  [Features Overview](#-features-overview)
-3.  [Technical Architecture](#-technical-architecture)
-4.  [Security Protocol (Cryptography)](#-security-protocol)
-5.  [Codebase Deep Dive](#-codebase-deep-dive)
-    *   [Frontend Architecture](#frontend-appjs--indexhtml)
-    *   [Backend Logic](#backend-serverjs)
-6.  [Installation & Setup](#-installation--setup)
-7.  [Deployment Guide](#-deployment-guide)
-8.  [Disclaimer & License](#-disclaimer--license)
+- [Philosophy & Core Concepts](#-philosophy--core-concepts)
+- [Features Overview](#-features-overview)
+- [Technical Architecture](#-technical-architecture)
+- [Security Protocol (Cryptography)](#-security-protocol)
+- [Codebase Deep Dive](#-codebase-deep-dive)
+- [Installation & Setup](#-installation--setup)
+- [Deployment Guide](#-deployment-guide)
+- [Disclaimer & License](#-disclaimer--license)
 
 ---
 
 ## 🧠 Philosophy & Core Concepts
 
-### **1. RAM-Only Architecture**
+### 1. RAM-Only Architecture
 Traditional chat apps store messages in databases (MongoDB, SQL, Redis). This leaves a forensic trail.
-*   **PrivyChat approach:** Data exists **only** in the volatile memory of the Node.js process.
-*   **Consequence:** If the server is restarted, crashed, or seized, **100% of the data is instantly and irrevocably lost**. There is no "Restore Backup" button.
+- **PrivyChat approach:** Data exists *only* in the volatile memory of the Node.js process.
+- **Consequence:** If the server is restarted, crashed, or seized, **100% of the data is instantly and irrevocably lost**. There is no "Restore Backup" button.
 
-### **2. Zero-Knowledge Server**
+### 2. Zero-Knowledge Server
 The server routes messages between users but **cannot read them**.
-*   All encryption happens in the **Browser** (Client-Side) using the Web Crypto API.
-*   The server only ever sees encrypted blobs (cipher text).
+- All encryption happens in the **Browser (Client-Side)** using the **Web Crypto API**.
+- The server only ever sees encrypted blobs (cipher text).
 
-### **3. Plausible Deniability**
+### 3. Plausible Deniability
 Security is useless if you are forced to give up your password.
-*   **Decoy Vault:** A fake login system that redirects to a weather app, allowing you to prove you were just "checking the forecast".
-*   **Stealth Mode:** A calculator overlay that hides the chat interface instantly.
+- **Decoy Vault:** A fake login system that redirects to a weather app, allowing you to prove you were just "checking the forecast".
+- **Stealth Mode:** A calculator overlay that hides the chat interface instantly.
 
 ---
 
 ## 🌟 Features Overview
 
-### **🕵️‍♂️ Stealth Suite**
-*   **Google Theme UI**: A landing page disguised as a search engine. Passersby will think you are just browsing Google.
-*   **Ghost Mode**: Messages are **blurred by default**. They only reveal when you hover your mouse over them, preventing "shoulder surfing" in public transport or cafes.
-*   **Stealth Calculator**:
-    *   **Trigger**: Click the Mask Icon `🎭`.
-    *   **Effect**: The app transforms into a functional scientific calculator.
-    *   **Unlock**: Enter `1337` + `=` to retrieve your chat.
-*   **Panic Button**:
-    *   **Trigger**: Click the Red Siren `🚨`.
-    *   **Effect**: Instantly disconnects socket, clears `localStorage`, `sessionStorage`, and redirects to `google.com`.
+### 🕵️‍♂️ Stealth Suite
+- **Google Theme UI:** A landing page disguised as a search engine. Passersby will think you are just browsing Google.
+- **Ghost Mode:** Messages are blurred by default. They only reveal when you hover your mouse over them, preventing "shoulder surfing".
+- **Stealth Calculator:** 
+  - **Trigger:** Click the Mask Icon 🎭.
+  - **Effect:** The app transforms into a functional scientific calculator.
+  - **Unlock:** Enter `1337` + `=` to retrieve your chat.
+- **Panic Button:** 
+  - **Trigger:** Click the Red Siren 🚨.
+  - **Effect:** Instantly disconnects socket, clears `localStorage`, `sessionStorage`, and redirects to `google.com`.
 
-### **💬 Messaging**
-*   **1v1 Secure Links**: "I'm Feeling Lucky" button generates a unique UUID room. The encryption key is embedded in the URL hash (`#key`) so the server never receives it.
-*   **Private Rooms**: Password-protected named rooms (e.g., "TeamAlpha").
-*   **Voice Notes**: Record encrypted audio clips (`Opus/WebM`).
-*   **File Sharing**: Send images and documents. Files are encrypted chunk-by-chunk before upload.
-### **🛡️ Security Polish (v5.3.0)**
--   **XSS Protection**: Complete sanitization of all user inputs using strict DOM text node creation.
--   **Server Hardening**: Implemented `helmet` for secure HTTP headers and `express-rate-limit` to prevent DDoS attacks.
--   **Audit**: Comprehensive security review completed.
+### 💬 Messaging
+- **1v1 Secure Links:** "I'm Feeling Lucky" button generates a unique UUID room. The encryption key is embedded in the URL hash (`#key`) so the server never receives it.
+- **Private Rooms:** Password-protected named rooms (e.g., "TeamAlpha").
+- **Voice Notes:** Record encrypted audio clips (Opus/WebM).
+- **File Sharing:** Send images and documents. Files are encrypted chunk-by-chunk before upload.
 
-### **🎨 Modern UI/UX (v5.4.0)**
--   **Speech Bubble Messages**: Transformed chat into modern bubble design with tails for better visual hierarchy.
--   **Glassmorphism Design**: Implemented consistent glass-morphism effects across all UI components.
--   **Dark Spy Theme**: Professional dark theme with consistent color variables and improved contrast.
--   **Floating Input**: Detached, glowing input capsule that responds to user focus with smooth animations.
--   **Custom Scrollbars**: Replaced default scrollbars with minimal, themed alternatives.
--   **Mobile Optimization**: Perfect mobile responsiveness with `100dvh`, touch-friendly buttons, and compact layouts.
--   **Enhanced Animations**: Smooth message entry animations and micro-interactions throughout the interface.
--   **Typography**: Clear font hierarchy with improved readability across all screen sizes.
+### 🛡️ Security Polish (v5.3.0)
+- **XSS Protection:** Complete sanitization of all user inputs using strict DOM text node creation.
+- **Server Hardening:** Implemented `helmet` for secure HTTP headers and `express-rate-limit` to prevent DDoS attacks.
+- **Audit:** Comprehensive security review completed.
 
-### **Secure Calling (v5.1)**
--   **Video Calls (WebRTC)**: High-definition, P2P video chat. No server recording.
--   **Voice Calls**: Audio-only mode for privacy or low bandwidth.
--   **Encryption**: DTLS-SRTP (Standard WebRTC encryption).
+### 🎨 Modern UI/UX (v5.4.0)
+- **Glassmorphism Design:** Consistent glass-morphism effects across all UI components.
+- **Dark Spy Theme:** Professional dark theme with consistent color variables.
+- **Floating Input:** Detached, glowing input capsule.
+- **Mobile Optimization:** Perfect responsiveness with `100dvh` and touch-friendly buttons.
+- **Enhanced Animations:** Smooth message entry animations.
 
-### **App Installation (v4.0)**
--   **PWA Support**: Install PrivyChat as a native app on Android/iOS/Desktop.
--   **Offline Shell**: Loads instantly even on spotty networks.
+### Secure Calling (v5.1)
+- **Video Calls (WebRTC):** High-definition, P2P video chat. No server recording.
+- **Voice Calls:** Audio-only mode.
+- **Encryption:** DTLS-SRTP (Standard WebRTC encryption).
 
-### **🎨 Immersion & UX (v3.3)**
-*   **Voice Masks**: Record voice notes with disguises (Robot, Chipmunk, Monster) to protect your identity.
-*   **Matrix Hacker Theme**: A full visual overhaul with terminal green aesthetics, triggered via the 👨‍💻 button.
-*   **Sound Effects**: Satisfying audio feedback for sending, receiving, and joining rooms (using WebAudio synth, no external assets).
-*   **Interactive User List**: Click the "Online Count" to see exactly who is in the room.
-*   **Swipe-to-Reply**: Drag any message to the right to reply to it instantly.
+### 🎨 Immersion & UX (v3.3)
+- **Voice Masks:** Record voice notes with disguises (Robot, Chipmunk, Monster).
+- **Matrix Hacker Theme:** Terminal green aesthetics (triggered via 👨‍💻).
+- **Sound Effects:** Satisfying audio feedback (WebAudio synth).
+- **Interactive User List:** Click "Online Count" to see connected users.
+- **Swipe-to-Reply:** Drag messages to reply.
 
 ---
 
 ## 🏗️ Technical Architecture
 
-PrivyChat is a **Real-Time Single Page Application (SPA)** built with Vanilla JavaScript and Node.js.
+**PrivyChat** is a Real-Time Single Page Application (SPA) built with Vanilla JavaScript and Node.js.
 
-### **System Design**
 ```mermaid
 graph TD
     UserA[User A (Browser)] <-->|Encrypted WSS| Server[Node.js Server (RAM Only)];
@@ -109,11 +100,11 @@ graph TD
     UserA -- AES-GCM Encrypted Data --> Server --> UserB;
 ```
 
-*   **Runtime**: Node.js (v14+)
-*   **Framework**: Express.js (HTTP Server)
-*   **Protocol**: Socket.io v4 (WebSockets with Polling fallback)
-*   **Frontend**: HTML5, CSS3 (Glassmorphism), Vanilla JS (ECMAScript 2020)
-*   **Cryptography**: `window.crypto.subtle` (Native Web Crypto API)
+- **Runtime:** Node.js (v14+)
+- **Framework:** Express.js (HTTP Server)
+- **Protocol:** Socket.io v4 (WebSockets with Polling fallback)
+- **Frontend:** HTML5, CSS3, Vanilla JS (ES2020)
+- **Cryptography:** `window.crypto.subtle` (Native Web Crypto API)
 
 ---
 
@@ -121,140 +112,102 @@ graph TD
 
 We use a hybrid encryption scheme to ensure speed and security.
 
-### **1. Key Generation (PBKDF2)**
-For **Private Rooms**, keys are derived from the password.
-*   **Algorithm**: `PBKDF2` (Password-Based Key Derivation Function 2)
-*   **Hash**: `SHA-256`
-*   **Iterations**: 100,000 (To prevent brute-force attacks)
-*   **Salt**: Room Name
-*   **Output**: A 256-bit AES-GCM Encryption Key.
+### 1. Key Generation (PBKDF2)
+For Private Rooms, keys are derived from the password.
+- **Algorithm:** PBKDF2 (Password-Based Key Derivation Function 2)
+- **Hash:** SHA-256
+- **Iterations:** 100,000
+- **Salt:** Room Name
+- **Output:** A 256-bit AES-GCM Encryption Key.
 
-### **2. Message Encryption (AES-GCM)**
-All messages (Text, Images, Audio) are encrypted using **AES-GCM** (Galois/Counter Mode).
-*   **Why AES-GCM?**: It provides both **Confidentiality** (they can't read it) and **Integrity** (they can't temper with it).
-*   **IV (Initialization Vector)**: A unique 12-byte random IV is generated for *every single message*. This ensures that sending "Hello" twice results in two completely different encrypted strings.
+### 2. Message Encryption (AES-GCM)
+All messages (Text, Images, Audio) are encrypted using AES-GCM.
+- **Why AES-GCM?:** Authenticated Encryption (Confidentiality + Integrity).
+- **IV (Initialization Vector):** A unique 12-byte random IV for every message.
 
-### **3. Transport Layer**
-All data is transmitted over **HTTPS / WSS** (Secure WebSockets), providing a second layer of encryption (TLS/SSL) against network sniffers.
+### 3. Transport Layer
+All data is transmitted over HTTPS / WSS, providing a second layer of encryption (TLS/SSL).
 
 ---
 
 ## 💻 Codebase Deep Dive
 
-### **Directory Structure**
-```bash
+### Directory Structure
+```
 PrivyChat/
 ├── public/              # Frontend Assets
-│   ├── index.html       # Single Entry Point (Modern UI Structure)
-│   ├── style.css        # CSS3 (Glassmorphism, Dark Theme, Responsive)
+│   ├── index.html       # Single Entry Point
+│   ├── style.css        # CSS3 (Glassmorphism, Dark Theme)
 │   ├── app.js           # Core Logic (Socket, UI, Events)
 │   ├── crypto-utils.js  # Cryptography Helper Library
 │   ├── sound-utils.js   # Audio Effects & Voice Processing
-│   ├── manual.html      # User Manual & Documentation
-│   ├── manifest.json    # PWA Configuration
-│   └── logo.png         # Project Logo
+│   └── about.html       # About Page
 ├── server.js            # Node.js Backend Entry Point
 ├── package.json         # Dependencies & Scripts
-├── improvement.md       # Development Progress & Enhancements
-└── README.md            # Comprehensive Documentation
+└── README.md            # Documentation
 ```
 
-### **Frontend: `app.js` & `crypto-utils.js`**
+### Frontend: `app.js` & `crypto-utils.js`
 The frontend is the "Brain" of the security.
-*   **`CryptoUtils.deriveKey(password, salt)`**:
-    Uses `window.crypto.subtle.importKey` and `deriveKey` to turn a text password into a crypto-object.
-*   **`sendMessage()`**:
-    1.  Captures input text.
-    2.  Calls `CryptoUtils.encrypt(text, key)`.
-    3.  Emits `socket.emit('send_message', { data, iv })`.
-*   **`googleJoin()`**:
-    Determines if the user input is a Room Code or a Spy Keyword (`weather`, `guest`).
-    ```javascript
-    if (val === 'weather') {
-        window.location.replace("https://weather-app-url...");
-    }
-    ```
+- `CryptoUtils.deriveKey(password, salt)`: Uses `window.crypto.subtle.importKey`.
+- `sendMessage()`: Captures input -> `CryptoUtils.encrypt(text, key)` -> Emits socket event.
 
-### **Backend: `server.js`**
+### Backend: `server.js`
 The backend is intentionally "dumb".
-*   **`users = {}`**: Maps SocketIDs to Usernames/Rooms.
-*   **`socket.on('join_room')`**:
-    *   Validates room password (if set).
-    *   Adds socket to Socket.io room channel.
-*   **`socket.on('send_message')`**:
-    *   Receives data.
-    *   Broadcasts to `room`.
-    *   **Does NOT store data.** The message object is garbage collected immediately after transmission.
+- `users = {}`: Maps SocketIDs to Usernames/Rooms.
+- `socket.on('send_message')`: Broadcasts to room. NO storage.
 
 ---
 
 ## 🚀 Installation & Setup
 
-### **Prerequisites**
-*   **Node.js**: Download and install from [nodejs.org](https://nodejs.org/).
+### Prerequisites
+- Node.js (v14+)
 
-### **Local Deployment**
-1.  **Clone the Repo**:
-    ```bash
-    git clone https://github.com/rajpratham1/PrivyChat.git
-    cd PrivyChat
-    ```
-
-2.  **Install Dependencies**:
-    ```bash
-    npm install express socket.io
-    ```
-
-3.  **Run Development Server**:
-    ```bash
-    npm run dev
-    # or
-    node server.js
-    ```
-
-4.  **Access App**:
-    Open Browser at `http://localhost:3000`.
+### Local Deployment
+1. **Clone the Repo:**
+   ```bash
+   git clone https://github.com/rajpratham1/PrivyChat.git
+   cd PrivyChat
+   ```
+2. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
+3. **Run Development Server:**
+   ```bash
+   npm run dev
+   # or
+   node server.js
+   ```
+4. **Access App:** Open Browser at `http://localhost:3000`.
 
 ---
 
 ## ☁️ Deployment Guide
 
-### **Deploy to Render.com (Recommended)**
-Since PrivyChat uses WebSockets, specific configuration is needed.
-1.  Push code to **GitHub**.
-2.  Create a **New Web Service** on Render.
-3.  Connect your Repo.
-4.  **Build Command**: `npm install`
-5.  **Start Command**: `node server.js`
-6.  **Environment Variables**: None needed for basic usage.
+### Deploy to Render.com (Recommended)
+1. Push code to GitHub.
+2. Create a New Web Service on Render.
+3. **Build Command:** `npm install`
+4. **Start Command:** `node server.js`
 
-### **Important Note on Vercel/Netlify**
-**Do NOT deploy to Vercel or Netlify.**
-These are "Serverless" platforms. They cannot maintain the persistent WebSocket connections required for Real-Time chat. You **must** use a NodeJS hosting provider like Render, Railway, Fly.io, or DigitalOcean.
+> **Note:** Do NOT deploy to Vercel/Netlify. They do not support persistent WebSockets. Use Render, Railway, or Fly.io.
 
 ---
 
 ## 👥 Contributors
 
-- **Pratham Kumar** ([@rajpratham1](https://github.com/rajpratham1)) - *Original Creator & Core Developer*
-- **Ayush Gangwar** ([@Arya182-ui](https://github.com/Arya182-ui)) - *UI/UX Enhancement, Security Improvements & Code Quality*
+- **Pratham Kumar** ([@rajpratham1](https://github.com/rajpratham1)) - Original Creator & Core Developer
+- **Ayush Gangwar** ([@Arya182-ui](https://github.com/Arya182-ui)) - UI/UX Enhancement, Security Improvements & Code Quality
 
 ---
 
 ## ⚠️ Disclaimer & License
 
-### **Educational Purpose**
-This software is provided for **educational and research purposes**. While it utilizes industry-standard encryption, it has not undergone a formal third-party security audit. The developers are not liable for any compromises arising from the use of this software.
+**Educational Purpose**: This software is provided for educational and research purposes. It has not undergone a formal third-party security audit.
 
-### **MIT License**
+**MIT License**
 Copyright (c) 2026 PrivyChat
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
-
----
-
-**Built with ❤️ and Paranoia by [Pratham Kumar](https://github.com/rajpratham1) & [Arya182-ui](https://github.com/Arya182-ui).**
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software... (See full license in LICENSE file).

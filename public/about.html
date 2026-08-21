@@ -4,344 +4,407 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About Us - PrivyChat</title>
-    <!-- Tailwind CSS (CDN for easy porting) -->
+    <title>About PrivyChat - Zero-Trace Spy Messenger</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
     <link rel="apple-touch-icon" href="logo.png">
     <link rel="icon" type="image/png" href="logo.png">
+
     <style>
+        :root {
+            --glow-green: rgba(34, 197, 94, 0.4);
+            --glow-cyan: rgba(6, 182, 212, 0.4);
+        }
+
         body {
             font-family: 'Outfit', sans-serif;
-            background-color: #111827;
-            /* Tailwind gray-900 */
-            color: white;
-            opacity: 0;
-            animation: fadeIn 0.5s ease-in forwards;
+            background-color: #080c14;
+            color: #e2e8f0;
+            overflow-x: hidden;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
+        .font-mono-code {
+            font-family: 'Courier Prime', monospace;
         }
 
-        .blob {
-            position: absolute;
-            filter: blur(40px);
-            z-index: -1;
-            opacity: 0.4;
+        .glass-card {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(34, 197, 94, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7), 0 0 25px -5px var(--glow-green);
+        }
+
+        .glass-card-admin {
+            background: linear-gradient(145deg, rgba(20, 30, 48, 0.8) 0%, rgba(10, 17, 28, 0.95) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px -5px rgba(34, 197, 94, 0.25);
+        }
+
+        .grid-background {
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(34, 197, 94, 0.12) 0%, transparent 60%),
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+        }
+
+        .pulse-slow {
+            animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.45; transform: scale(1.05); }
         }
     </style>
 </head>
 
-<body class="bg-gray-900 text-white overflow-x-hidden">
+<body class="grid-background min-h-screen">
 
-    <div class="min-h-screen relative overflow-hidden">
-        <!-- Background Gradient -->
-        <div
-            class="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-gray-900 via-[#0a0a0a] to-black -z-50">
+    <!-- Top Navigation Bar -->
+    <nav class="sticky top-0 z-50 backdrop-blur-xl bg-[#080c14]/80 border-b border-white/10 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <a href="index.html" class="flex items-center gap-3 no-underline group">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-500/30 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <i data-lucide="shield" class="w-5 h-5 text-green-400"></i>
+                </div>
+                <div>
+                    <span class="text-xl font-bold text-white tracking-tight">Privy<span class="text-green-400">Chat</span></span>
+                    <span class="text-[10px] text-green-400/80 font-mono-code block -mt-1 tracking-widest uppercase">ZERO-TRACE PROTOCOL</span>
+                </div>
+            </a>
+
+            <div class="flex items-center gap-3 sm:gap-4">
+                <a href="nearby.html" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-medium transition-all no-underline shadow-sm hover:shadow-emerald-500/20">
+                    <i data-lucide="radio" class="w-4 h-4 text-emerald-400 animate-pulse"></i>
+                    <span class="hidden sm:inline">Nearby WiFi/BT Chat</span>
+                    <span class="sm:hidden">Radar</span>
+                </a>
+                <a href="manual.html" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white text-sm font-medium transition-all no-underline">
+                    <i data-lucide="book-open" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">User Manual</span>
+                </a>
+                <a href="index.html" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-semibold text-sm transition-all shadow-lg hover:shadow-green-500/25 no-underline">
+                    <i data-lucide="message-square" class="w-4 h-4"></i>
+                    <span>Launch Chat</span>
+                </a>
+            </div>
         </div>
+    </nav>
 
-        <!-- content container -->
-        <div class="relative z-10 py-20 px-4">
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 relative">
 
-            <!-- 1. HEADER SECTION -->
-            <div class="max-w-7xl mx-auto text-center mb-24 relative z-10">
-                <div
-                    class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-green-500/10 rounded-full blur-3xl -z-10 animate-pulse">
-                </div>
-                <div class="inline-block mb-8 relative">
-                    <div class="absolute inset-0 bg-green-500/20 blur-xl rounded-full animate-pulse"></div>
-                    <i data-lucide="shield-check"
-                        class="w-24 h-24 text-green-500 mx-auto relative z-10 drop-shadow-[0_0_15px_rgba(34,197,94,0.5)]"></i>
-                </div>
-                <h1 class="text-6xl md:text-7xl font-bold mb-8 tracking-tight">
-                    <span
-                        class="bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 bg-clip-text text-transparent">
-                        About PrivyChat
-                    </span>
-                </h1>
-                <p class="text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed font-light">
-                    The ultra-secure, RAM-only spy messenger for when privacy is a matter of survival.
-                </p>
+        <!-- Glowing Ambient Lights -->
+        <div class="absolute top-20 left-1/2 -translate-x-1/2 w-96 h-96 bg-green-500/15 rounded-full blur-[120px] pointer-events-none pulse-slow -z-10"></div>
+        <div class="absolute top-96 right-10 w-80 h-80 bg-cyan-500/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+
+        <!-- 1. HERO / TITLE SECTION -->
+        <header class="text-center max-w-4xl mx-auto mb-20">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 text-xs sm:text-sm font-mono-code mb-6">
+                <span class="w-2 h-2 rounded-full bg-green-400 animate-ping"></span>
+                <span>SYSTEM ARCHITECTURE • EPHEMERAL ZERO-KNOWLEDGE SPECIFICATION</span>
+            </div>
+            
+            <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight mb-6">
+                Engineered for <span class="bg-gradient-to-r from-green-400 via-emerald-300 to-teal-400 bg-clip-text text-transparent">Absolute Anonymity</span>
+            </h1>
+            
+            <p class="text-lg sm:text-2xl text-gray-400 leading-relaxed font-light">
+                PrivyChat is an ultra-secure, memory-volatile spy messenger designed from the ground up for environments where digital surveillance, metadata harvesting, and physical snooping compromise human liberty.
+            </p>
+        </header>
+
+        <!-- 2. CORE ARCHITECTURAL PILLARS -->
+        <section class="mb-24">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-bold text-white tracking-tight mb-3">Six Layers of Uncompromising Defense</h2>
+                <p class="text-gray-400 text-sm sm:text-base max-w-2xl mx-auto">Every packet, byte, and user interaction is wrapped in mathematical guarantees.</p>
             </div>
 
-            <!-- 2. MISSION CARDS -->
-            <div class="max-w-7xl mx-auto mb-24">
-                <div
-                    class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 md:p-12 shadow-2xl">
-                    <h2 class="text-4xl md:text-5xl font-bold mb-12 text-center text-white">
-                        Why We Built This
-                    </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                
+                <!-- Pillar 1: RAM-Only Volatility -->
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/30 flex items-center justify-center mb-6">
+                        <i data-lucide="cpu" class="w-7 h-7 text-green-400"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-3">100% RAM-Only Engine</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm sm:text-base">
+                        Zero hard drives. Zero databases. Zero server write operations. Every room and user state lives solely in volatile heap memory. If power is interrupted, 100% of room history disappears instantly and irreversibly.
+                    </p>
+                    <div class="mt-6 pt-4 border-t border-white/10 flex items-center gap-2 text-xs font-mono-code text-green-400">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i> No persistent disk logs
+                    </div>
+                </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-10 relative z-10">
-                        <!-- Card 1 -->
-                        <div
-                            class="group p-8 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:-translate-y-2">
-                            <div
-                                class="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                                <i data-lucide="cpu" class="w-8 h-8 text-blue-400"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold mb-4 text-white">RAM-Only Architecture</h3>
-                            <p class="text-gray-400 leading-relaxed">
-                                No hard drives. No databases. Every message exists only in volatile memory. Pull the
-                                plug, and it's gone forever.
-                            </p>
-                        </div>
+                <!-- Pillar 2: Military Cryptography -->
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="w-14 h-14 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-6">
+                        <i data-lucide="lock" class="w-7 h-7 text-cyan-400"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-3">AES-256-GCM + PBKDF2</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm sm:text-base">
+                        Messages are encrypted in your browser using the native Web Crypto API with 256-bit AES-GCM and unique 96-bit initialization vectors (IV) per payload. Keys are derived through 100,000 iterations of PBKDF2 SHA-256.
+                    </p>
+                    <div class="mt-6 pt-4 border-t border-white/10 flex items-center gap-2 text-xs font-mono-code text-cyan-400">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i> End-to-End browser encryption
+                    </div>
+                </div>
 
-                        <!-- Card 2 -->
-                        <div
-                            class="group p-8 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:-translate-y-2">
-                            <div
-                                class="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                                <i data-lucide="bomb" class="w-8 h-8 text-red-400"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold mb-4 text-white">Self-Destruct</h3>
-                            <p class="text-gray-400 leading-relaxed">
-                                Messages that burn after reading. Set timers from 5 seconds to 1 minute. Leave no
-                                digital footprint behind.
-                            </p>
-                        </div>
+                <!-- Pillar 3: Offline & Nearby P2P Radar -->
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-6">
+                        <i data-lucide="radio" class="w-7 h-7 text-emerald-400"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-3">WiFi & Bluetooth Mesh</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm sm:text-base">
+                        Communicate without global internet access. Connect via local WiFi/Hotspot subnet discovery, Web Bluetooth (BLE) proximity detection, or 100% air-gapped QR Code camera handshakes over direct WebRTC DataChannels.
+                    </p>
+                    <div class="mt-6 pt-4 border-t border-white/10 flex items-center gap-2 text-xs font-mono-code text-emerald-400">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i> Zero internet offline mode
+                    </div>
+                </div>
 
-                        <!-- Card 3 -->
-                        <div
-                            class="group p-8 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-300 hover:-translate-y-2">
-                            <div
-                                class="w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                                <i data-lucide="ghost" class="w-8 h-8 text-purple-400"></i>
-                            </div>
-                            <h3 class="text-2xl font-bold mb-4 text-white">Stealth Mode</h3>
-                            <p class="text-gray-400 leading-relaxed">
-                                Disguise your chat as a Calculator or a Weather app in one click. Perfect for prying
-                                eyes.
-                            </p>
-                        </div>
+                <!-- Pillar 4: Anti-Shoulder Surfing OPSEC -->
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mb-6">
+                        <i data-lucide="ghost" class="w-7 h-7 text-purple-400"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-3">Physical OPSEC Suite</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm sm:text-base">
+                        Defend against physical observers with Ghost Mode (heavy hover-to-reveal blur), functional scientific Calculator disguise (PIN unlocked with <code class="text-purple-300 font-mono-code">1337=</code>), and Decoy Vault redirection.
+                    </p>
+                    <div class="mt-6 pt-4 border-t border-white/10 flex items-center gap-2 text-xs font-mono-code text-purple-400">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i> Anti-snoop screen shielding
+                    </div>
+                </div>
+
+                <!-- Pillar 5: Invisible Ink Steganography -->
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-6">
+                        <i data-lucide="eye-off" class="w-7 h-7 text-amber-400"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-3">Invisible Ink Steganography</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm sm:text-base">
+                        Embed encrypted messages inside innocent PNG/JPEG image carrier pixels using Least Significant Bit (LSB) encoding. To inspectors, it's a regular photo; to PrivyChat agents with the passphrase, it's an encrypted briefing.
+                    </p>
+                    <div class="mt-6 pt-4 border-t border-white/10 flex items-center gap-2 text-xs font-mono-code text-amber-400">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i> In-browser pixel manipulation
+                    </div>
+                </div>
+
+                <!-- Pillar 6: Self-Destruct & Nuclear Panic -->
+                <div class="glass-card p-8 rounded-3xl relative overflow-hidden">
+                    <div class="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-6">
+                        <i data-lucide="flame" class="w-7 h-7 text-red-400"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-white mb-3">Self-Destruct & Panic Purge</h3>
+                    <p class="text-gray-400 leading-relaxed text-sm sm:text-base">
+                        Set ephemeral burn timers (5s to 60s, Burn-on-Read). When triggered or when the Panic Button is pressed, encryption keys are wiped from memory, session DOM is scrubbed, and the browser is instantly redirected.
+                    </p>
+                    <div class="mt-6 pt-4 border-t border-white/10 flex items-center gap-2 text-xs font-mono-code text-red-400">
+                        <i data-lucide="check-circle-2" class="w-4 h-4"></i> One-click nuclear erase
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 3. HOW PRIVYCHAT WORKS (Technical Data Flow) -->
+        <section class="mb-24">
+            <div class="glass-card p-8 sm:p-12 rounded-3xl border border-white/10 relative overflow-hidden">
+                <div class="text-center mb-12">
+                    <span class="text-green-400 font-mono-code text-xs uppercase tracking-widest block mb-2">CRYPTOGRAPHIC LIFECYCLE</span>
+                    <h2 class="text-3xl sm:text-4xl font-bold text-white">How Zero-Trace Messaging Operates</h2>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
+                    <!-- Step 1 -->
+                    <div class="bg-black/30 p-6 rounded-2xl border border-white/5 relative">
+                        <span class="text-3xl font-extrabold text-green-500/30 font-mono-code block mb-3">01</span>
+                        <h4 class="text-lg font-bold text-white mb-2">Ephemeral Key Generation</h4>
+                        <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                            Upon entering a room, your browser generates or derives a 256-bit symmetric AES key in memory. The key is never transmitted over the network.
+                        </p>
+                    </div>
+
+                    <!-- Step 2 -->
+                    <div class="bg-black/30 p-6 rounded-2xl border border-white/5 relative">
+                        <span class="text-3xl font-extrabold text-cyan-500/30 font-mono-code block mb-3">02</span>
+                        <h4 class="text-lg font-bold text-white mb-2">Client-Side Cipher</h4>
+                        <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                            Text, voice notes, and files are encrypted locally with a fresh random 12-byte IV. Only unreadable ciphertext leaves your device.
+                        </p>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="bg-black/30 p-6 rounded-2xl border border-white/5 relative">
+                        <span class="text-3xl font-extrabold text-emerald-500/30 font-mono-code block mb-3">03</span>
+                        <h4 class="text-lg font-bold text-white mb-2">Blind RAM Transit</h4>
+                        <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                            The server acts as a blind relay. It holds ciphertext in temporary RAM for sub-50ms transmission to recipients, without storage or inspection.
+                        </p>
+                    </div>
+
+                    <!-- Step 4 -->
+                    <div class="bg-black/30 p-6 rounded-2xl border border-white/5 relative">
+                        <span class="text-3xl font-extrabold text-red-500/30 font-mono-code block mb-3">04</span>
+                        <h4 class="text-lg font-bold text-white mb-2">Local Burn & Memory Zero</h4>
+                        <p class="text-gray-400 text-xs sm:text-sm leading-relaxed">
+                            Recipient decrypts locally. Once read or after the expiration timer fires, decrypted buffers are zeroed out and garbage-collected.
+                        </p>
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- 3. SECURECHAT INTEGRATION SECTION (Interactive) -->
-            <div class="max-w-6xl mx-auto mb-24">
-                <div
-                    class="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-8 md:p-12 shadow-2xl">
-                    <div
-                        class="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2">
+        <!-- 4. DEVELOPER & ADMIN SPOTLIGHT (Pratham Kumar Exclusively) -->
+        <section class="max-w-5xl mx-auto mb-20">
+            <div class="text-center mb-10">
+                <span class="text-green-400 font-mono-code text-xs uppercase tracking-widest block mb-2">CREATOR & LEAD ARCHITECT</span>
+                <h2 class="text-3xl sm:text-4xl font-bold text-white">Behind PrivyChat</h2>
+            </div>
+
+            <div class="glass-card-admin rounded-3xl p-8 sm:p-12 relative overflow-hidden">
+                <!-- Ambient glow in card -->
+                <div class="absolute -top-32 -right-32 w-80 h-80 bg-green-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div class="flex flex-col lg:flex-row items-center lg:items-start gap-10 relative z-10">
+                    
+                    <!-- Avatar & Direct Actions -->
+                    <div class="flex flex-col items-center flex-shrink-0">
+                        <div class="relative group">
+                            <div class="w-36 h-36 sm:w-44 sm:h-44 rounded-full overflow-hidden border-4 border-green-400/80 shadow-[0_0_40px_rgba(34,197,94,0.35)] transition-transform group-hover:scale-105">
+                                <img src="https://github.com/rajpratham1.png" alt="Pratham Kumar" class="w-full h-full object-cover">
+                            </div>
+                            <div class="absolute -bottom-2 -right-2 bg-green-500 text-black p-2 rounded-full border-2 border-gray-900 shadow-md" title="Verified Creator">
+                                <i data-lucide="shield-check" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+
+                        <!-- Social Action Links -->
+                        <div class="flex gap-3 justify-center mt-6">
+                            <a href="https://github.com/rajpratham1" target="_blank" class="p-3 bg-white/10 hover:bg-green-500/20 border border-white/10 hover:border-green-500/40 rounded-xl transition-all text-white hover:text-green-400 shadow-sm" title="GitHub - @rajpratham1">
+                                <i data-lucide="github" class="w-5 h-5"></i>
+                            </a>
+                            <a href="https://github.com/rajpratham1/PrivyChat" target="_blank" class="p-3 bg-white/10 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-500/40 rounded-xl transition-all text-white hover:text-cyan-400 shadow-sm" title="PrivyChat Repository">
+                                <i data-lucide="git-branch" class="w-5 h-5"></i>
+                            </a>
+                            <a href="mailto:contact@privychat.com" class="p-3 bg-white/10 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/40 rounded-xl transition-all text-white hover:text-emerald-400 shadow-sm" title="Contact Developer">
+                                <i data-lucide="mail" class="w-5 h-5"></i>
+                            </a>
+                        </div>
                     </div>
 
-                    <div class="relative z-10">
-                        <h2 class="text-4xl font-bold mb-8 text-center">
-                            Integrated Ecosystem: <span class="text-blue-400">SecureChat</span>
-                        </h2>
+                    <!-- Profile Bio & Credentials -->
+                    <div class="flex-1 text-center lg:text-left">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                            <h3 class="text-3xl sm:text-4xl font-extrabold text-white">Pratham Kumar</h3>
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/20 text-green-300 border border-green-500/40 text-xs font-mono-code self-center lg:self-auto">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i> ADMIN & FOUNDER
+                            </span>
+                        </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                            <div>
-                                <div
-                                    class="inline-block px-3 py-1 mb-4 rounded-full bg-blue-500/20 text-blue-300 text-sm font-medium border border-blue-500/30">
-                                    The Permanent Secure Messenger
+                        <p class="text-green-400 text-sm font-semibold tracking-wider uppercase mb-5">
+                            Lead Cryptography Engineer • Full-Stack Systems Architect
+                        </p>
+
+                        <!-- Tech Stack Badges -->
+                        <div class="flex flex-wrap gap-2 justify-center lg:justify-start mb-6">
+                            <span class="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-mono-code text-gray-300">Node.js / Express</span>
+                            <span class="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-mono-code text-gray-300">Web Crypto API (AES-GCM / PBKDF2)</span>
+                            <span class="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-mono-code text-gray-300">WebRTC DataChannels</span>
+                            <span class="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-mono-code text-gray-300">Socket.IO Clustering</span>
+                            <span class="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-mono-code text-gray-300">Web Bluetooth (BLE) API</span>
+                            <span class="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-mono-code text-gray-300">Canvas Steganography</span>
+                        </div>
+
+                        <!-- Vision Quote -->
+                        <blockquote class="text-base sm:text-lg text-gray-300 italic mb-6 border-l-4 border-green-500 pl-4 py-2 bg-white/5 rounded-r-xl leading-relaxed text-left">
+                            "Privacy isn't about having something to hide; it's about having the fundamental right to communicate without corporate surveillance or state interception. PrivyChat proves that real-time communication can exist with zero digital footprint."
+                        </blockquote>
+
+                        <!-- Key Achievements / Architecture Highlights -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                            <div class="bg-black/40 p-4 rounded-xl border border-white/5">
+                                <div class="flex items-center gap-2 text-white font-bold text-sm mb-1">
+                                    <i data-lucide="shield" class="w-4 h-4 text-green-400"></i> Zero-Knowledge Proof
                                 </div>
-                                <p class="text-lg text-gray-300 mb-6 leading-relaxed">
-                                    We have seamlessly integrated <strong>SecureChat</strong> to provide robust,
-                                    <strong>End-to-End Encrypted Text Messaging</strong>.
-                                    While PrivyChat focuses on ephemeral video/voice, SecureChat ensures your text
-                                    conversations are safe, built by <a href="https://github.com/Arya182-ui"
-                                        target="_blank"
-                                        class="text-blue-400 hover:text-blue-300 font-semibold transition-colors">Ayush
-                                        (Arya)</a>.
+                                <p class="text-gray-400 text-xs leading-relaxed">
+                                    Designed the memory-only message lifecycle preventing any forensic residue on storage mediums.
                                 </p>
-
-                                <ul class="space-y-4 mb-8">
-                                    <li class="flex items-center gap-3 text-gray-300">
-                                        <div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                                        🔐 Signal Protocol Encryption
-                                    </li>
-                                    <li class="flex items-center gap-3 text-gray-300">
-                                        <div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                                        💾 Persistent Secure Storage
-                                    </li>
-                                    <li class="flex items-center gap-3 text-gray-300">
-                                        <div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                                        📱 Group Chats & File Sharing
-                                    </li>
-                                    <li class="flex items-center gap-3 text-gray-300">
-                                        <div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                                        🌐 PWA Support (Installable)
-                                    </li>
-                                </ul>
-
-                                <div class="space-y-4">
-                                    <h4 class="text-white font-semibold flex items-center gap-2">
-                                        <i data-lucide="link" class="w-4 h-4 text-gray-400"></i>
-                                        How to Use
-                                    </h4>
-                                    <p class="text-gray-400 text-sm mb-6">
-                                        Need persistent history? Switch to SecureChat instantly.
-                                    </p>
-
-                                    <div class="flex flex-col sm:flex-row gap-4">
-                                        <a href="https://chatend2end.vercel.app/" target="_blank"
-                                            class="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg hover:shadow-blue-500/25 no-underline">
-                                            <i data-lucide="external-link" class="w-5 h-5"></i>
-                                            Launch SecureChat
-                                        </a>
-                                        <a href="https://github.com/Arya182-ui" target="_blank"
-                                            class="inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-xl font-semibold border border-white/10 transition-all no-underline">
-                                            <i data-lucide="github" class="w-5 h-5"></i>
-                                            Ayush's Profile
-                                        </a>
-                                    </div>
-                                </div>
                             </div>
 
-                            <div class="space-y-6">
-                                <!-- Partner Profile Card (Ayush) -->
-                                <div
-                                    class="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 text-center transform transition-all hover:scale-105 duration-300">
-                                    <div
-                                        class="w-20 h-20 rounded-full overflow-hidden border-2 border-blue-400 mx-auto mb-4">
-                                        <img src="https://github.com/Arya182-ui.png" alt="Ayush"
-                                            class="w-full h-full object-cover">
-                                    </div>
-                                    <h3 class="text-xl font-bold text-white mb-1">Ayush (Arya)</h3>
-                                    <p class="text-blue-400 text-xs font-bold uppercase tracking-wider mb-3">SecureChat
-                                        Founder</p>
-                                    <div
-                                        class="text-gray-300 text-xs mb-4 text-left space-y-2 bg-black/20 p-3 rounded-lg">
-                                        <p><strong>Role:</strong> Cryptography Architect</p>
-                                        <p><strong>Stack:</strong> React, Node.js, Web Crypto API</p>
-                                        <p>Built the Signal-based text encryption protocol ensuring message integrity
-                                            and persistence.</p>
-                                    </div>
-                                    <a href="https://github.com/Arya182-ui" target="_blank"
-                                        class="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm no-underline">
-                                        <i data-lucide="github" class="w-4 h-4"></i>
-                                        <span>@Arya182-ui</span>
-                                    </a>
+                            <div class="bg-black/40 p-4 rounded-xl border border-white/5">
+                                <div class="flex items-center gap-2 text-white font-bold text-sm mb-1">
+                                    <i data-lucide="radio" class="w-4 h-4 text-cyan-400"></i> Air-Gapped Mesh Engine
                                 </div>
+                                <p class="text-gray-400 text-xs leading-relaxed">
+                                    Created WiFi hotspot subnet discovery, Web Bluetooth pairing, and QR SDP exchange for offline survival.
+                                </p>
                             </div>
                         </div>
+
+                        <!-- Developer Direct Profile Action -->
+                        <div class="mt-8 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                            <a href="https://github.com/rajpratham1" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-black font-bold text-sm transition-all shadow-lg hover:shadow-green-500/25 no-underline">
+                                <i data-lucide="github" class="w-4 h-4"></i>
+                                Explore Pratham's GitHub
+                            </a>
+                            <a href="nearby.html" class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold text-sm transition-all no-underline">
+                                <i data-lucide="radio" class="w-4 h-4 text-green-400"></i>
+                                Launch Nearby Mesh Radar
+                            </a>
+                        </div>
+
                     </div>
                 </div>
             </div>
+        </section>
 
-            <!-- 4. DEVELOPER PROFILE (Pratham - You!) -->
-            <div class="max-w-4xl mx-auto mb-16">
-                <h2 class="text-4xl font-bold mb-8 text-center text-white">Built by</h2>
-
-                <div
-                    class="bg-gradient-to-br from-green-900/40 to-black rounded-3xl p-10 border border-green-500/50 backdrop-blur-xl shadow-2xl relative overflow-hidden">
-                    <!-- Background Shine -->
-                    <div class="absolute -top-24 -right-24 w-64 h-64 bg-green-500/20 rounded-full blur-3xl"></div>
-
-                    <div class="flex flex-col md:flex-row items-start gap-10 relative z-10">
-                        <div class="flex-shrink-0 mx-auto md:mx-0">
-                            <div
-                                class="w-40 h-40 rounded-full overflow-hidden border-4 border-green-400 shadow-[0_0_30px_rgba(34,197,94,0.4)]">
-                                <img src="https://github.com/rajpratham1.png" alt="Pratham Kumar"
-                                    class="w-full h-full object-cover">
-                            </div>
-                            <!-- Social Badges -->
-                            <div class="flex gap-2 justify-center mt-6">
-                                <a href="https://github.com/rajpratham1" target="_blank"
-                                    class="p-2 bg-white/10 rounded-lg hover:bg-green-500/20 transition-colors"
-                                    title="GitHub">
-                                    <i data-lucide="github" class="w-5 h-5 text-white"></i>
-                                </a>
-                                <a href="#" class="p-2 bg-white/10 rounded-lg hover:bg-blue-500/20 transition-colors"
-                                    title="LinkedIn">
-                                    <i data-lucide="linkedin" class="w-5 h-5 text-white"></i>
-                                </a>
-                                <a href="mailto:contact@privychat.com"
-                                    class="p-2 bg-white/10 rounded-lg hover:bg-red-500/20 transition-colors"
-                                    title="Email">
-                                    <i data-lucide="mail" class="w-5 h-5 text-white"></i>
-                                </a>
-                            </div>
-                        </div>
-
-                        <div class="flex-1 text-center md:text-left">
-                            <div class="mb-6">
-                                <h3 class="text-4xl font-bold text-white mb-2">Pratham Kumar</h3>
-                                <p class="text-green-400 font-bold tracking-widest uppercase text-sm mb-4">Founder &
-                                    Lead Engineer</p>
-                                <div class="flex flex-wrap gap-2 justify-center md:justify-start mb-6">
-                                    <span
-                                        class="px-3 py-1 bg-green-500/10 border border-green-500/30 rounded-full text-xs text-green-300">Node.js</span>
-                                    <span
-                                        class="px-3 py-1 bg-green-500/10 border border-green-500/30 rounded-full text-xs text-green-300">WebRTC</span>
-                                    <span
-                                        class="px-3 py-1 bg-green-500/10 border border-green-500/30 rounded-full text-xs text-green-300">Socket.IO</span>
-                                    <span
-                                        class="px-3 py-1 bg-green-500/10 border border-green-500/30 rounded-full text-xs text-green-300">Cybersecurity</span>
-                                </div>
-                            </div>
-
-                            <blockquote
-                                class="text-xl text-gray-300 italic mb-8 border-l-4 border-green-500 pl-6 leading-relaxed bg-white/5 p-4 rounded-r-xl">
-                                "PrivyChat was born from a simple question: <strong>Can we communicate without a
-                                    trace?</strong>
-                                By eliminating persistent storage and keeping everything in RAM, we successfully created
-                                a true zero-knowledge system."
-                            </blockquote>
-
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div class="bg-black/30 p-4 rounded-xl border border-white/10">
-                                    <h4 class="text-white font-bold mb-1 flex items-center gap-2">
-                                        <i data-lucide="zap" class="w-4 h-4 text-yellow-400"></i> Speed
-                                    </h4>
-                                    <p class="text-gray-400 text-sm">Engineered custom WebSocket events for sub-100ms
-                                        latency.</p>
-                                </div>
-                                <div class="bg-black/30 p-4 rounded-xl border border-white/10">
-                                    <h4 class="text-white font-bold mb-1 flex items-center gap-2">
-                                        <i data-lucide="lock" class="w-4 h-4 text-green-400"></i> Security
-                                    </h4>
-                                    <p class="text-gray-400 text-sm">Implemented AES-GCM + RSA handshake manually.</p>
-                                </div>
-                            </div>
-
-                            <div class="mt-8 pt-6 border-t border-white/10 flex items-center justify-between">
-                                <span class="text-gray-400 text-sm">Contribution Team:</span>
-                                <div class="flex gap-3">
-                                    <a href="https://github.com/pallavi081" title="Pallavi (UI/UX)"
-                                        class="group relative">
-                                        <div
-                                            class="w-10 h-10 rounded-full overflow-hidden border border-white/20 hover:border-pink-500 transition-colors">
-                                            <img src="https://github.com/pallavi081.png" class="w-full h-full">
-                                        </div>
-                                    </a>
-                                    <a href="https://github.com/iamcodermonika26" title="Monika (Testing)"
-                                        class="group relative">
-                                        <div
-                                            class="w-10 h-10 rounded-full overflow-hidden border border-white/20 hover:border-purple-500 transition-colors">
-                                            <img src="https://github.com/iamcodermonika26.png" class="w-full h-full">
-                                        </div>
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <!-- 5. SECURITY COMMITMENT BANNER -->
+        <section class="max-w-4xl mx-auto mb-20 text-center">
+            <div class="glass-card p-8 rounded-3xl border border-green-500/20 bg-gradient-to-b from-green-950/20 to-transparent">
+                <i data-lucide="award" class="w-12 h-12 text-green-400 mx-auto mb-4"></i>
+                <h3 class="text-2xl font-bold text-white mb-2">Open-Source & Cryptographically Verifiable</h3>
+                <p class="text-gray-400 text-sm max-w-xl mx-auto mb-6">
+                    Never trust proprietary black-box messengers. PrivyChat's frontend and backend code is 100% open for independent audit on GitHub.
+                </p>
+                <a href="https://github.com/rajpratham1/PrivyChat" target="_blank" class="inline-flex items-center gap-2 text-green-400 hover:text-green-300 font-mono-code text-sm no-underline">
+                    <span>View Repository on GitHub</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
             </div>
+        </section>
 
-            <!-- Footer -->
-            <div class="text-center text-gray-500 pb-10">
-                <p>&copy; 2024 PrivyChat. Zero Logs. Zero Trust.</p>
-                <div class="mt-4"><a href="index.html" class="text-green-400 hover:text-green-300">← Back to Home</a>
-                </div>
+        <!-- Footer -->
+        <footer class="border-t border-white/10 pt-10 pb-16 text-center text-gray-500 text-xs sm:text-sm">
+            <p class="mb-2">PrivyChat • Designed & Built by <span class="text-gray-300 font-semibold">Pratham Kumar</span></p>
+            <p class="text-gray-600 font-mono-code mb-4">Zero Logs. Zero Traces. Pure Volatile Memory.</p>
+            <div class="flex justify-center gap-6 text-gray-400 text-xs">
+                <a href="index.html" class="hover:text-green-400 transition-colors no-underline">Home</a>
+                <a href="nearby.html" class="hover:text-green-400 transition-colors no-underline">Nearby Mesh</a>
+                <a href="manual.html" class="hover:text-green-400 transition-colors no-underline">Manual</a>
+                <a href="https://github.com/rajpratham1/PrivyChat" target="_blank" class="hover:text-green-400 transition-colors no-underline">GitHub</a>
             </div>
+        </footer>
 
-        </div>
-    </div>
+    </main>
 
-    <!-- Initialize Lucide Icons -->
+    <!-- Lucide Icon Instantiation -->
     <script>
         lucide.createIcons();
     </script>

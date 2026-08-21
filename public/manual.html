@@ -300,56 +300,65 @@
                 immediately.</li>
         </ul>
 
-        <h2>3. Messaging & Media</h2>
+        <h2>3. Nearby WiFi, Bluetooth & Air-Gapped Tactical Mesh</h2>
+
+        <h3>📡 Tactical Mesh Radar (Zero-Internet Mode)</h3>
+        <p>Communicate completely off-the-grid without relying on public servers or global internet connectivity.</p>
+        <ul>
+            <li><strong>Launch:</strong> Click the Radar Icon <kbd>📡</kbd> in the top navigation bar or go to <a href="nearby.html">Nearby Mesh</a>.</li>
+            <li><strong>Local WiFi / Hotspot Mesh:</strong> Anyone connected to the same WiFi router, office LAN, or mobile phone hotspot automatically discovers each other on the 360° sonar radar.</li>
+            <li><strong>Web Bluetooth (BLE):</strong> Connect and pair directly with nearby Bluetooth devices within physical proximity (10–30 meters).</li>
+            <li><strong>Air-Gapped Optical QR Beam:</strong> Transfer session handshakes directly from camera to screen with 100% zero network, zero Wi-Fi, and zero Bluetooth.</li>
+            <li><strong>Security:</strong> Every P2P session generates an ephemeral 256-bit Elliptic Curve (ECDH P-256) session key with unique AES-256-GCM message ciphers.</li>
+        </ul>
+
+        <h2>4. Messaging & Media</h2>
 
         <h3>💣 Self-Destruct Timer</h3>
         <p>Want your messages to disappear after being read?</p>
         <ul>
             <li>Use the dropdown menu next to the input bar (Default: <kbd>⏱️ Off</kbd>).</li>
-            <li>Select <strong>5s</strong>, <strong>10s</strong>, or <strong>30s</strong>.</li>
-            <li>Sent messages will display a countdown timer on the <em>recipient's</em> screen and vanish when it hits
-                zero.</li>
+            <li>Select <strong>5s</strong>, <strong>15s</strong>, <strong>30s</strong>, <strong>60s</strong>, or <strong>Burn on Read</strong>.</li>
+            <li>Sent messages will display an ephemeral countdown badge on the screen and vanish permanently from volatile memory when the timer fires.</li>
         </ul>
 
-        <h3>🎤 Voice Notes</h3>
+        <h3>🎤 Encrypted Voice Notes & Masking</h3>
         <ul>
-            <li>Press and hold the <strong>Pink Microphone Button</strong> <kbd>🎤</kbd>.</li>
-            <li>Speak your message.</li>
-            <li>Release the button to send automatically.</li>
-            <li>Voice notes are encrypted using Opus/WebM format for high quality.</li>
+            <li>Click the <strong>Microphone Button</strong> <kbd>🎤</kbd> to record a voice note.</li>
+            <li>Enable <strong>Voice Mask</strong> to apply pitch-shifting modulation and disguise your vocal identity.</li>
+            <li>Voice notes are encrypted end-to-end and transmitted over direct WebRTC DataChannels.</li>
         </ul>
 
-        <p>You can send images and documents. Before leaving your device, every byte is encrypted. The server only sees
-            random noise.</p>
-
-        <h3>📞 Secure Calls (WebRTC)</h3>
+        <h3>📞 Secure P2P Calling (WebRTC)</h3>
         <p>PrivyChat supports direct Peer-to-Peer (P2P) calling. No central server processes your audio or video.</p>
         <ul>
-            <li><strong>Voice Call (</strong><kbd>📞</kbd><strong>):</strong> Audio only. Great for low bandwidth or
-                privacy.</li>
-            <li><strong>Video Call (</strong><kbd>🎥</kbd><strong>):</strong> High-definition video + audio.</li>
-            <li><strong>Encryption:</strong> Uses DTLS-SRTP standard keys. The connection is direct between you and your
-                partner.</li>
-            <li><strong>Permissions:</strong> You must allow Camera/Microphone access when prompted.</li>
+            <li><strong>Voice Call (</strong><kbd>📞</kbd><strong>):</strong> Encrypted audio stream with DTLS-SRTP. Great for low bandwidth or stealth.</li>
+            <li><strong>Video Call (</strong><kbd>🎥</kbd><strong>):</strong> High-definition video + audio direct mesh.</li>
+            <li><strong>Permissions:</strong> You must allow Camera/Microphone access when prompted by your browser.</li>
         </ul>
 
-        <h2>4. Troubleshooting</h2>
+        <h2>5. Troubleshooting & FAQ</h2>
 
         <div class="info-box">
-            <strong>Microphone Not Working?</strong><br>
-            Make sure you have allowed "Microphone Access" in your browser's site settings.
-            <br><em>(Click the Lock icon in the address bar -> Site Settings -> Microphone -> Allow)</em>
+            <strong>Microphone / Camera Not Working?</strong><br>
+            Make sure you have allowed "Microphone & Camera Access" in your browser's site settings.
+            <br><em>(Click the Lock/Tune icon in the address bar -> Site Settings -> Microphone/Camera -> Allow)</em>
         </div>
 
         <div class="info-box">
             <strong>Encryption Error?</strong><br>
-            If you see "Decryption Failed" messages, it means your partner has a different password or key than you.
-            Ensure you both joined with the <strong>exact same password</strong>.
+            If you see "Decryption Failed" messages, it means your partner has a different room password.
+            Ensure you both joined with the <strong>exact same password</strong> or verify your safety numbers in Nearby Mesh.
         </div>
 
         <hr>
         <p style="text-align: center; opacity: 0.6; font-size: 0.9rem; margin-top: 50px;">
-            &copy; 2026 PrivyChat. Secure Communication Division.
+            &copy; 2026 PrivyChat. Architected by <strong>Pratham Kumar</strong>. Zero Logs. Pure Volatile Memory.
+        </p>
+        <p style="text-align: center; font-size: 0.85rem;">
+            <a href="index.html" style="color: #3b82f6; text-decoration: none; margin-right: 15px;">← Home</a>
+            <a href="nearby.html" style="color: #10b981; text-decoration: none; margin-right: 15px;">📡 Nearby Mesh</a>
+            <a href="about.html" style="color: #3b82f6; text-decoration: none;">🛡️ About Developer</a>
         </p>
 
     </div>

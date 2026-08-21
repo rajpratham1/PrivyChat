@@ -1,4 +1,4 @@
-﻿const socket = io({
+const socket = io({
     transports: ['websocket'],
     upgrade: false
 });
@@ -35,163 +35,152 @@ if (globalUrlInput) {
 // --- INFO CONTENT (Footer Sections) ---
 const infoContent = {
     feature: {
-        title: "Advanced Feature Suite",
+        title: "📡 Advanced Feature Suite",
         body: `
-            <div style="font-size: 0.95rem; text-align: left;">
-                <h3 style="color:var(--accent-color); margin-top:0;">Spy & Stealth Tools</h3>
-                <p>PrivyChat is built for the physical world, where privacy is often compromised by prying eyes.</p>
-                <ul style="list-style: none; padding-left: 0;">
-                    <li style="margin-bottom: 10px;"><strong> Stealth Mode (Calculator)</strong><br>
-                        Click the mask icon to hide the chat behind a functional scientific calculator.<br>
-                        <span style="opacity:0.7">Unlock: Type <code>1337</code> and press <code>=</code>.</span>
-                    </li>
-                    <li style="margin-bottom: 10px;"><strong> Decoy Vault</strong><br>
-                        Need an escape? Type <code>weather</code>, <code>guest</code>, or <code>1234</code> into the main login box.<br>
-                        <span style="opacity:0.7">Effect: Instant redirect to a harmless Weather App for plausible deniability.</span>
-                    </li>
-                    <li style="margin-bottom: 10px;"><strong> Ghost Mode</strong><br>
-                        Prevents "Shoulder Surfing". All messages are heavily blurred until you hover your mouse over them.
-                    </li>
-                    <li style="margin-bottom: 10px;"><strong> Panic Button</strong><br>
-                        The Nuclear Option. Instantly disconnects, wipes all RAM/Storage, and redirects to Google.
-                    </li>
-                    <li style="margin-bottom: 10px;"><strong> Invisible Ink (Steganography)</strong><br>
-                        Hide secret messages inside innocent image files. To the naked eye, it's just a cat photo. To PrivyChat, it's a hidden dossier.
-                    </li>
+            <div style="font-size: 0.95rem; text-align: left; line-height: 1.6;">
+                <h3 style="color:var(--g-green); margin-top:0;">📡 Air-Gapped & Nearby Tactical Mesh</h3>
+                <p>Communicate completely off-the-grid without relying on public servers or global internet connectivity.</p>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 15px;">
+                    <li style="margin-bottom: 8px;"><strong>• 360° Sonar Radar:</strong> Real-time animated radio sweep detecting active nodes on local spectrum.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Local WiFi / Hotspot Mesh:</strong> Auto-discovers peers on the same router or mobile phone hotspot with zero internet.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Web Bluetooth (BLE):</strong> Proximity device pairing and signal strength (RSSI) tracking.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Optical QR Handshake:</strong> Camera-to-screen WebRTC SDP exchange for 100% air-gapped environments.</li>
                 </ul>
 
-                <h3 style="color:var(--accent-color);"> Rich Messaging</h3>
+                <h3 style="color:var(--g-blue);">🕵️ Physical OPSEC & Spy Tools</h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 15px;">
+                    <li style="margin-bottom: 8px;"><strong>• Stealth Mode (Calculator):</strong> Disguises the chat behind a functional scientific calculator. Unlock code: <code>1337=</code>.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Decoy Vault:</strong> Type <code>weather</code>, <code>guest</code>, or <code>1234</code> in the main box for instant plausible deniability.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Ghost Mode:</strong> Prevents shoulder-surfing by blurring all messages until you hover over them.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Invisible Ink (Steganography):</strong> Hide encrypted text payloads inside innocent PNG/JPEG image carrier pixels.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Emergency Panic Purge:</strong> Instantly wipes all RAM, destroys crypto keys, clears storage, and redirects to Google.</li>
+                </ul>
+
+                <h3 style="color:var(--pink-accent);">🎙️ Rich Ephemeral Media</h3>
                 <ul style="list-style: none; padding-left: 0;">
-                    <li style="margin-bottom: 10px;"><strong> Protocol: Matrix</strong><br>
-                        Visual Polish: Received messages "decode" character-by-character. Self-destructing messages physically burn away.
-                    </li>
-                    <li style="margin-bottom: 10px;"><strong> Encrypted Voice Notes</strong><br>
-                        Send crystal-clear voice messages (Opus/WebM). Encrypted before upload.
-                    </li>
-                    <li style="margin-bottom: 10px;"><strong> Secure File Sharing</strong><br>
-                        Share images and documents. Files are encrypted chunk-by-chunk in the browser.
-                    </li>
-                    <li style="margin-bottom: 10px;"><strong> Self-Destruct Timers</strong><br>
-                        Set messages to auto-burn (5s, 10s, 30s) after reading.
-                    </li>
+                    <li style="margin-bottom: 8px;"><strong>• Voice Notes with Pitch Masking:</strong> Modulate vocal timbre and send encrypted audio memos.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Direct P2P Video & Voice Calls:</strong> Encrypted WebRTC DTLS-SRTP direct peer streaming.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Chunked File & Photo Transfer:</strong> Send documents and media encrypted in browser memory.</li>
+                    <li style="margin-bottom: 8px;"><strong>• Ephemeral Self-Destruct:</strong> Set timers from 5s to 60s, or Burn-on-Read.</li>
                 </ul>
             </div>
         `
     },
     security: {
-        title: " Zero-Knowledge Security",
+        title: "🔒 Military-Grade Cryptography & Zero-Knowledge",
         body: `
-            <div style="font-size: 0.95rem; text-align: left;">
-                <p>We use a <strong>Zero-Trust Architecture</strong>. We assume the server is compromised, the network is tapped, and the device might be seized.</p>
+            <div style="font-size: 0.95rem; text-align: left; line-height: 1.6;">
+                <p>PrivyChat employs a <strong>Zero-Trust, Zero-Knowledge Architecture</strong> where no plaintext data ever leaves your device.</p>
                 
-                <h3 style="color:var(--accent-color);"> Encryption Protocol</h3>
-                <p>All encryption happens in your browser using the <strong>Web Crypto API</strong>.</p>
-                <table style="width:100%; border-collapse: collapse; margin-bottom: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden;">
+                <h3 style="color:var(--g-green);">Cryptographic Pipeline Specification</h3>
+                <table style="width:100%; border-collapse: collapse; margin-bottom: 15px; background: rgba(0,0,0,0.3); border-radius: 8px; overflow: hidden; font-size: 0.9rem;">
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                        <td style="padding: 8px; font-weight: bold;">Algorithm</td>
-                        <td style="padding: 8px;">AES-GCM (256-bit)</td>
+                        <td style="padding: 10px; font-weight: bold; color: var(--g-green);">Cipher Suite</td>
+                        <td style="padding: 10px;">AES-256-GCM (Authenticated Encryption with 96-bit random IVs)</td>
                     </tr>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                        <td style="padding: 8px; font-weight: bold;">Key Derivation</td>
-                        <td style="padding: 8px;">PBKDF2 (100,000 Iterations)</td>
+                        <td style="padding: 10px; font-weight: bold; color: var(--g-green);">Key Derivation</td>
+                        <td style="padding: 10px;">PBKDF2 (100,000 Iterations of SHA-256 + Unique Room Salt)</td>
                     </tr>
                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
-                        <td style="padding: 8px; font-weight: bold;">Key Exchange</td>
-                        <td style="padding: 8px;">RSA-OAEP (1v1 Mode)</td>
+                        <td style="padding: 10px; font-weight: bold; color: var(--g-green);">P2P Handshake</td>
+                        <td style="padding: 10px;">Ephemeral ECDH (P-256 Elliptic Curve) + SHA-256 Safety Fingerprint</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <td style="padding: 10px; font-weight: bold; color: var(--g-green);">Calling Media</td>
+                        <td style="padding: 10px;">WebRTC Direct P2P with DTLS 1.2 & SRTP-AES-128-GCM</td>
                     </tr>
                     <tr>
-                        <td style="padding: 8px; font-weight: bold;">Integrity</td>
-                        <td style="padding: 8px;">SHA-256 Hashing</td>
+                        <td style="padding: 10px; font-weight: bold; color: var(--g-green);">Engine</td>
+                        <td style="padding: 10px;">Hardware-Accelerated Native Web Crypto API (Client-Side)</td>
                     </tr>
                 </table>
 
-                <h3 style="color:var(--accent-color);"> Server Blindness</h3>
-                <p>The server acts as a "dumb relay". It routes encrypted blobs but <strong>never</strong> holds the decryption keys. Even if we wanted to read your messages, we couldn't.</p>
+                <h3 style="color:var(--g-blue);">100% Volatile RAM Lifecycle</h3>
+                <p>No databases (no MongoDB, SQL, or Redis disks). All session rooms exist purely in temporary RAM heap memory. When the room empties or the server restarts, 100% of room history vanishes permanently.</p>
                 
-                <h3 style="color:var(--accent-color);"> RAM-Only Storage</h3>
-                <p>We use no persistent databases (No MongoDB, No SQL). Data lives only in the volatile Random Access Memory. If the server loses power or restarts, 100% of the data is physically destroyed.</p>
+                <h3 style="color:var(--pink-accent);">Server Blindness & MITM Defense</h3>
+                <p>The backend relay never holds decryption keys. Visual safety symbols (safety emojis & hex hash) allow users to verify channel integrity and eliminate Man-in-the-Middle eavesdropping.</p>
             </div>
         `
     },
     about: {
-        title: "About PrivyChat",
+        title: "🛡️ About PrivyChat & Creator",
         body: `
-            <div style="font-size: 0.95rem; text-align: left;">
+            <div style="font-size: 0.95rem; text-align: left; line-height: 1.6;">
                 <div style="text-align:center; margin-bottom: 20px;">
-                    <h2 style="margin: 0; color: #4285F4;">Privy<span style="color:#ffffff">Chat</span></h2>
-                    <p style="opacity: 0.7; font-size: 0.9rem;">"Your words belong to you."</p>
+                    <h2 style="margin: 0; color: #34A853;">Privy<span style="color:#ffffff">Chat</span></h2>
+                    <p style="opacity: 0.7; font-size: 0.9rem;">"Zero Logs. Zero Traces. Total Sovereignty."</p>
                 </div>
 
-                <h3 style="color:var(--accent-color);">The Philosophy</h3>
-                <p>PrivyChat was born from a desire to reclaim digital sovereignty. In an era where "User Data" is a commodity sold to the highest bidder, we built a sanctuary where your words belong only to you.</p>
-                <p>We believe privacy is not about hiding "bad" things, but about protecting the things that make us human: intimacy, secrets, and freedom of thought.</p>
+                <h3 style="color:var(--g-green);">The Philosophy</h3>
+                <p>PrivyChat was created to guarantee private human conversation against corporate data harvesting, ISP surveillance, and physical device inspection. Communication is an ephemeral act—it should leave no permanent forensic artifact.</p>
 
-                <h3 style="color:var(--accent-color);">The Team</h3>
-                <p>Designed and Engineered by <strong>Pratham Kumar</strong>.</p>
-                <p>This is an open-source initiative to provide free, high-security communication tools to journalists, activists, and privacy enthusiasts worldwide.</p>
+                <h3 style="color:var(--g-blue);">Admin & Lead Engineer</h3>
+                <p>PrivyChat is architected, designed, and developed by <strong>Pratham Kumar</strong> (<a href="https://github.com/rajpratham1" target="_blank" style="color:var(--g-green); font-weight:bold;">@rajpratham1</a>).</p>
+                
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border-left: 3px solid #10b981; margin-top: 15px;">
+                    <strong>Open-Source Security:</strong> PrivyChat's source code is 100% transparent and open for independent cryptographic verification on <a href="https://github.com/rajpratham1/PrivyChat" target="_blank" style="color:var(--g-blue);">GitHub</a>.
+                </div>
             </div>
         `
     },
     privacy: {
-        title: " Privacy Policy",
+        title: "📜 Absolute Zero-Log Privacy Policy",
         body: `
-            <div style="font-size: 0.95rem; text-align: left;">
-                <h3 style="color:var(--accent-color);">The "No-Log" Guarantee</h3>
-                <p>We take this literally.</p>
+            <div style="font-size: 0.95rem; text-align: left; line-height: 1.6;">
+                <h3 style="color:var(--g-green);">The Literal "No-Log" Standard</h3>
+                <p>Privacy is enforced by architecture, not just promises:</p>
                 <ul style="list-style: none; padding-left: 0;">
-                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
-                        <strong> No IP Logging</strong><br>We do not store or track user IP addresses.
+                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                        <strong>🚫 No IP Address Archiving:</strong> We never log or store connection IP addresses.
                     </li>
-                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
-                        <strong> No Metadata</strong><br>We do not archive timestamps, sender IDs, or session durations.
+                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                        <strong>🚫 No Metadata Retention:</strong> No message counts, sender/receiver relationships, or timestamps are recorded.
                     </li>
-                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 5px;">
-                        <strong> No Analytics</strong><br>No Google Analytics. No Facebook Pixels. No Cookies.
+                    <li style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 8px;">
+                        <strong>🚫 Zero Trackers & Analytics:</strong> No Google Analytics, no Facebook pixels, no advertising beacons, and no tracking cookies.
                     </li>
                 </ul>
 
-                <h3 style="color:var(--accent-color);">Data Lifecycle</h3>
-                <p>Data exists only for the millisecond it takes to travel from Sender to Receiver. Once delivered, it is purged from server RAM.</p>
+                <h3 style="color:var(--g-blue);">Sub-Millisecond Transit</h3>
+                <p>Ciphertext exists only for the millisecond required to bridge Sender and Recipient. Decrypted messages reside exclusively in client browser RAM and are purged upon window closure or self-destruct trigger.</p>
             </div>
         `
     },
     terms: {
-        title: " Terms of Service",
+        title: "⚖️ Terms of Service",
         body: `
-            <div style="font-size: 0.95rem; text-align: left;">
-                <p>By using PrivyChat, you agree to the following:</p>
-                <ol style="padding-left: 20px;">
-                    <li style="margin-bottom: 10px;"><strong>Self-Responsibility:</strong> You are solely responsible for the content you transmit. We cannot see or moderate content.</li>
-                    <li style="margin-bottom: 10px;"><strong>No Recovery:</strong> You acknowledge that because we do not store data, lost passwords or messages are <strong>unrecoverable</strong>.</li>
-                    <li style="margin-bottom: 10px;"><strong>Legal Use:</strong> You will not use this platform for malicious activities, cybercrime, or harassment.</li>
-                    <li style="margin-bottom: 10px;"><strong>As-Is Software:</strong> This is open-source software provided without warranty. Use at your own risk.</li>
+            <div style="font-size: 0.95rem; text-align: left; line-height: 1.6;">
+                <p>By accessing PrivyChat, you agree to these operational terms:</p>
+                <ol style="padding-left: 20px; margin-bottom: 15px;">
+                    <li style="margin-bottom: 10px;"><strong>Client-Side Sovereignty:</strong> You are solely responsible for your communication keys. Because PrivyChat holds no keys, lost passwords or expired rooms cannot be recovered by anyone.</li>
+                    <li style="margin-bottom: 10px;"><strong>Ethical & Lawful Conduct:</strong> You agree not to utilize PrivyChat for malicious automated attacks, unlawful malware distribution, or harassment.</li>
+                    <li style="margin-bottom: 10px;"><strong>Open-Source As-Is License:</strong> Provided freely without warranty under open-source terms.</li>
                 </ol>
-                <p style="text-align:center; margin-top: 20px; font-style: italic; opacity: 0.7;">Use wisely. Speak freely. Leave no trace.</p>
+                <p style="text-align:center; margin-top: 15px; font-style: italic; color: var(--g-green);">"Speak freely. Protect your identity. Leave zero trace."</p>
             </div>
         `
     },
     location: {
-        title: "Development HQ: India",
+        title: "🌐 Global & Local Node Infrastructure",
         body: `
-            <div style="font-size: 0.95rem; text-align: left;">
-                <p><strong>PrivyChat</strong> is proudly developed and maintained in <strong>India</strong>, a growing hub for global cyber-security innovation.</p>
+            <div style="font-size: 0.95rem; text-align: left; line-height: 1.6;">
+                <p><strong>PrivyChat</strong> operates with global edge routing and localized air-gapped mesh support.</p>
                 
-                <h3 style="color:var(--accent-color);">ðŸ“ Server Infrastructure</h3>
-                <ul style="list-style: none; padding-left: 0;">
-                    <li style="margin-bottom: 10px;">
-                        <strong>Node Region:</strong> <span style="color:#10b981">Asia-Pacific (Mumbai)</span><br>
-                        <span style="opacity:0.7">Optimized for low-latency connections across South Asia.</span>
+                <h3 style="color:var(--g-green);">📍 Edge Relay Network</h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 15px;">
+                    <li style="margin-bottom: 8px;">
+                        <strong>• Global Node:</strong> <span style="color:#10b981">Asia-Pacific Edge / Global Anycast</span>
                     </li>
-                    <li style="margin-bottom: 10px;">
-                        <strong>Routing:</strong> <span style="color:#3b82f6">Decentralized Relay</span><br>
-                        <span style="opacity:0.7">Traffic is routed through ephemeral nodes to obscure origin points.</span>
+                    <li style="margin-bottom: 8px;">
+                        <strong>• Offline Tactical Mesh:</strong> <span style="color:#3b82f6">Local LAN / WiFi Hotspot / BLE P2P</span>
                     </li>
                 </ul>
 
-                <h3 style="color:var(--accent-color);">âš–ï¸ Jurisdiction</h3>
-                <p>While developed in India, PrivyChat operates on a <strong>Code-is-Law</strong> principle.</p>
-                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; font-size: 0.9rem; border-left: 3px solid #f59e0b;">
-                    "We cannot comply with data requests because we do not possess the data. Technology, not policy, guarantees your privacy."
+                <h3 style="color:var(--g-blue);">🔒 Cryptographic Sovereignty (Code-is-Law)</h3>
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; font-size: 0.9rem; border-left: 3px solid #10b981;">
+                    "We cannot comply with data requests or third-party subpoenas because we possess zero persistent data. Mathematical cryptography, not policy, guarantees your freedom."
                 </div>
             </div>
         `
@@ -203,22 +192,29 @@ function openInfo(section) {
     const title = document.getElementById('info-title');
     const body = document.getElementById('info-body');
 
-    if (infoContent[section]) {
-        title.innerHTML = infoContent[section].title;
-        body.innerHTML = infoContent[section].body;
+    if (infoContent[section] && modal) {
+        if (title) title.innerHTML = infoContent[section].title;
+        if (body) body.innerHTML = infoContent[section].body;
+        modal.style.display = 'flex';
         modal.classList.add('active');
     }
 }
 
 function closeInfoModal() {
-    document.getElementById('info-modal').classList.remove('active');
+    const modal = document.getElementById('info-modal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
 }
 
 function copyGlobalLink() {
-    globalUrlInput.select();
-    globalUrlInput.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(globalUrlInput.value);
-    showToast("App Link Copied!", "success");
+    if (globalUrlInput) {
+        globalUrlInput.select();
+        globalUrlInput.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(globalUrlInput.value);
+        showToast("App Link Copied!", "success");
+    }
 }
 
 // DOM Elements

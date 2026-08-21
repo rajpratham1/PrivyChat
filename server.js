@@ -12,18 +12,30 @@ const bcrypt = require('bcrypt');
 
 const app = express();
 const server = http.createServer(app);
-// Strict CORS Policy
+
+// Strict CORS Policy with Local & LAN Support
 const allowedOrigins = [
     "http://localhost:3000",
     "http://localhost:3001",
+    "http://localhost:10000",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:10000",
     process.env.RENDER_EXTERNAL_URL // Dynamic from Render
-].filter(Boolean); // Remove nulls
+].filter(Boolean);
 
 const corsOptions = {
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
+        // Allow requests with no origin (like mobile apps, curl, or direct files)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost')) {
+        if (
+            allowedOrigins.indexOf(origin) !== -1 ||
+            origin.startsWith('http://localhost') ||
+            origin.startsWith('http://127.0.0.1') ||
+            origin.startsWith('http://192.168.') ||
+            origin.startsWith('http://10.') ||
+            origin.startsWith('http://172.')
+        ) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -37,25 +49,52 @@ const io = new Server(server, {
     maxHttpBufferSize: 1e7 // 10MB Limit
 });
 
-// ...
-
-
-
 const PORT = process.env.PORT || 3001;
 
 // --- Security Middleware ---
-// 1. Helmet: Protects headers
+// 1. Helmet: Protects headers & allows P2P / WebSockets / Media
 app.use(helmet({
     contentSecurityPolicy: {
         useDefaults: true,
         directives: {
             "default-src": ["'self'"],
-            "script-src": ["'self'", "'unsafe-eval'", "https://trusted.cdn.com", "https://cdn.tailwindcss.com", "https://unpkg.com"],
-            "script-src-attr": ["'none'"],
-            "style-src": ["'self'", "'unsafe-inline'", "https://trusted.cdn.com", "https://fonts.googleapis.com"],
-            "font-src": ["'self'", "https://fonts.gstatic.com"],
-            "img-src": ["'self'", "data:", "https://trusted.cdn.com", "https://github.com", "https://avatars.githubusercontent.com", "https://via.placeholder.com"],
-            "connect-src": ["'self'", "https://api.trusted.com", "https://cdn.tailwindcss.com"],
+            "script-src": [
+                "'self'",
+                "'unsafe-eval'",
+                "'unsafe-inline'",
+                "https://cdn.tailwindcss.com",
+                "https://unpkg.com",
+                "https://cdnjs.cloudflare.com",
+                "https://cdn.jsdelivr.net"
+            ],
+            "style-src": [
+                "'self'",
+                "'unsafe-inline'",
+                "https://fonts.googleapis.com",
+                "https://unpkg.com",
+                "https://cdnjs.cloudflare.com"
+            ],
+            "font-src": ["'self'", "https://fonts.gstatic.com", "data:"],
+            "img-src": [
+                "'self'",
+                "data:",
+                "blob:",
+                "https://github.com",
+                "https://avatars.githubusercontent.com",
+                "https://via.placeholder.com",
+                "https://*"
+            ],
+            "media-src": ["'self'", "blob:", "data:"],
+            "connect-src": [
+                "'self'",
+                "ws:",
+                "wss:",
+                "http:",
+                "https:",
+                "blob:",
+                "data:",
+                "https://cdn.tailwindcss.com"
+            ],
         },
     },
 }));
@@ -63,7 +102,7 @@ app.use(helmet({
 // 2. Rate Limiting: Prevent Brute Force / DoS
 const limiter = rateLimit({
     windowMs: 2 * 60 * 1000, // 2 minutes
-    max: 200, // Limit each IP to 200 requests per windowMs
+    max: 500, // Limit each IP to 500 requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
 });
@@ -78,11 +117,21 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.get('/nearby', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'nearby.html'));
+});
+
+app.get('/about', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'about.html'));
+});
+
+app.get('/manual', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'manual.html'));
+});
+
 // --- Chat Logic ---
 const rooms = {}; // { roomName: { password: '...', users: [] } }
-
-// Validation Regex
-const SAFE_INPUT_REGEX = /^[a-zA-Z0-9_\- ]{1,30}$/;
+const nearbyPeers = {}; // { socketId: { id, nickname, avatar, mode, ip, joinedAt, publicKey } }
 
 // Validation Schema
 const roomSchema = Joi.object({
@@ -93,7 +142,7 @@ const roomSchema = Joi.object({
 });
 
 io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
+    const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
 
     // Helper to broadcast user count AND list
     const broadcastRoomUpdate = (room) => {
@@ -106,7 +155,116 @@ io.on('connection', (socket) => {
         }
     };
 
-    // Join Room
+    // Broadcast active nearby peers
+    const broadcastNearbyPeers = () => {
+        const peerList = Object.values(nearbyPeers).map(p => ({
+            id: p.id,
+            nickname: p.nickname,
+            avatar: p.avatar,
+            mode: p.mode,
+            device: p.device,
+            publicKey: p.publicKey,
+            joinedAt: p.joinedAt
+        }));
+        io.emit('nearby_peer_list', peerList);
+    };
+
+    // ==========================================
+    // 1. NEARBY MESH / P2P DISCOVERY EVENTS
+    // ==========================================
+    socket.on('nearby_join', (data) => {
+        // data: { nickname, avatar, mode, device, publicKey }
+        const nickname = (data && data.nickname ? String(data.nickname).slice(0, 25) : 'Agent_' + socket.id.slice(0, 4));
+        const avatar = data && data.avatar ? data.avatar : '🕵️';
+        const mode = data && data.mode ? data.mode : 'wifi';
+        const device = data && data.device ? data.device : 'Desktop';
+        const publicKey = data && data.publicKey ? data.publicKey : null;
+
+        nearbyPeers[socket.id] = {
+            id: socket.id,
+            nickname,
+            avatar,
+            mode,
+            device,
+            ip: clientIp,
+            publicKey,
+            joinedAt: Date.now()
+        };
+
+        // Notify client of their assigned ID and list of other peers
+        socket.emit('nearby_registered', {
+            id: socket.id,
+            nickname,
+            avatar
+        });
+
+        broadcastNearbyPeers();
+    });
+
+    socket.on('nearby_update_profile', (data) => {
+        if (nearbyPeers[socket.id]) {
+            if (data.nickname) nearbyPeers[socket.id].nickname = String(data.nickname).slice(0, 25);
+            if (data.avatar) nearbyPeers[socket.id].avatar = data.avatar;
+            if (data.mode) nearbyPeers[socket.id].mode = data.mode;
+            if (data.publicKey) nearbyPeers[socket.id].publicKey = data.publicKey;
+            broadcastNearbyPeers();
+        }
+    });
+
+    // WebRTC Signaling for Nearby Direct P2P
+    socket.on('nearby_signal', (data) => {
+        // data: { to, signal, type, senderInfo }
+        if (data && data.to && io.sockets.sockets.get(data.to)) {
+            io.to(data.to).emit('nearby_signal', {
+                from: socket.id,
+                signal: data.signal,
+                type: data.type,
+                senderInfo: nearbyPeers[socket.id] || { id: socket.id, nickname: 'Anonymous' }
+            });
+        }
+    });
+
+    // P2P Direct Call Relay (Voice/Video)
+    socket.on('nearby_call_request', (data) => {
+        if (data && data.to && io.sockets.sockets.get(data.to)) {
+            io.to(data.to).emit('nearby_call_request', {
+                from: socket.id,
+                caller: nearbyPeers[socket.id] || { id: socket.id, nickname: 'Agent' },
+                callType: data.callType || 'audio',
+                offer: data.offer
+            });
+        }
+    });
+
+    socket.on('nearby_call_response', (data) => {
+        if (data && data.to && io.sockets.sockets.get(data.to)) {
+            io.to(data.to).emit('nearby_call_response', {
+                from: socket.id,
+                accepted: data.accepted,
+                answer: data.answer
+            });
+        }
+    });
+
+    socket.on('nearby_call_end', (data) => {
+        if (data && data.to && io.sockets.sockets.get(data.to)) {
+            io.to(data.to).emit('nearby_call_end', { from: socket.id });
+        }
+    });
+
+    // Nearby ICE candidates
+    socket.on('nearby_ice_candidate', (data) => {
+        if (data && data.to && io.sockets.sockets.get(data.to)) {
+            io.to(data.to).emit('nearby_ice_candidate', {
+                from: socket.id,
+                candidate: data.candidate
+            });
+        }
+    });
+
+    // ==========================================
+    // 2. MAIN PRIVYCHAT ROOM EVENTS
+    // ==========================================
     socket.on('join_room', async (data) => {
         const { error, value } = roomSchema.validate(data);
         if (error) {
@@ -115,7 +273,6 @@ io.on('connection', (socket) => {
         }
 
         const { room, password, username, type } = value;
-
         const existingRoom = rooms[room];
 
         if (existingRoom) {
@@ -133,32 +290,25 @@ io.on('connection', (socket) => {
                 const isPasswordValid = await bcrypt.compare(password || '', existingRoom.password);
                 if (!isPasswordValid) {
                     if (!password) {
-                        // 1. Ask for password if missing
                         socket.emit('password_required', room);
                         return;
                     }
-                    // 2. Reject if wrong
                     socket.emit('error_msg', 'Incorrect password');
                     return;
                 }
             }
-            // If no password (public) or password correct, proceed to join below.
         } else {
-            // --- NEW ROOM (or Server Restarted) ---
+            // --- NEW ROOM ---
             if (type === 'private') {
-                // Creating PRIVATE room
                 if (!password) {
-                    // If trying to create/join private without password, ask for it.
                     socket.emit('password_required', room);
                     return;
                 }
                 const hashedPassword = await bcrypt.hash(password, 10);
                 rooms[room] = { password: hashedPassword, users: [], type: 'private' };
             } else if (type === '1v1') {
-                // Creating 1v1 room
                 rooms[room] = { password: null, users: [], type: '1v1' };
             } else {
-                // Creating PUBLIC/Group room
                 rooms[room] = { password: null, users: [], type: 'group' };
             }
         }
@@ -166,16 +316,13 @@ io.on('connection', (socket) => {
         // --- JOIN SUCCESS ---
         socket.join(room);
 
-        // Update User List (simplified)
+        // Update User List
         if (rooms[room]) {
-            // Remove if already exists (avoid duplicates if re-joining)
             rooms[room].users = rooms[room].users.filter(u => u.id !== socket.id);
             rooms[room].users.push({ id: socket.id, username: username });
         }
 
         socket.to(room).emit('system_msg', `${username} has joined the chat`);
-
-        console.log(`User ${username} joined ${room}`);
 
         // Notify Client
         socket.emit('joined_success', {
@@ -189,7 +336,6 @@ io.on('connection', (socket) => {
 
     // Send Message
     socket.on('send_message', (data) => {
-        // data: { room, message, username, timestamp }
         io.to(data.room).emit('receive_message', data);
     });
 
@@ -204,30 +350,22 @@ io.on('connection', (socket) => {
 
     // File Sharing
     socket.on('file_share', (data) => {
-        // data: { room, fileData, fileName, fileType, username, timestamp }
-        // Broadcast back to room so client listener 'socket.on("file_share")' triggers
         io.to(data.room).emit('file_share', data);
     });
 
     // --- WebRTC Signaling ---
     socket.on('call_user', (data) => {
-        // data: { offer, room }
         socket.to(data.room).emit('call_user', { offer: data.offer, socketId: socket.id });
     });
 
     socket.on('answer_call', (data) => {
-        // data: { answer, to }
         io.to(data.to).emit('call_accepted', data.answer);
     });
 
     socket.on('ice_candidate', (data) => {
-        // Standard WebRTC: Exchange candidates
-        // data: { candidate, to, room }
         if (data.room) {
-            // Broadcast to the other person in the room
             socket.to(data.room).emit('ice_candidate', data.candidate);
         } else if (data.to) {
-            // Direct P2P (if socketID is known)
             io.to(data.to).emit('ice_candidate', data.candidate);
         }
     });
@@ -240,7 +378,6 @@ io.on('connection', (socket) => {
         const roomsToUpdate = [...socket.rooms];
         roomsToUpdate.forEach((room) => {
             if (room !== socket.id && rooms[room]) {
-                // Remove user from room state
                 const user = rooms[room].users.find(u => u.id === socket.id);
                 if (user) {
                     rooms[room].users = rooms[room].users.filter(u => u.id !== socket.id);
@@ -249,6 +386,12 @@ io.on('connection', (socket) => {
                 }
             }
         });
+
+        // Cleanup nearby peer presence
+        if (nearbyPeers[socket.id]) {
+            delete nearbyPeers[socket.id];
+            broadcastNearbyPeers();
+        }
     });
 });
 
@@ -258,11 +401,10 @@ server.listen(PORT, () => {
 
 module.exports = app;
 
-// --- Keep-Alive Optimization (User Request) ---
-// Prevents Render free tier from sleeping after 15 mins of inactivity.
+// --- Keep-Alive Optimization ---
 const keepAliveURL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
-// 3. Health Check Route
+// Health Check Route
 app.get('/health', (req, res) => {
     res.status(200).send('OK');
 });
@@ -272,11 +414,7 @@ if (process.env.RENDER_EXTERNAL_URL) {
     setInterval(() => {
         const client = keepAliveURL.startsWith('https') ? https : http;
         client.get(`${keepAliveURL}/health`, (resp) => {
-            if (resp.statusCode === 200) {
-                // console.log('Keep-Alive Ping: Success'); 
-            } else {
-                console.error('Keep-Alive Ping: Failed', resp.statusCode);
-            }
+            // Keep alive ping
         }).on('error', (err) => {
             console.error('Keep-Alive Error:', err.message);
         });
@@ -285,13 +423,13 @@ if (process.env.RENDER_EXTERNAL_URL) {
 
 // Centralized Error Handling Middleware
 app.use((err, req, res, next) => {
-    console.error(err.stack); // Log the error stack for debugging
-
+    console.error(err.stack);
     res.status(err.status || 500).json({
         error: {
             message: err.message || 'Internal Server Error',
         },
     });
 });
+
 
 

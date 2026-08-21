@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nearby Mesh - PrivyChat Tactical Radar</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="apple-touch-icon" href="logo.png">
+    <link rel="icon" type="image/png" href="logo.png">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="nearby.css">
+
+    <!-- External Libraries (QR Engine & Lucide Icons) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+
+<body>
+
+    <!-- 1. TOP HUD NAVIGATION -->
+    <header class="hud-nav">
+        <a href="index.html" class="hud-brand">
+            <div class="hud-logo-badge">
+                <i data-lucide="radio" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <div style="font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -0.5px;">
+                    Privy<span style="color: var(--neon-green)">Nearby</span>
+                </div>
+                <div class="font-mono" style="font-size: 9.5px; color: var(--neon-green); letter-spacing: 1px; text-transform: uppercase;">
+                    OFFLINE AIR-GAP P2P MESH
+                </div>
+            </div>
+        </a>
+
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <!-- Signal Status Pill -->
+            <div id="meshStatusPill" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-full); background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); font-size: 11px; font-family: 'Courier Prime', monospace; color: var(--neon-green);">
+                <span style="width: 7px; height: 7px; border-radius: 50%; background: var(--neon-green); box-shadow: 0 0 8px var(--neon-green);"></span>
+                <span id="meshStatusText">RADAR ACTIVE</span>
+            </div>
+
+            <!-- Manual Link -->
+            <a href="manual.html" target="_blank" class="action-btn" title="Tactical Manual" style="text-decoration: none;">
+                <i data-lucide="book-open" class="w-4 h-4"></i>
+            </a>
+
+            <!-- About Developer Link -->
+            <a href="about.html" class="action-btn" title="About & Architecture" style="text-decoration: none;">
+                <i data-lucide="info" class="w-4 h-4"></i>
+            </a>
+
+            <!-- Panic Purge Button -->
+            <button id="panicBtn" class="action-btn" style="background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: var(--neon-red);" title="Emergency Panic Button (Purge All)">
+                <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- 2. MAIN GRID CONTAINER -->
+    <main class="nearby-grid">
+
+        <!-- ============================================== -->
+        <!-- LEFT PANEL: TACTICAL RADAR & DISCOVERY STATION -->
+        <!-- ============================================== -->
+        <section class="glass-panel scanner-panel">
+            
+            <!-- Sonar Radar Viewport -->
+            <div class="radar-box">
+                <canvas id="radarCanvas" width="300" height="300"></canvas>
+                <div class="radar-overlay-badge font-mono" id="radarBadge">SWEEP: 360° • SCANNING</div>
+            </div>
+
+            <!-- Discovery Mode Switcher -->
+            <div class="mode-tabs">
+                <button class="mode-tab-btn active" id="modeWifiBtn" title="Discover peers on local WiFi / Hotspot router">
+                    <i data-lucide="wifi" class="w-4 h-4"></i>
+                    <span>WiFi / LAN</span>
+                </button>
+                <button class="mode-tab-btn" id="modeBleBtn" title="Scan nearby Bluetooth Low Energy devices">
+                    <i data-lucide="bluetooth" class="w-4 h-4"></i>
+                    <span>Bluetooth</span>
+                </button>
+                <button class="mode-tab-btn" id="modeQrBtn" title="100% Air-Gapped Zero-Network QR Handshake">
+                    <i data-lucide="qr-code" class="w-4 h-4"></i>
+                    <span>Air-Gap QR</span>
+                </button>
+            </div>
+
+            <!-- User Profile & Stealth Identity Card -->
+            <div class="profile-card">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button class="profile-avatar-btn" id="profileAvatarBtn" title="Change Avatar">🕵️</button>
+                    <div>
+                        <input type="text" id="nicknameInput" class="profile-nickname-input font-mono" value="Agent_007" maxlength="20" placeholder="Codename">
+                        <div style="font-size: 10px; color: var(--text-muted); font-family: 'Courier Prime', monospace;" id="myFingerprintShort">ECDH: Generating...</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button id="radarSoundToggle" class="action-btn" style="width: 32px; height: 32px;" title="Toggle Sonar Audio Ping">
+                        <i data-lucide="volume-2" class="w-3.5 h-3.5 text-green-400"></i>
+                    </button>
+                    <button id="stealthToggleBtn" class="action-btn" style="width: 32px; height: 32px;" title="Stealth Cloak (Hide on Radar)">
+                        <i data-lucide="eye" class="w-3.5 h-3.5 text-green-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Discovered Peers Section -->
+            <div style="flex: 1; display: flex; flex-direction: column;">
+                <div class="peer-list-header">
+                    <span style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px;">
+                        NEARBY TARGETS (<span id="peerCountDisplay">0</span>)
+                    </span>
+                    <button id="refreshScanBtn" style="background: none; border: none; color: var(--neon-green); font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i> Rescan
+                    </button>
+                </div>
+
+                <div class="peer-list" id="peerListContainer">
+                    <!-- Dynamic Peer Cards injected by JS -->
+                    <div style="text-align: center; padding: 24px 10px; color: var(--text-muted); font-size: 12px; font-family: 'Courier Prime', monospace;">
+                        <i data-lucide="loader-2" class="w-5 h-5 mx-auto mb-2 text-green-500 animate-spin"></i>
+                        Scanning local radio spectrum...<br>
+                        Make sure other devices are on the same WiFi or have Bluetooth active.
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- ============================================== -->
+        <!-- RIGHT PANEL: ENCRYPTED P2P CHAT TERMINAL       -->
+        <!-- ============================================== -->
+        <section class="glass-panel terminal-panel">
+
+            <!-- Standby / Welcome Screen (When no peer is connected) -->
+            <div id="standbyScreen" style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center;">
+                <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 0 30px var(--neon-green-glow);">
+                    <i data-lucide="shield-check" class="w-10 h-10 text-green-400"></i>
+                </div>
+
+                <h2 style="font-size: 26px; font-weight: 800; color: #fff; margin-bottom: 8px;">
+                    Air-Gapped & Local Tactical Mesh
+                </h2>
+
+                <p style="color: var(--text-secondary); max-width: 520px; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+                    Establish direct, serverless, end-to-end encrypted peer-to-peer communication over local WiFi, Bluetooth Low Energy, or Air-Gapped QR optical beam.
+                </p>
+
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 30px;">
+                    <div class="glass-card" style="padding: 12px 18px; text-align: left; display: flex; align-items: center; gap: 10px;">
+                        <i data-lucide="wifi" class="w-5 h-5 text-green-400"></i>
+                        <div>
+                            <div style="font-size: 12px; font-weight: bold; color: #fff;">1. Local WiFi / Hotspot</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">Auto-mesh on same router / phone hotspot</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card" style="padding: 12px 18px; text-align: left; display: flex; align-items: center; gap: 10px;">
+                        <i data-lucide="bluetooth" class="w-5 h-5 text-cyan-400"></i>
+                        <div>
+                            <div style="font-size: 12px; font-weight: bold; color: #fff;">2. Web Bluetooth (BLE)</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">Proximity pairing with nearby radios</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card" style="padding: 12px 18px; text-align: left; display: flex; align-items: center; gap: 10px;">
+                        <i data-lucide="qr-code" class="w-5 h-5 text-amber-400"></i>
+                        <div>
+                            <div style="font-size: 12px; font-weight: bold; color: #fff;">3. Air-Gapped QR Scan</div>
+                            <div style="font-size: 11px; color: var(--text-muted);">Zero internet, camera-to-camera SDP handshake</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 12px;">
+                    <button id="heroScanBtn" class="peer-connect-btn" style="padding: 12px 24px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="radio" class="w-4 h-4"></i> Scan for Nearby Peers
+                    </button>
+                    <button id="heroAirGapBtn" class="action-btn" style="width: auto; padding: 0 20px; font-weight: 600; font-size: 13px;" title="Air-Gapped QR Handshake">
+                        <i data-lucide="qr-code" class="w-4 h-4 text-green-400 mr-1.5"></i> Air-Gap QR Handshake
+                    </button>
+                </div>
+            </div>
+
+            <!-- Active Chat HUD (Visible when connected to a peer) -->
+            <div id="activeChatHUD" style="display: none; height: 100%; flex-direction: column;">
+                
+                <!-- Terminal Header Bar -->
+                <div class="terminal-header">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div id="peerActiveAvatar" style="font-size: 26px; width: 44px; height: 44px; border-radius: var(--radius-md); background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); display: flex; align-items: center; justify-content: center;">
+                            🕵️
+                        </div>
+                        <div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span id="peerActiveName" style="font-weight: 800; font-size: 16px; color: #fff;">Target_Peer</span>
+                                <span class="font-mono" style="font-size: 10px; padding: 2px 8px; border-radius: var(--radius-full); background: rgba(34, 197, 94, 0.2); color: var(--neon-green); border: 1px solid rgba(34, 197, 94, 0.4);" id="e2eeBadge">
+                                    🔒 AES-256-GCM
+                                </span>
+                            </div>
+                            <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;" class="font-mono">
+                                <span id="peerActiveDevice">Mobile Device</span> • 
+                                <span id="peerActiveChannel" style="color: var(--neon-cyan);">P2P DIRECT DATALINK</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HUD Controls -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <!-- Safety Numbers / MITM Verification -->
+                        <button id="verifySafetyBtn" class="action-btn" title="Verify Cryptographic Safety Fingerprint">
+                            <i data-lucide="key" class="w-4 h-4 text-cyan-400"></i>
+                        </button>
+
+                        <!-- Ghost Mode (Blur Text) -->
+                        <button id="ghostToggleBtn" class="action-btn" title="Ghost Mode (Shoulder-Surfing Blur)">
+                            <i data-lucide="ghost" class="w-4 h-4 text-purple-400"></i>
+                        </button>
+
+                        <!-- Self-Destruct Timer Menu -->
+                        <select id="burnTimerSelect" class="action-btn" style="width: auto; padding: 0 10px; font-size: 11px; font-weight: bold; background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: var(--neon-red); cursor: pointer;" title="Self-Destruct Burn Timer">
+                            <option value="0">⏱️ Burn: Off</option>
+                            <option value="5">🔥 5 Seconds</option>
+                            <option value="15">🔥 15 Seconds</option>
+                            <option value="30">🔥 30 Seconds</option>
+                            <option value="60">🔥 60 Seconds</option>
+                            <option value="read">👁️ Burn on Read</option>
+                        </select>
+
+                        <!-- Direct Audio / Video Call -->
+                        <button id="startCallBtn" class="action-btn" style="background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); color: var(--neon-green);" title="Start P2P Voice Call">
+                            <i data-lucide="phone" class="w-4 h-4"></i>
+                        </button>
+
+                        <!-- Disconnect Session -->
+                        <button id="disconnectBtn" class="action-btn" style="color: var(--neon-red);" title="Terminate P2P Session">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Message Viewport -->
+                <div class="terminal-viewport" id="messagesContainer">
+                    <!-- Dynamic messages -->
+                </div>
+
+                <!-- Typing indicator -->
+                <div id="typingIndicator" style="display: none; padding: 4px 20px; font-size: 11px; color: var(--neon-green); font-family: 'Courier Prime', monospace;">
+                    <span class="animate-pulse">● ● ● Target is transmitting ciphertext...</span>
+                </div>
+
+                <!-- Voice Recording Live Visualizer (Visible during mic recording) -->
+                <div id="voiceRecordingBar" style="display: none; align-items: center; justify-content: space-between; padding: 10px 20px; background: rgba(239, 68, 68, 0.15); border-top: 1px solid rgba(239, 68, 68, 0.3);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: burnPulse 0.8s infinite;"></span>
+                        <span style="font-size: 12px; font-weight: bold; color: #fff;" class="font-mono">RECORDING ENCRYPTED AUDIO (<span id="voiceTimer">0:00</span>)</span>
+                        <div class="voice-wave-container" id="voiceWaveform">
+                            <div class="voice-wave-bar" style="animation-delay: 0.1s"></div>
+                            <div class="voice-wave-bar" style="animation-delay: 0.2s"></div>
+                            <div class="voice-wave-bar" style="animation-delay: 0.3s"></div>
+                            <div class="voice-wave-bar" style="animation-delay: 0.15s"></div>
+                            <div class="voice-wave-bar" style="animation-delay: 0.25s"></div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); cursor: pointer;">
+                            <input type="checkbox" id="voiceMaskToggle">
+                            <span>🎙️ Voice Mask</span>
+                        </label>
+                        <button id="cancelVoiceBtn" class="action-btn" style="width: 32px; height: 32px; color: var(--neon-red);" title="Discard Memo">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button id="sendVoiceBtn" class="action-btn send-btn" style="width: 32px; height: 32px;" title="Transmit Memo">
+                            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tactical Action Bar -->
+                <div class="terminal-action-bar">
+                    <!-- File Attachment Button -->
+                    <button id="attachFileBtn" class="action-btn" title="Send Encrypted File / Photo">
+                        <i data-lucide="paperclip" class="w-4 h-4"></i>
+                    </button>
+                    <input type="file" id="fileInput" style="display: none;">
+
+                    <!-- Voice Memo Button -->
+                    <button id="recordVoiceBtn" class="action-btn" title="Record Voice Memo (Encrypted)">
+                        <i data-lucide="mic" class="w-4 h-4"></i>
+                    </button>
+
+                    <!-- Textarea Message Input -->
+                    <textarea id="msgInput" class="msg-input-box" placeholder="Type tactical message... (Enter to transmit)" rows="1"></textarea>
+
+                    <!-- Send Button -->
+                    <button id="sendMsgBtn" class="action-btn send-btn" title="Transmit Encrypted Message">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ============================================== -->
+    <!-- MODALS & OVERLAYS                              -->
+    <!-- ============================================== -->
+
+    <!-- 1. Air-Gapped QR Handshake Modal -->
+    <div class="modal-backdrop" id="qrModal">
+        <div class="modal-box">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="qr-code" class="w-5 h-5 text-green-400"></i>
+                    <span style="font-weight: 800; font-size: 16px; color: #fff;">Air-Gapped QR Handshake</span>
+                </div>
+                <button class="action-btn" id="closeQrModalBtn" style="width: 32px; height: 32px;">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button id="qrTabOffer" class="peer-connect-btn" style="flex: 1; padding: 8px 12px; font-size: 12px;">
+                    1. Generate Offer QR
+                </button>
+                <button id="qrTabScan" class="action-btn" style="flex: 1; padding: 8px 12px; font-size: 12px; width: auto;">
+                    2. Scan Camera QR
+                </button>
+            </div>
+
+            <!-- View 1: Show Generated QR -->
+            <div id="qrOfferView" style="text-align: center;">
+                <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
+                    Have your nearby partner point their phone camera at this QR code:
+                </p>
+                <div class="qr-display-box" id="qrCodeContainer"></div>
+                <div class="font-mono" style="font-size: 11px; color: var(--neon-green); margin-top: 10px;" id="qrStatusText">
+                    ● Encrypted Offer Generated. Waiting for scan...
+                </div>
+            </div>
+
+            <!-- View 2: Camera Scanner View -->
+            <div id="qrScanView" style="display: none; text-align: center;">
+                <video id="qrScannerVideo" playsinline></video>
+                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">
+                    Point your camera at the other device's PrivyChat QR code.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Web Bluetooth Scanner Modal -->
+    <div class="modal-backdrop" id="bleModal">
+        <div class="modal-box">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="bluetooth" class="w-5 h-5 text-cyan-400"></i>
+                    <span style="font-weight: 800; font-size: 16px; color: #fff;">Bluetooth (BLE) Scanner</span>
+                </div>
+                <button class="action-btn" id="closeBleModalBtn" style="width: 32px; height: 32px;">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px;">
+                Web Bluetooth allows direct device-to-device proximity radio linking without internet. Click below to pair with active Bluetooth devices.
+            </p>
+
+            <button id="triggerBleRequestBtn" class="peer-connect-btn" style="width: 100%; padding: 12px; font-size: 13px; margin-bottom: 14px; background: linear-gradient(135deg, #06b6d4, #0284c7);">
+                <i data-lucide="bluetooth-searching" class="w-4 h-4 mr-1"></i> Scan Bluetooth Peripherals
+            </button>
+
+            <div id="bleStatusMsg" class="font-mono" style="font-size: 11px; color: var(--neon-cyan); text-align: center;">
+                Bluetooth Ready.
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Cryptographic Safety Fingerprint Modal -->
+    <div class="modal-backdrop" id="safetyModal">
+        <div class="modal-box" style="text-align: center;">
+            <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.4); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                <i data-lucide="shield-alert" class="w-6 h-6 text-cyan-400"></i>
+            </div>
+            
+            <h3 style="font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 6px;">End-to-End Safety Fingerprint</h3>
+            <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;">
+                Compare these safety symbols with your partner to guarantee no Man-in-the-Middle (MITM) interception:
+            </p>
+
+            <!-- Safety Emojis -->
+            <div id="safetyEmojis" style="font-size: 32px; letter-spacing: 12px; padding: 12px; background: rgba(0, 0, 0, 0.5); border-radius: var(--radius-md); border: 1px solid rgba(6, 182, 212, 0.3); margin-bottom: 14px;">
+                🛡️ ⚡ 🔑 🦅
+            </div>
+
+            <!-- Hex Fingerprint -->
+            <div id="safetyHexCode" class="font-mono" style="font-size: 12px; color: var(--neon-cyan); background: rgba(0, 0, 0, 0.3); padding: 8px; border-radius: var(--radius-sm); word-break: break-all; margin-bottom: 20px;">
+                7F4B - A289 - 01EC - 99DF - C841 - 33E0
+            </div>
+
+            <button id="closeSafetyModalBtn" class="peer-connect-btn" style="width: 100%; padding: 10px; font-size: 13px;">
+                Verified & Secure
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. P2P Direct Call Overlay Modal -->
+    <div class="modal-backdrop" id="callModal">
+        <div class="modal-box" style="text-align: center; max-width: 480px;">
+            <div id="callAvatarIcon" style="font-size: 48px; margin-bottom: 12px;">🕵️</div>
+            <h3 id="callPeerHeading" style="font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 4px;">Incoming Tactical Call</h3>
+            <p id="callSubheading" class="font-mono" style="font-size: 12px; color: var(--neon-green); margin-bottom: 20px;">DIRECT P2P ENCRYPTED AUDIO</p>
+
+            <!-- Remote Video View (if video call) -->
+            <video id="remoteVideo" autoplay playsinline style="width: 100%; max-height: 200px; border-radius: var(--radius-md); background: #000; display: none; margin-bottom: 16px;"></video>
+            <audio id="remoteAudio" autoplay></audio>
+
+            <div style="display: flex; gap: 14px; justify-content: center;">
+                <button id="acceptCallBtn" class="peer-connect-btn" style="padding: 12px 28px; font-size: 14px; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="phone-call" class="w-4 h-4"></i> Accept
+                </button>
+                <button id="hangupCallBtn" class="action-btn" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); color: var(--neon-red); padding: 12px 24px; width: auto; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="phone-off" class="w-4 h-4"></i> End Call
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Avatar Picker Modal -->
+    <div class="modal-backdrop" id="avatarModal">
+        <div class="modal-box" style="max-width: 380px; text-align: center;">
+            <h3 style="font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 16px;">Select Spy Identity</h3>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;" id="avatarGrid">
+                <button class="profile-avatar-btn" style="width: 100%; height: 50px; font-size: 24px;">🕵️</button>
+                <button class="profile-avatar-btn" style="width: 100%; height: 50px; font-size: 24px;">🕶️</button>
+                <button class="profile-avatar-btn" style="width: 100%; height: 50px; font-size: 24px;">🐱‍👤</button>
+                <button class="profile-avatar-btn" style="width: 100%; height: 50px; font-size: 24px;">🐺</button>
+                <button class="profile-avatar-btn" style="width: 100%; height: 50px; font-size: 24px;">⚡</button>
+                <button class="profile-avatar-btn" style="width: 100%; height: 50px; font-size: 24px;">🦾</button>
+                <button class="profile-avatar-btn" style="width: 100%; height: 50px; font-size: 24px;">🦅</button>
+                <button class="profile-avatar-btn" style="width: 100%; height: 50px; font-size: 24px;">🦇</button>
+            </div>
+            <button id="closeAvatarModalBtn" class="action-btn" style="width: 100%; font-weight: bold;">Close</button>
+        </div>
+    </div>
+
+    <!-- Script Implementation -->
+    <script src="nearby.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>

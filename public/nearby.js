@@ -621,9 +621,17 @@
     // 6. UI SWITCHING & EVENT WIRING
     // =========================================================================
     function switchToActiveChat(peer) {
+        state.activePeer = peer;
         document.getElementById('standbyScreen').style.display = 'none';
         const activeHUD = document.getElementById('activeChatHUD');
         activeHUD.style.display = 'flex';
+
+        // Activate clean full-screen chatbox view on mobile & desktop
+        document.body.classList.add('chat-active-view');
+
+        // Show Return to Chat navigation button in top bar
+        const returnNavBtn = document.getElementById('returnToChatNavBtn');
+        if (returnNavBtn) returnNavBtn.style.display = 'flex';
 
         document.getElementById('peerActiveAvatar').textContent = peer.avatar || '🕵️';
         document.getElementById('peerActiveName').textContent = peer.nickname || 'Target_Peer';
@@ -640,15 +648,19 @@
 
     function terminateSession() {
         if (state.dataChannel) {
-            state.dataChannel.close();
+            try { state.dataChannel.close(); } catch (e) {}
             state.dataChannel = null;
         }
         if (state.peerConnection) {
-            state.peerConnection.close();
+            try { state.peerConnection.close(); } catch (e) {}
             state.peerConnection = null;
         }
         state.activePeer = null;
         state.sessionKey = null;
+
+        document.body.classList.remove('chat-active-view');
+        const returnNavBtn = document.getElementById('returnToChatNavBtn');
+        if (returnNavBtn) returnNavBtn.style.display = 'none';
 
         document.getElementById('activeChatHUD').style.display = 'none';
         document.getElementById('standbyScreen').style.display = 'flex';
@@ -738,6 +750,9 @@
 
     let qrOfferScannerActive = false;
     let qrVideoElem = null;
+    let qrScanTimer = null;
+    const qrScanCanvas = document.createElement("canvas");
+    const qrScanCtx = qrScanCanvas.getContext("2d", { willReadFrequently: true });
 
     function safeUtf8ToBase64(str) {
         return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
@@ -756,8 +771,24 @@
         if (!modal) return;
         modal.classList.add('active');
 
-        // Generate Offer QR Code
+        // Default to View 1 (Offer)
+        document.getElementById('qrOfferView').style.display = 'block';
+        document.getElementById('qrScanView').style.display = 'none';
         generateQrOffer();
+    }
+
+    function stopQrScanner() {
+        qrOfferScannerActive = false;
+        if (qrScanTimer) {
+            clearTimeout(qrScanTimer);
+            qrScanTimer = null;
+        }
+        if (qrVideoElem && qrVideoElem.srcObject) {
+            try {
+                qrVideoElem.srcObject.getTracks().forEach(t => t.stop());
+            } catch (e) {}
+            qrVideoElem.srcObject = null;
+        }
     }
 
     async function generateQrOffer() {
@@ -786,30 +817,70 @@
 
     async function startQrScanner() {
         const video = document.getElementById('qrScannerVideo');
+        const statusMsg = document.getElementById('qrScanStatusMsg');
         if (!video) return;
         qrVideoElem = video;
 
+        if (statusMsg) statusMsg.textContent = '🎥 Initializing camera sensor...';
+
+        // Check mediaDevices support
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            if (statusMsg) {
+                statusMsg.innerHTML = '<span style="color:#f59e0b;">⚠️ Direct camera requires HTTPS or localhost.<br>Please use the "Snap or Upload QR Image" button below!</span>';
+            }
+            return;
+        }
+
+        let stream = null;
+        const constraintAttempts = [
+            { video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 } }, audio: false },
+            { video: { facingMode: "environment" }, audio: false },
+            { video: { facingMode: "user" }, audio: false },
+            { video: true, audio: false }
+        ];
+
+        for (const constraint of constraintAttempts) {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia(constraint);
+                if (stream) break;
+            } catch (e) {
+                console.warn("Camera constraint attempt failed:", constraint, e.message);
+            }
+        }
+
+        if (!stream) {
+            if (statusMsg) {
+                statusMsg.innerHTML = '<span style="color:#ef4444;">⚠️ Camera access denied or unavailable.<br>Click "Snap or Upload QR Image" below to take or pick a photo!</span>';
+            }
+            return;
+        }
+
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
             video.srcObject = stream;
-            video.setAttribute("playsinline", true);
-            video.play();
+            video.muted = true;
+            video.setAttribute("playsinline", "true");
+            video.setAttribute("webkit-playsinline", "true");
+            await video.play();
+
+            if (statusMsg) statusMsg.textContent = '● Camera active. Align partner QR in frame...';
             qrOfferScannerActive = true;
-            requestAnimationFrame(scanQrFrame);
+            scanQrLoop();
         } catch (err) {
-            console.error("Camera access failed for QR scan:", err);
+            console.error("Camera playback failed:", err);
+            if (statusMsg) {
+                statusMsg.innerHTML = '<span style="color:#ef4444;">Camera preview failed. Use "Snap or Upload QR Image" below!</span>';
+            }
         }
     }
 
-    function scanQrFrame() {
+    function scanQrLoop() {
         if (!qrOfferScannerActive || !qrVideoElem) return;
-        if (qrVideoElem.readyState === qrVideoElem.HAVE_ENOUGH_DATA) {
-            const canvas = document.createElement("canvas");
-            canvas.width = qrVideoElem.videoWidth;
-            canvas.height = qrVideoElem.videoHeight;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(qrVideoElem, 0, 0, canvas.width, canvas.height);
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        if (qrVideoElem.readyState === qrVideoElem.HAVE_ENOUGH_DATA && qrVideoElem.videoWidth > 0) {
+            qrScanCanvas.width = qrVideoElem.videoWidth;
+            qrScanCanvas.height = qrVideoElem.videoHeight;
+            qrScanCtx.drawImage(qrVideoElem, 0, 0, qrScanCanvas.width, qrScanCanvas.height);
+            const imageData = qrScanCtx.getImageData(0, 0, qrScanCanvas.width, qrScanCanvas.height);
             const code = jsQR(imageData.data, imageData.width, imageData.height, {
                 inversionAttempts: "dontInvert",
             });
@@ -818,10 +889,8 @@
                 try {
                     const parsed = JSON.parse(safeBase64ToUtf8(code.data));
                     if (parsed.type === 'airgap_offer' && parsed.key) {
-                        qrOfferScannerActive = false;
+                        stopQrScanner();
                         document.getElementById('qrModal').classList.remove('active');
-                        // Stop camera stream
-                        qrVideoElem.srcObject.getTracks().forEach(t => t.stop());
 
                         // Establish air-gapped direct session
                         CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
@@ -838,7 +907,9 @@
                 } catch (e) { }
             }
         }
-        requestAnimationFrame(scanQrFrame);
+
+        // Throttle scan to every 120ms to conserve mobile CPU
+        qrScanTimer = setTimeout(scanQrLoop, 120);
     }
 
     // =========================================================================
@@ -1150,10 +1221,11 @@
         document.getElementById('heroAirGapBtn')?.addEventListener('click', openQrHandshakeModal);
         document.getElementById('closeQrModalBtn')?.addEventListener('click', () => {
             document.getElementById('qrModal').classList.remove('active');
-            qrOfferScannerActive = false;
+            stopQrScanner();
         });
 
         document.getElementById('qrTabOffer')?.addEventListener('click', () => {
+            stopQrScanner();
             document.getElementById('qrOfferView').style.display = 'block';
             document.getElementById('qrScanView').style.display = 'none';
             generateQrOffer();
@@ -1163,6 +1235,13 @@
             document.getElementById('qrOfferView').style.display = 'none';
             document.getElementById('qrScanView').style.display = 'block';
             startQrScanner();
+        });
+
+        // Return to Chat Nav Button (Click to reopen clean chat if session active)
+        document.getElementById('returnToChatNavBtn')?.addEventListener('click', () => {
+            if (state.activePeer) {
+                document.body.classList.add('chat-active-view');
+            }
         });
 
         // Hero Scan Button
@@ -1197,6 +1276,71 @@
                 window.location.replace('https://www.google.com');
             }, 250);
         });
+
+        // Back to Radar Button (Toggle out of full-screen chat without disconnecting)
+        document.getElementById('backToRadarBtn')?.addEventListener('click', () => {
+            document.body.classList.toggle('chat-active-view');
+        });
+
+        // Gallery / Direct Photo QR Decoder
+        const qrFileInput = document.getElementById('qrFileInput');
+        document.getElementById('uploadQrImgBtn')?.addEventListener('click', () => {
+            qrFileInput?.click();
+        });
+
+        if (qrFileInput) {
+            qrFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const statusMsg = document.getElementById('qrScanStatusMsg');
+                if (statusMsg) statusMsg.textContent = '🔍 Decoding photo QR code...';
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        const imageData = ctx.getImageData(0, 0, img.width, img.height);
+                        const code = jsQR(imageData.data, img.width, img.height, {
+                            inversionAttempts: "dontInvert"
+                        });
+
+                        if (code && code.data) {
+                            try {
+                                const parsed = JSON.parse(safeBase64ToUtf8(code.data));
+                                if (parsed.type === 'airgap_offer' && parsed.key) {
+                                    document.getElementById('qrModal').classList.remove('active');
+                                    if (qrVideoElem && qrVideoElem.srcObject) {
+                                        qrVideoElem.srcObject.getTracks().forEach(t => t.stop());
+                                    }
+                                    CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
+                                        switchToActiveChat({
+                                            id: 'airgap_peer',
+                                            nickname: parsed.nick || 'AirGap_Agent',
+                                            avatar: parsed.avatar || '📷',
+                                            device: 'Air-Gapped Optical Link'
+                                        });
+                                        AudioEngine.playLockBeep();
+                                    });
+                                    return;
+                                }
+                            } catch (err) {
+                                if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">⚠️ Invalid PrivyChat QR format. Try another photo.</span>';
+                            }
+                        } else {
+                            if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">⚠️ No QR code found in this image. Ensure clear lighting.</span>';
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
 
         // Expose global connect function for inline blip/card clicks
         window.PrivyNearby = {

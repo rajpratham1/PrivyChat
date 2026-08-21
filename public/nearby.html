@@ -40,6 +40,11 @@
         </a>
 
         <div style="display: flex; align-items: center; gap: 10px;">
+            <!-- Return to Active Chat Button (Visible when session is active) -->
+            <button id="returnToChatNavBtn" class="peer-connect-btn" style="display: none; padding: 6px 14px; font-size: 11.5px; align-items: center; gap: 6px; box-shadow: 0 0 12px var(--neon-green-glow);">
+                <i data-lucide="message-square" class="w-3.5 h-3.5"></i> Return to Chat
+            </button>
+
             <!-- Signal Status Pill -->
             <div id="meshStatusPill" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-full); background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); font-size: 11px; font-family: 'Courier Prime', monospace; color: var(--neon-green);">
                 <span style="width: 7px; height: 7px; border-radius: 50%; background: var(--neon-green); box-shadow: 0 0 8px var(--neon-green);"></span>
@@ -197,20 +202,23 @@
                 
                 <!-- Terminal Header Bar -->
                 <div class="terminal-header">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <div id="peerActiveAvatar" style="font-size: 26px; width: 44px; height: 44px; border-radius: var(--radius-md); background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); display: flex; align-items: center; justify-content: center;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <button id="backToRadarBtn" class="action-btn" title="Back to Radar Targets" style="width: 36px; height: 36px;">
+                            <i data-lucide="chevron-left" class="w-5 h-5"></i>
+                        </button>
+                        <div id="peerActiveAvatar" style="font-size: 24px; width: 40px; height: 40px; border-radius: var(--radius-md); background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); display: flex; align-items: center; justify-content: center;">
                             🕵️
                         </div>
                         <div>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span id="peerActiveName" style="font-weight: 800; font-size: 16px; color: #fff;">Target_Peer</span>
+                                <span id="peerActiveName" style="font-weight: 800; font-size: 15px; color: #fff;">Target_Peer</span>
                                 <span class="font-mono" style="font-size: 10px; padding: 2px 8px; border-radius: var(--radius-full); background: rgba(34, 197, 94, 0.2); color: var(--neon-green); border: 1px solid rgba(34, 197, 94, 0.4);" id="e2eeBadge">
                                     🔒 AES-256-GCM
                                 </span>
                             </div>
                             <div style="font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;" class="font-mono">
                                 <span id="peerActiveDevice">Mobile Device</span> • 
-                                <span id="peerActiveChannel" style="color: var(--neon-cyan);">P2P DIRECT DATALINK</span>
+                                <span id="peerActiveChannel" style="color: var(--neon-cyan);">P2P DIRECT</span>
                             </div>
                         </div>
                     </div>
@@ -355,10 +363,21 @@
 
             <!-- View 2: Camera Scanner View -->
             <div id="qrScanView" style="display: none; text-align: center;">
-                <video id="qrScannerVideo" playsinline></video>
-                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 10px;">
-                    Point your camera at the other device's PrivyChat QR code.
-                </p>
+                <div style="position: relative; width: 100%; max-height: 250px; border-radius: var(--radius-md); overflow: hidden; background: #000; margin-bottom: 10px;">
+                    <video id="qrScannerVideo" playsinline webkit-playsinline autoplay muted style="width: 100%; max-height: 250px; object-fit: cover; display: block;"></video>
+                    <div style="position: absolute; inset: 0; border: 2px dashed rgba(34, 197, 94, 0.6); pointer-events: none; margin: 15px; border-radius: 12px;"></div>
+                </div>
+                
+                <div id="qrScanStatusMsg" class="font-mono" style="font-size: 11.5px; color: var(--neon-green); margin-bottom: 12px;">
+                    ● Align partner's QR code in frame
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button id="uploadQrImgBtn" class="action-btn" style="width: 100%; padding: 10px; font-size: 12.5px; font-weight: 600; background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.4); color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i data-lucide="camera" class="w-4 h-4 text-green-400"></i> Snap or Upload QR Image (Gallery)
+                    </button>
+                    <input type="file" id="qrFileInput" accept="image/*" capture="environment" style="display: none;">
+                </div>
             </div>
         </div>
     </div>

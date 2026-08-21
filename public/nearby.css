@@ -586,6 +586,28 @@ body {
     transition: opacity 0.2s;
 }
 
+/* Active Full-Screen Clean Chat Mode (Mobile & Desktop) */
+body.chat-active-view .scanner-panel {
+    display: none !important;
+}
+
+body.chat-active-view .nearby-grid {
+    grid-template-columns: 1fr !important;
+    max-width: 960px;
+    height: calc(100vh - 65px);
+    height: calc(100dvh - 65px);
+    padding: 10px 16px 16px 16px;
+}
+
+body.chat-active-view .terminal-panel {
+    border-radius: var(--radius-lg);
+    background: rgba(10, 16, 28, 0.85);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(34, 197, 94, 0.15);
+    height: 100%;
+}
+
 /* Mobile & Tablet Responsiveness */
 @media (max-width: 768px) {
     .hud-nav {
@@ -604,20 +626,30 @@ body {
         max-height: 220px;
     }
     .terminal-header {
-        padding: 12px 14px;
-        flex-wrap: wrap;
-        gap: 10px;
+        padding: 10px 12px;
+        gap: 8px;
     }
     .terminal-action-bar {
-        padding: 10px 12px;
+        padding: 8px 10px;
         gap: 6px;
     }
     .msg-row {
-        max-width: 90%;
+        max-width: 88%;
     }
     .modal-box {
         padding: 18px;
         width: 95%;
+    }
+    body.chat-active-view .nearby-grid {
+        padding: 0;
+        height: calc(100vh - 58px);
+        height: calc(100dvh - 58px);
+    }
+    body.chat-active-view .terminal-panel {
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
     }
 }
 
@@ -633,6 +665,14 @@ body {
         padding: 6px 2px;
     }
     .profile-nickname-input {
-        width: 110px;
+        width: 105px;
+        font-size: 13px;
+    }
+    .terminal-header {
+        padding: 8px 10px;
+    }
+    #burnTimerSelect {
+        padding: 0 4px;
+        font-size: 10px;
     }
 }

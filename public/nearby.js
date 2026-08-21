@@ -41,6 +41,11 @@
         remoteStream: null
     };
 
+    // ICE candidate queue — prevents race condition where candidates arrive before setRemoteDescription
+    let _pendingIceCandidates = [];
+    let _remoteDescriptionSet = false;
+    let _connectionTimeoutTimer = null;
+
     // Socket.io Connection (Local LAN Discovery)
     const socket = io({
         transports: ['websocket', 'polling'],
@@ -360,11 +365,28 @@
     const RTCConfig = {
         iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-        ]
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun3.l.google.com:19302' },
+            // Free TURN relay — required for cross-NAT connections (mobile data ↔ home WiFi on Render)
+            {
+                urls: [
+                    'turn:openrelay.metered.ca:80',
+                    'turn:openrelay.metered.ca:443',
+                    'turns:openrelay.metered.ca:443'
+                ],
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            }
+        ],
+        iceCandidatePoolSize: 10
     };
 
     function initPeerConnection(targetPeer, isInitiator = false) {
+        // Reset ICE queue for fresh connection attempt
+        _pendingIceCandidates = [];
+        _remoteDescriptionSet = false;
+
         if (state.peerConnection) {
             state.peerConnection.close();
         }
@@ -420,7 +442,15 @@
     function setupDataChannelEvents(dc) {
         dc.onopen = () => {
             console.log("⚡ P2P WebRTC DataChannel OPEN! Direct air-gapped stream active.");
+            // Clear connection timeout — we made it!
+            if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
             AudioEngine.playLockBeep();
+            showNearbyToast('🔒 Secure P2P channel established!', 'success');
+            // Re-enable all connect buttons
+            document.querySelectorAll('.peer-connect-btn').forEach(btn => {
+                btn.disabled = false;
+                btn.textContent = 'Connect';
+            });
             switchToActiveChat(state.activePeer);
         };
 
@@ -439,10 +469,54 @@
         };
     }
 
+    // Toast notification helper
+    function showNearbyToast(msg, type = 'info') {
+        let toast = document.getElementById('nearbyToast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'nearbyToast';
+            toast.style.cssText = [
+                'position:fixed', 'bottom:80px', 'left:50%', 'transform:translateX(-50%)',
+                'padding:10px 22px', 'border-radius:12px', 'font-size:13px',
+                "font-family:'Courier Prime',monospace", 'z-index:99999',
+                'max-width:340px', 'text-align:center', 'pointer-events:none',
+                'box-shadow:0 4px 24px rgba(0,0,0,0.55)', 'transition:opacity 0.4s',
+                'backdrop-filter:blur(8px)'
+            ].join(';');
+            document.body.appendChild(toast);
+        }
+        const palette = {
+            error:   { bg: 'rgba(239,68,68,0.93)',  border: '#ef4444' },
+            success: { bg: 'rgba(34,197,94,0.93)',   border: '#22c55e' },
+            info:    { bg: 'rgba(15,23,42,0.97)',    border: '#334155' }
+        };
+        const c = palette[type] || palette.info;
+        toast.style.background = c.bg;
+        toast.style.border = `1px solid ${c.border}`;
+        toast.style.color = '#fff';
+        toast.style.opacity = '1';
+        toast.textContent = msg;
+        clearTimeout(toast._hideTimer);
+        toast._hideTimer = setTimeout(() => { toast.style.opacity = '0'; }, 4500);
+    }
+
     async function connectToPeer(peer) {
         if (!peer || peer.id === state.myId) return;
+        // Prevent spam-clicking when channel is already open
+        if (state.dataChannel && state.dataChannel.readyState === 'open') return;
+
+        // Clear any previous timeout timer
+        if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
 
         AudioEngine.playLockBeep();
+        showNearbyToast(`🔗 Connecting to ${escapeHtml(peer.nickname || 'Peer')}…`, 'info');
+
+        // Disable all connect buttons to prevent conflicting parallel connections
+        document.querySelectorAll('.peer-connect-btn').forEach(btn => {
+            btn.disabled = true;
+            btn.textContent = 'Connecting…';
+        });
+
         initPeerConnection(peer, true);
 
         // Derive shared session key from peer's public key
@@ -465,6 +539,14 @@
                 publicKey: state.myPublicKeyJwk
             }
         });
+
+        // Auto-fail if no DataChannel opens within 15 seconds
+        _connectionTimeoutTimer = setTimeout(() => {
+            if (!state.dataChannel || state.dataChannel.readyState !== 'open') {
+                showNearbyToast('⚠️ Connection timed out. Ensure both devices have the Nearby page open.', 'error');
+                terminateSession();
+            }
+        }, 15000);
     }
 
     // =========================================================================
@@ -647,6 +729,9 @@
     }
 
     function terminateSession() {
+        // Clear any pending connection timer
+        if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
+
         if (state.dataChannel) {
             try { state.dataChannel.close(); } catch (e) {}
             state.dataChannel = null;
@@ -657,6 +742,14 @@
         }
         state.activePeer = null;
         state.sessionKey = null;
+        _pendingIceCandidates = [];
+        _remoteDescriptionSet = false;
+
+        // Re-enable connect buttons for next attempt
+        document.querySelectorAll('.peer-connect-btn').forEach(btn => {
+            btn.disabled = false;
+            btn.textContent = 'Connect';
+        });
 
         document.body.classList.remove('chat-active-view');
         const returnNavBtn = document.getElementById('returnToChatNavBtn');
@@ -720,31 +813,29 @@
     async function triggerBluetoothScan() {
         const msgEl = document.getElementById('bleStatusMsg');
         if (!navigator.bluetooth) {
-            if (msgEl) msgEl.innerHTML = `<span style="color: #f59e0b;">⚠️ Web Bluetooth not supported in this browser. Falling back to local high-speed radio mesh!</span>`;
+            if (msgEl) msgEl.innerHTML = `<span style="color: #f59e0b;">⚠️ Web Bluetooth is not supported in this browser.<br>Use <strong style="color:#22c55e">QR Air-Gap</strong> or <strong style="color:#22c55e">WiFi</strong> mode to connect with nearby people.</span>`;
             return;
         }
 
         try {
-            if (msgEl) msgEl.textContent = 'Requesting Bluetooth device pairing...';
+            if (msgEl) msgEl.textContent = 'Confirming Bluetooth proximity...';
             const device = await navigator.bluetooth.requestDevice({
                 acceptAllDevices: true,
                 optionalServices: ['generic_access', 'battery_service']
             });
 
-            if (msgEl) msgEl.innerHTML = `<span style="color: #22c55e;">✓ Paired with ${escapeHtml(device.name || 'Nearby Device')}! Adding to mesh radar.</span>`;
-            
-            // Add virtual peer to radar
-            const blePeer = {
-                id: `ble_${device.id || Math.random().toString(36).slice(2, 7)}`,
-                nickname: device.name || 'BLE_Target',
-                avatar: '📶',
-                mode: 'ble',
-                device: 'Bluetooth Device'
-            };
-            state.discoveredPeers.push(blePeer);
-            updatePeerListUI(state.discoveredPeers);
+            if (msgEl) msgEl.innerHTML = `<span style="color: #22c55e;">✓ BLE confirmed: "${escapeHtml(device.name || 'Nearby Device')}" is in range!<br>Opening QR handshake to establish secure encrypted channel...</span>`;
+
+            // Web Bluetooth only proves physical proximity — it cannot carry chat data.
+            // Redirect to QR Air-Gap which completes the secure WebRTC handshake.
+            setTimeout(() => {
+                document.getElementById('bleModal')?.classList.remove('active');
+                openQrHandshakeModal();
+                showNearbyToast('📶 BLE proximity confirmed! Scan QR to open encrypted channel.', 'success');
+            }, 1500);
+
         } catch (err) {
-            if (msgEl) msgEl.textContent = `Bluetooth scan canceled or failed: ${err.message}`;
+            if (msgEl) msgEl.innerHTML = `<span style="color: #94a3b8;">Bluetooth pairing cancelled or failed.<br>Try <strong style="color:#22c55e">QR Mode</strong> or <strong style="color:#22c55e">WiFi Mode</strong> instead.</span>`;
         }
     }
 
@@ -796,12 +887,13 @@
         if (!qrContainer) return;
         qrContainer.innerHTML = '';
 
-        // Create temporary offer string
+        // Include socket ID so the scanner can initiate full WebRTC via server relay
         const offerPayload = {
             type: 'airgap_offer',
             nick: state.myNickname,
             avatar: state.myAvatar,
-            key: state.myPublicKeyJwk
+            key: state.myPublicKeyJwk,
+            sid: state.myId  // Socket ID — enables server-relayed WebRTC DataChannel
         };
 
         const compressed = safeUtf8ToBase64(JSON.stringify(offerPayload));
@@ -892,16 +984,28 @@
                         stopQrScanner();
                         document.getElementById('qrModal').classList.remove('active');
 
-                        // Establish air-gapped direct session
-                        CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
-                            switchToActiveChat({
-                                id: 'airgap_peer',
-                                nickname: parsed.nick || 'AirGap_Agent',
+                        if (parsed.sid && parsed.sid !== state.myId) {
+                            // Server-relayed WebRTC: use socket ID embedded in QR for full P2P DataChannel
+                            connectToPeer({
+                                id: parsed.sid,
+                                nickname: parsed.nick || 'QR_Agent',
                                 avatar: parsed.avatar || '📷',
-                                device: 'Air-Gapped Optical Link'
+                                mode: 'qr',
+                                device: 'QR Verified',
+                                publicKey: parsed.key
                             });
-                            AudioEngine.playLockBeep();
-                        });
+                        } else {
+                            // Offline/air-gapped fallback: derive key only (no DataChannel)
+                            CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
+                                switchToActiveChat({
+                                    id: 'airgap_peer',
+                                    nickname: parsed.nick || 'AirGap_Agent',
+                                    avatar: parsed.avatar || '📷',
+                                    device: 'Air-Gapped Optical Link'
+                                });
+                                AudioEngine.playLockBeep();
+                            });
+                        }
                         return;
                     }
                 } catch (e) { }
@@ -1013,14 +1117,22 @@
             updatePeerListUI(peers);
         });
 
-        // WebRTC Signaling Handlers
+        // WebRTC Signaling Handlers — ICE candidates are queued until remote description is ready
         socket.on('nearby_signal', async (data) => {
             if (data.type === 'offer') {
                 initPeerConnection(data.senderInfo, false);
-                if (data.senderInfo.publicKey) {
+                if (data.senderInfo && data.senderInfo.publicKey) {
                     await CryptoEngine.deriveSharedSessionKey(data.senderInfo.publicKey);
                 }
                 await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
+                _remoteDescriptionSet = true;
+
+                // Flush any ICE candidates that arrived before remote description was ready
+                for (const candidate of _pendingIceCandidates) {
+                    try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+                }
+                _pendingIceCandidates = [];
+
                 const answer = await state.peerConnection.createAnswer();
                 await state.peerConnection.setLocalDescription(answer);
 
@@ -1039,15 +1151,27 @@
             } else if (data.type === 'answer') {
                 if (state.peerConnection) {
                     await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
+                    _remoteDescriptionSet = true;
+
+                    // Flush any ICE candidates that arrived before the answer was processed
+                    for (const candidate of _pendingIceCandidates) {
+                        try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+                    }
+                    _pendingIceCandidates = [];
                 }
             }
         });
 
         socket.on('nearby_ice_candidate', async (data) => {
-            if (state.peerConnection && data.candidate) {
+            if (!state.peerConnection || !data.candidate) return;
+            if (_remoteDescriptionSet) {
+                // Remote description is ready — add candidate immediately
                 try {
                     await state.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                } catch (e) { }
+                } catch (e) { console.warn('ICE candidate add failed:', e.message); }
+            } else {
+                // Queue until setRemoteDescription is called (critical race condition fix)
+                _pendingIceCandidates.push(data.candidate);
             }
         });
 
@@ -1318,15 +1442,28 @@
                                     if (qrVideoElem && qrVideoElem.srcObject) {
                                         qrVideoElem.srcObject.getTracks().forEach(t => t.stop());
                                     }
-                                    CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
-                                        switchToActiveChat({
-                                            id: 'airgap_peer',
-                                            nickname: parsed.nick || 'AirGap_Agent',
+                                    if (parsed.sid && parsed.sid !== state.myId) {
+                                        // Server-relayed WebRTC via socket ID embedded in QR
+                                        connectToPeer({
+                                            id: parsed.sid,
+                                            nickname: parsed.nick || 'QR_Agent',
                                             avatar: parsed.avatar || '📷',
-                                            device: 'Air-Gapped Optical Link'
+                                            mode: 'qr',
+                                            device: 'QR Verified',
+                                            publicKey: parsed.key
                                         });
-                                        AudioEngine.playLockBeep();
-                                    });
+                                    } else {
+                                        // Offline fallback: key exchange only
+                                        CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
+                                            switchToActiveChat({
+                                                id: 'airgap_peer',
+                                                nickname: parsed.nick || 'AirGap_Agent',
+                                                avatar: parsed.avatar || '📷',
+                                                device: 'Air-Gapped Optical Link'
+                                            });
+                                            AudioEngine.playLockBeep();
+                                        });
+                                    }
                                     return;
                                 }
                             } catch (err) {

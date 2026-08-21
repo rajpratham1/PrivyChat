@@ -28,13 +28,21 @@ const corsOptions = {
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps, curl, or direct files)
         if (!origin) return callback(null, true);
+        // Check exact allowedOrigins list (with trimmed trailing slash)
+        const normalizedOrigin = origin.replace(/\/$/, '');
         if (
-            allowedOrigins.indexOf(origin) !== -1 ||
+            allowedOrigins.map(o => (o || '').replace(/\/$/, '')).indexOf(normalizedOrigin) !== -1 ||
             origin.startsWith('http://localhost') ||
+            origin.startsWith('https://localhost') ||
             origin.startsWith('http://127.0.0.1') ||
+            origin.startsWith('https://127.0.0.1') ||
             origin.startsWith('http://192.168.') ||
+            origin.startsWith('https://192.168.') ||
             origin.startsWith('http://10.') ||
-            origin.startsWith('http://172.')
+            origin.startsWith('https://10.') ||
+            origin.startsWith('http://172.') ||
+            origin.startsWith('https://172.') ||
+            origin.endsWith('.onrender.com')  // All Render deployments
         ) {
             callback(null, true);
         } else {

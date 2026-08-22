@@ -16,7 +16,7 @@
         myAvatar: localStorage.getItem('privy_nearby_avatar') || '🕵️',
         mode: 'wifi', // 'wifi', 'ble', 'qr'
         isStealth: false,
-        sonarSound: true,
+        sonarSound: false, // Muted by default
         burnTimer: 0, // 0 = off, 5, 15, 30, 60, 'read'
         isGhostMode: false,
 
@@ -70,60 +70,21 @@
         init() {
             if (!this.ctx) {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                this.ctx = new AudioCtx();
+                if (AudioCtx) this.ctx = new AudioCtx();
             }
         },
         playSonarPing() {
-            if (!state.sonarSound) return;
-            this.init();
-            try {
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, this.ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(440, this.ctx.currentTime + 0.35);
-                gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.35);
-            } catch (e) { }
+            // Silenced
         },
         playLockBeep() {
-            this.init();
-            try {
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'triangle';
-                osc.frequency.setValueAtTime(587.33, this.ctx.currentTime); // D5
-                osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.08); // A5
-                gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.25);
-            } catch (e) { }
+            // Silenced
         },
         playMsgChirp() {
-            this.init();
-            try {
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(1046.5, this.ctx.currentTime); // C6
-                gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start();
-                osc.stop(this.ctx.currentTime + 0.12);
-            } catch (e) { }
+            // Silenced
         },
         playRingtone() {
             this.init();
-            if (this.ringInterval) return;
+            if (!this.ctx || this.ringInterval) return;
             const ring = () => {
                 try {
                     const osc = this.ctx.createOscillator();
@@ -687,6 +648,28 @@
         }
     }
 
+    // Expose Global Connect Function Immediately
+    window.PrivyNearbyConnect = function (peerId) {
+        if (!peerId) return;
+        const target = state.discoveredPeers.find(p => p.id === peerId) || { id: peerId, nickname: 'Agent' };
+        connectToPeer(target);
+    };
+    window.PrivyNearby = {
+        connect: window.PrivyNearbyConnect
+    };
+
+    // Global Click Delegation for Connect Buttons
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.peer-connect-btn');
+        if (btn && btn.id !== 'cancelConnBtn' && btn.id !== 'returnToChatNavBtn') {
+            const peerId = btn.getAttribute('data-peer-id');
+            if (peerId) {
+                e.preventDefault();
+                window.PrivyNearbyConnect(peerId);
+            }
+        }
+    });
+
     // =========================================================================
     // 5.1 DIRECT P2P ENCRYPTED VOICE CALL ENGINE
     // =========================================================================
@@ -1119,7 +1102,7 @@
                                 </div>
                             </div>
                         </div>
-                        <button class="peer-connect-btn" onclick="window.PrivyNearby.connect('${peer.id}')">
+                        <button class="peer-connect-btn" data-peer-id="${peer.id}" data-peer-nick="${escapeHtml(peer.nickname)}" onclick="window.PrivyNearbyConnect('${peer.id}')">
                             Connect
                         </button>
                     </div>
@@ -1147,7 +1130,7 @@
                                 </div>
                             </div>
                         </div>
-                        <button class="peer-connect-btn" style="padding: 5px 12px; font-size: 11px; background: linear-gradient(135deg, #06b6d4, #0284c7);" onclick="document.getElementById('bleModal').classList.remove('active'); window.PrivyNearby.connect('${peer.id}')">
+                        <button class="peer-connect-btn" data-peer-id="${peer.id}" data-peer-nick="${escapeHtml(peer.nickname)}" style="padding: 5px 12px; font-size: 11px; background: linear-gradient(135deg, #06b6d4, #0284c7);" onclick="document.getElementById('bleModal').classList.remove('active'); window.PrivyNearbyConnect('${peer.id}')">
                             Connect
                         </button>
                     </div>

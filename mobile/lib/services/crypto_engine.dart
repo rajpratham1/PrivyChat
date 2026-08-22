@@ -16,6 +16,8 @@ class CryptoEngine {
   SecretKey? _sharedSessionKey;
   String _safetyFingerprint = '';
   String _safetyEmojis = '';
+  Future<void>? _initializing;
+  int _identityGeneration = 0;
 
   Map<String, dynamic>? get myPublicKeyJwk => _myPublicKeyJwk;
   String get safetyFingerprint => _safetyFingerprint;
@@ -23,9 +25,31 @@ class CryptoEngine {
   bool get hasSessionKey => _sharedSessionKey != null;
 
   Future<void> init() async {
-    _keyPair = await _ecdh.newKeyPair();
-    final publicKey = await _keyPair!.extractPublicKey() as EcPublicKey;
+    // Keep one ephemeral identity for the entire app session. Re-generating
+    // this key while the QR dialog or socket reconnect is opening makes the
+    // already-rendered public key unusable for the peer.
+    if (_keyPair != null && _myPublicKeyJwk != null) return;
+    if (_initializing != null) {
+      await _initializing!;
+      return;
+    }
 
+    final generation = _identityGeneration;
+    final future = _initializeKeyPair(generation);
+    _initializing = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_initializing, future)) _initializing = null;
+    }
+  }
+
+  Future<void> _initializeKeyPair(int generation) async {
+    final keyPair = await _ecdh.newKeyPair();
+    final publicKey = await keyPair.extractPublicKey() as EcPublicKey;
+
+    if (generation != _identityGeneration) return;
+    _keyPair = keyPair;
     _myPublicKeyJwk = {
       'kty': 'EC',
       'crv': 'P-256',
@@ -141,7 +165,10 @@ class CryptoEngine {
   }
 
   Future<Map<String, String>> encrypt(String plainText, [String additionalData = '']) async {
-    final key = _sharedSessionKey ?? await _aesGcm.newSecretKey();
+    final key = _sharedSessionKey;
+    if (key == null) {
+      throw StateError('Secure session is not established.');
+    }
     final nonce = _aesGcm.newNonce();
     final box = await _aesGcm.encrypt(
       utf8.encode(plainText),
@@ -187,6 +214,8 @@ class CryptoEngine {
   }
 
   void purge() {
+    _identityGeneration++;
+    _initializing = null;
     _sharedSessionKey = null;
     _keyPair = null;
     _myPublicKeyJwk = null;

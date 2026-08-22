@@ -21,36 +21,61 @@ class OpticalQrDialog extends StatefulWidget {
 
 class _OpticalQrDialogState extends State<OpticalQrDialog> {
   bool _isScanning = false;
+  bool _isKeyReady = false;
+  bool _peerHandled = false;
+  String? _keyError;
   String _qrPayload = '';
 
   @override
   void initState() {
     super.initState();
-    _generatePayload();
+    _preparePayload();
   }
 
-  void _generatePayload() {
-    final mesh = MeshService();
-    final jwk = CryptoEngine().myPublicKeyJwk;
-    final payload = {
-      'p': 'privychat-opt-v1',
-      'id': mesh.myId.isNotEmpty ? mesh.myId : 'peer_${DateTime.now().millisecondsSinceEpoch}',
-      'nick': mesh.nickname,
-      'avatar': mesh.avatar,
-      'mode': 'qr',
-      'key': jwk,
-    };
+  Future<void> _preparePayload() async {
+    try {
+      final crypto = CryptoEngine();
+      await crypto.init();
+      final jwk = crypto.myPublicKeyJwk;
+      if (jwk == null) throw StateError('Ephemeral public key was not generated.');
+
+      final mesh = MeshService();
+      final payload = {
+        'p': 'privy-opt-v1',
+        'type': 'optical_offer',
+        'id': mesh.myId.isNotEmpty ? mesh.myId : 'peer_${DateTime.now().millisecondsSinceEpoch}',
+        'nick': mesh.nickname,
+        'avatar': mesh.avatar,
+        'mode': 'qr',
+        'key': jwk,
+      };
+      if (!mounted) return;
+      setState(() {
+        _qrPayload = jsonEncode(payload);
+        _isKeyReady = true;
+        _keyError = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _keyError = 'Unable to initialize E2EE key: $error');
+    }
+  }
+
+  void _retryPayload() {
     setState(() {
-      _qrPayload = jsonEncode(payload);
+      _isKeyReady = false;
+      _keyError = null;
     });
+    _preparePayload();
   }
 
   void _onDetect(BarcodeCapture capture) {
+    if (_peerHandled) return;
     for (final barcode in capture.barcodes) {
       if (barcode.rawValue != null) {
         try {
           final data = jsonDecode(barcode.rawValue!);
-          if (data['p'] == 'privychat-opt-v1' && data['key'] != null) {
+          if ((data['p'] == 'privy-opt-v1' || data['p'] == 'privychat-opt-v1') && data['key'] != null) {
             final peer = PeerModel(
               id: data['id']?.toString() ?? 'qr_peer',
               nickname: data['nick']?.toString() ?? 'QR_Agent',
@@ -58,6 +83,7 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
               mode: 'qr',
               publicKey: Map<String, dynamic>.from(data['key']),
             );
+            _peerHandled = true;
             Navigator.of(context).pop();
             widget.onQrPeerDecoded(peer);
             break;
@@ -148,16 +174,30 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: QrImageView(
-                  data: _qrPayload,
-                  version: QrVersions.auto,
-                  size: 200,
-                ),
+                child: _isKeyReady
+                    ? QrImageView(
+                        data: _qrPayload,
+                        version: QrVersions.auto,
+                        size: 200,
+                      )
+                    : SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: Center(
+                          child: _keyError == null
+                              ? const CircularProgressIndicator(color: Color(0xFF22C55E))
+                              : IconButton(
+                                  onPressed: _retryPayload,
+                                  icon: const Icon(LucideIcons.refreshCcw, color: Color(0xFFEF4444), size: 28),
+                                  tooltip: 'Retry key generation',
+                                ),
+                        ),
+                      ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Let peer scan your screen with their camera to establish an air-gapped E2EE session with zero network.',
-                style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              Text(
+                _keyError ?? 'Let peer scan your screen with their camera to establish an air-gapped E2EE session with zero network.',
+                style: TextStyle(fontSize: 11, color: _keyError == null ? const Color(0xFF94A3B8) : const Color(0xFFEF4444)),
                 textAlign: TextAlign.center,
               ),
             ] else ...[

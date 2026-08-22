@@ -73,9 +73,8 @@ class MeshService extends ChangeNotifier {
 
   Future<void> connectToMeshServer(String serverUrl) async {
     _serverUrl = serverUrl;
-    await CryptoEngine().init();
-
     try {
+      await CryptoEngine().init();
       _socket?.disconnect();
       _socket?.dispose();
 
@@ -196,6 +195,8 @@ class MeshService extends ChangeNotifier {
         debugPrint('Mesh connection error: $err');
       });
     } catch (e) {
+      _isConnectedToMesh = false;
+      notifyListeners();
       debugPrint('Mesh socket init error: $e');
     }
   }
@@ -255,6 +256,10 @@ class MeshService extends ChangeNotifier {
 
   Future<void> sendTextMessage(String text) async {
     if (text.trim().isEmpty || _activePeer == null) return;
+    if (!CryptoEngine().hasSessionKey) {
+      debugPrint('Message blocked: secure session is not established.');
+      return;
+    }
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final rawPacket = <String, dynamic>{

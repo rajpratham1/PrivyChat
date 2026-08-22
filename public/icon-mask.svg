@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">PrivyChat Tactical Mesh</title>
+  <desc id="desc">Green shield and radio signal mark on a dark tactical background.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="70%">
+      <stop offset="0" stop-color="#123522"/>
+      <stop offset="1" stop-color="#030712"/>
+    </radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M256 74 397 126v108c0 103-62 166-141 204-79-38-141-101-141-204V126z" fill="#071a10" stroke="#22c55e" stroke-width="16" filter="url(#glow)"/>
+  <path d="M256 119v236M174 187h164M193 260h126" fill="none" stroke="#22c55e" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="256" cy="187" r="22" fill="#06b6d4" stroke="#d1fae5" stroke-width="8"/>
+  <path d="M119 177a192 192 0 0 1 0 158M393 177a192 192 0 0 0 0 158" fill="none" stroke="#06b6d4" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+</svg>

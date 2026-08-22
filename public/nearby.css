@@ -894,3 +894,159 @@ body.chat-active-view .terminal-panel {
     to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+/* ================================================================
+   2-WAY OPTICAL QR MESH HUD
+   ================================================================ */
+.optical-mesh-view {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.optical-hud-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.optical-transmitter,
+.optical-receiver {
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid rgba(34, 197, 94, .28);
+    border-radius: 12px;
+    background: rgba(2, 6, 23, .62);
+}
+
+.optical-panel-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 8px;
+    color: #d1fae5;
+    font: 700 10px 'Courier Prime', monospace;
+    letter-spacing: .6px;
+}
+
+.optical-panel-title span {
+    color: var(--neon-cyan);
+    font-weight: 400;
+}
+
+.optical-qr-frame,
+.optical-video-frame {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-height: 190px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.optical-qr-frame img,
+.optical-qr-frame canvas {
+    width: min(100%, 220px);
+    height: auto;
+    image-rendering: pixelated;
+}
+
+.optical-video-frame {
+    background: #000;
+}
+
+.optical-video-frame video {
+    display: block;
+    width: 100%;
+    min-height: 190px;
+    object-fit: cover;
+}
+
+.optical-scan-reticle {
+    position: absolute;
+    inset: 18%;
+    border: 2px solid rgba(34, 197, 94, .75);
+    border-radius: 12px;
+    box-shadow: 0 0 0 999px rgba(0, 0, 0, .16), 0 0 22px rgba(34, 197, 94, .32);
+    pointer-events: none;
+}
+
+.optical-status {
+    min-height: 30px;
+    margin-top: 7px;
+    color: #94a3b8;
+    font-size: 10px;
+    line-height: 1.35;
+}
+
+.optical-key-row,
+.optical-compose {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.optical-key-row button {
+    flex: 1;
+    min-height: 38px;
+    font-size: 11px;
+}
+
+.optical-chat-log {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 120px;
+    overflow: auto;
+    padding: 7px;
+    border: 1px solid rgba(148, 163, 184, .16);
+    border-radius: 9px;
+    background: rgba(0, 0, 0, .2);
+    color: #d1fae5;
+    font-size: 12px;
+}
+
+.optical-chat-line {
+    padding: 6px 8px;
+    border-radius: 7px;
+    background: rgba(34, 197, 94, .1);
+}
+
+.optical-chat-line.received {
+    background: rgba(6, 182, 212, .1);
+}
+
+.optical-compose textarea {
+    flex: 1;
+    min-width: 0;
+    resize: vertical;
+    padding: 9px 11px;
+    border: 1px solid rgba(34, 197, 94, .3);
+    border-radius: 9px;
+    background: rgba(2, 6, 23, .8);
+    color: #f8fafc;
+    font: 12px 'Courier Prime', monospace;
+}
+
+.optical-compose button.recording {
+    color: #fff;
+    background: rgba(239, 68, 68, .22);
+    border-color: rgba(239, 68, 68, .65);
+    animation: offlinePulse 1s ease-in-out infinite alternate;
+}
+
+body.offline-mesh #meshStatusPill {
+    animation: offlinePulse 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes offlinePulse {
+    from { box-shadow: 0 0 0 rgba(245, 158, 11, 0); }
+    to { box-shadow: 0 0 18px rgba(245, 158, 11, .24); }
+}
+
+@media (max-width: 680px) {
+    .optical-hud-grid { grid-template-columns: 1fr; }
+    .optical-key-row { flex-wrap: wrap; }
+    .optical-key-row button { min-width: calc(50% - 4px); }
+}

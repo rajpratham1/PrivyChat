@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nearby Mesh - PrivyChat Tactical Radar</title>
+    <meta name="theme-color" content="#071a10">
+    <link rel="manifest" href="manifest.json">
 
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
@@ -15,9 +17,10 @@
     <link rel="stylesheet" href="nearby.css">
 
     <!-- External Libraries (QR Engine & Lucide Icons) -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <!-- Stable local aliases are filled by service-worker.js during the first online install. -->
+    <script src="/cdn/lucide.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/lucide@latest'"></script>
+    <script src="/cdn/qrcode.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'"></script>
+    <script src="/cdn/jsQR.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'"></script>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 
@@ -366,6 +369,9 @@
                 <button id="qrTabScan" class="action-btn" style="flex: 1; padding: 8px 12px; font-size: 12px; width: auto;">
                     2. Scan Camera QR
                 </button>
+                <button id="qrTabOptical" class="action-btn" style="flex: 1; padding: 8px 12px; font-size: 12px; width: auto;">
+                    3. Optical Chat
+                </button>
             </div>
 
             <!-- View 1: Show Generated QR -->
@@ -395,6 +401,41 @@
                         <i data-lucide="camera" class="w-4 h-4 text-green-400"></i> Snap or Upload QR Image (Gallery)
                     </button>
                     <input type="file" id="qrFileInput" accept="image/*" capture="environment" style="display: none;">
+                </div>
+            </div>
+
+            <!-- View 3: network-independent animated QR messenger -->
+            <div id="qrOpticalView" class="optical-mesh-view" style="display:none;">
+                <div class="optical-hud-grid">
+                    <div class="optical-transmitter">
+                        <div class="optical-panel-title">OPTICAL TRANSMITTER <span id="opticalTxState">STANDBY</span></div>
+                        <div class="optical-qr-frame" id="opticalTxQr"></div>
+                        <div id="opticalTxStatus" class="font-mono optical-status">Generate a key QR to begin.</div>
+                    </div>
+                    <div class="optical-receiver">
+                        <div class="optical-panel-title">OPTICAL RECEIVER <span id="opticalRxState">STANDBY</span></div>
+                        <div class="optical-video-frame">
+                            <video id="opticalRxVideo" playsinline webkit-playsinline autoplay muted></video>
+                            <canvas id="opticalRxCanvas" hidden></canvas>
+                            <div class="optical-scan-reticle"></div>
+                        </div>
+                        <div id="opticalRxStatus" class="font-mono optical-status">Point the camera at the other screen.</div>
+                    </div>
+                </div>
+                <div class="optical-key-row">
+                    <button id="opticalGenerateBtn" class="peer-connect-btn">Generate Optical Key QR</button>
+                    <button id="opticalScanBtn" class="action-btn" style="width:auto;">Start Camera Receiver</button>
+                    <button id="opticalStopBtn" class="action-btn" style="width:auto;display:none;">Stop Camera</button>
+                </div>
+                <div id="opticalChatLog" class="optical-chat-log" aria-live="polite"></div>
+                <div class="optical-compose">
+                    <textarea id="opticalMessageInput" rows="2" maxlength="16000" placeholder="Type an optical message…"></textarea>
+                    <button id="opticalVoiceBtn" class="action-btn" title="Record and transmit an encrypted optical voice note">
+                        <i data-lucide="mic" class="w-4 h-4"></i>
+                    </button>
+                    <button id="opticalSendBtn" class="action-btn send-btn" title="Encrypt and transmit animated QR frames">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
                 </div>
             </div>
         </div>

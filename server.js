@@ -223,11 +223,16 @@ io.on('connection', (socket) => {
     socket.on('nearby_signal', (data) => {
         // data: { to, signal, type, senderInfo }
         if (data && data.to && io.sockets.sockets.get(data.to)) {
+            const sender = data.senderInfo || nearbyPeers[socket.id] || { id: socket.id, nickname: 'Anonymous' };
+            // Ensure nearbyPeers has this sender's info cached
+            if (!nearbyPeers[socket.id] && data.senderInfo) {
+                nearbyPeers[socket.id] = { ...data.senderInfo, id: socket.id, ip: clientIp, joinedAt: Date.now() };
+            }
             io.to(data.to).emit('nearby_signal', {
                 from: socket.id,
                 signal: data.signal,
                 type: data.type,
-                senderInfo: nearbyPeers[socket.id] || { id: socket.id, nickname: 'Anonymous' }
+                senderInfo: sender
             });
         }
     });

@@ -384,11 +384,11 @@
 
     <!-- 2. Web Bluetooth Scanner Modal -->
     <div class="modal-backdrop" id="bleModal">
-        <div class="modal-box">
+        <div class="modal-box" style="max-width: 480px;">
             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <i data-lucide="bluetooth" class="w-5 h-5 text-cyan-400"></i>
-                    <span style="font-weight: 800; font-size: 16px; color: #fff;">Bluetooth (BLE) Scanner</span>
+                    <span style="font-weight: 800; font-size: 16px; color: #fff;">Bluetooth (BLE) Discovery</span>
                 </div>
                 <button class="action-btn" id="closeBleModalBtn" style="width: 32px; height: 32px;">
                     <i data-lucide="x" class="w-4 h-4"></i>
@@ -396,15 +396,21 @@
             </div>
 
             <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px;">
-                Web Bluetooth allows direct device-to-device proximity radio linking without internet. Click below to pair with active Bluetooth devices.
+                Detect nearby Bluetooth Low Energy devices for radio proximity verification, or connect instantly using Air-Gapped Optical QR.
             </p>
 
-            <button id="triggerBleRequestBtn" class="peer-connect-btn" style="width: 100%; padding: 12px; font-size: 13px; margin-bottom: 14px; background: linear-gradient(135deg, #06b6d4, #0284c7);">
-                <i data-lucide="bluetooth-searching" class="w-4 h-4 mr-1"></i> Scan Bluetooth Peripherals
-            </button>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                <button id="triggerBleRequestBtn" class="peer-connect-btn" style="width: 100%; padding: 12px; font-size: 13px; background: linear-gradient(135deg, #06b6d4, #0284c7); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i data-lucide="bluetooth-searching" class="w-4 h-4"></i> Scan Bluetooth Peripherals
+                </button>
 
-            <div id="bleStatusMsg" class="font-mono" style="font-size: 11px; color: var(--neon-cyan); text-align: center;">
-                Bluetooth Ready.
+                <button id="bleToQrBtn" class="action-btn" style="width: 100%; padding: 11px; font-size: 12.5px; font-weight: 600; background: rgba(34, 197, 94, 0.12); border-color: rgba(34, 197, 94, 0.35); color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i data-lucide="qr-code" class="w-4 h-4 text-green-400"></i> Fast Air-Gap QR Handshake (Recommended)
+                </button>
+            </div>
+
+            <div id="bleStatusMsg" class="font-mono" style="font-size: 11px; color: var(--neon-cyan); text-align: center; padding: 8px; border-radius: var(--radius-sm); background: rgba(0,0,0,0.3); border: 1px solid rgba(6, 182, 212, 0.2);">
+                ● Bluetooth radio standby. Ready to scan.
             </div>
         </div>
     </div>
@@ -477,6 +483,69 @@
         </div>
     </div>
 
+    <!-- 6. WebRTC Connection Progress Modal -->
+    <div class="modal-backdrop" id="connProgressModal">
+        <div class="modal-box conn-progress-box">
+            <!-- Spinning ring + title -->
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px;">
+                <div class="conn-prog-ring" id="connProgRing"></div>
+                <div>
+                    <div id="connProgTitle" style="font-size: 17px; font-weight: 800; color: #fff; line-height: 1.2;">Establishing Secure Channel</div>
+                    <div class="font-mono" style="font-size: 10px; color: var(--neon-green); letter-spacing: 1px; margin-top: 3px; opacity: 0.85;">ECDH P-256 • AES-256-GCM • WebRTC DataChannel</div>
+                </div>
+            </div>
+
+            <!-- Progress bar -->
+            <div style="background: rgba(255,255,255,0.08); border-radius: 999px; height: 5px; overflow: hidden; margin-bottom: 6px;">
+                <div id="connProgressFill" style="height:100%;width:5%;background:linear-gradient(90deg,#22c55e,#06b6d4);border-radius:999px;transition:width 0.6s cubic-bezier(0.4,0,0.2,1);"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;font-family:'Courier Prime',monospace;color:var(--text-muted);margin-bottom:18px;">
+                <span id="connElapsed">0.0s elapsed</span>
+                <span id="connPercent">5%</span>
+            </div>
+
+            <!-- 4 stage steps -->
+            <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;">
+                <div class="conn-step" id="connStep1">
+                    <div class="conn-step-dot pending" id="connDot1"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="conn-step-name">🔐 ECDH Key Exchange</div>
+                        <div class="conn-step-desc">Generating ephemeral P-256 key pair</div>
+                    </div>
+                    <span class="conn-step-badge pending" id="connBadge1">PENDING</span>
+                </div>
+                <div class="conn-step" id="connStep2">
+                    <div class="conn-step-dot pending" id="connDot2"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="conn-step-name">📡 Signal Relay</div>
+                        <div class="conn-step-desc">Sending offer, awaiting peer response</div>
+                    </div>
+                    <span class="conn-step-badge pending" id="connBadge2">PENDING</span>
+                </div>
+                <div class="conn-step" id="connStep3">
+                    <div class="conn-step-dot pending" id="connDot3"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="conn-step-name">🌐 ICE Negotiation</div>
+                        <div class="conn-step-desc">Finding network route via STUN / TURN relay</div>
+                    </div>
+                    <span class="conn-step-badge pending" id="connBadge3">PENDING</span>
+                </div>
+                <div class="conn-step" id="connStep4">
+                    <div class="conn-step-dot pending" id="connDot4"></div>
+                    <div style="flex:1;min-width:0;">
+                        <div class="conn-step-name">⚡ Encrypted Channel</div>
+                        <div class="conn-step-desc">P2P DataChannel activating end-to-end tunnel</div>
+                    </div>
+                    <span class="conn-step-badge pending" id="connBadge4">PENDING</span>
+                </div>
+            </div>
+
+            <button id="cancelConnBtn" style="width:100%;padding:12px;border-radius:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:var(--neon-red);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all 0.2s ease;">
+                ✕ Cancel Connection
+            </button>
+        </div>
+    </div>
+
     <!-- Script Implementation -->
     <script src="nearby.js"></script>
     <script>
@@ -485,3 +554,4 @@
 </body>
 
 </html>
+

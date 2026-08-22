@@ -46,6 +46,12 @@
     let _remoteDescriptionSet = false;
     let _connectionTimeoutTimer = null;
 
+    // Connection progress modal state
+    let _connElapsedInterval = null;
+    let _connStartTime = null;
+    let _connCurrentStep = 0;
+
+
     // Socket.io Connection (Local LAN Discovery)
     const socket = io({
         transports: ['websocket', 'polling'],
@@ -369,11 +375,14 @@
             { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:stun3.l.google.com:19302' },
             // Free TURN relay — required for cross-NAT connections (mobile data ↔ home WiFi on Render)
+            { urls: 'stun:stun.relay.metered.ca:80' },
             {
                 urls: [
                     'turn:openrelay.metered.ca:80',
                     'turn:openrelay.metered.ca:443',
-                    'turns:openrelay.metered.ca:443'
+                    'turn:openrelay.metered.ca:443?transport=tcp',
+                    'turns:openrelay.metered.ca:443',
+                    'turns:openrelay.metered.ca:443?transport=tcp'
                 ],
                 username: 'openrelayproject',
                 credential: 'openrelayproject'
@@ -431,6 +440,23 @@
             }
         };
 
+        state.peerConnection.oniceconnectionstatechange = () => {
+            const iceState = state.peerConnection.iceConnectionState;
+            console.log('ICE State:', iceState);
+            if (iceState === 'checking') {
+                updateConnStep(3, 'active');
+            } else if (iceState === 'connected' || iceState === 'completed') {
+                updateConnStep(3, 'done');
+                updateConnStep(4, 'active');
+            } else if (iceState === 'failed') {
+                updateConnStep(3, 'error');
+                const ring = document.getElementById('connProgRing');
+                if (ring) ring.className = 'conn-prog-ring error';
+                showNearbyToast('❌ ICE negotiation failed. Try on the same WiFi/hotspot.', 'error');
+                setTimeout(() => { closeConnProgress(); terminateSession(); }, 2500);
+            }
+        };
+
         state.peerConnection.onconnectionstatechange = () => {
             console.log("WebRTC Connection State:", state.peerConnection.connectionState);
             if (state.peerConnection.connectionState === 'disconnected' || state.peerConnection.connectionState === 'failed') {
@@ -441,17 +467,29 @@
 
     function setupDataChannelEvents(dc) {
         dc.onopen = () => {
-            console.log("⚡ P2P WebRTC DataChannel OPEN! Direct air-gapped stream active.");
-            // Clear connection timeout — we made it!
+            console.log("⚡ P2P WebRTC DataChannel OPEN!");
+            // Clear connection timeout
             if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
-            AudioEngine.playLockBeep();
-            showNearbyToast('🔒 Secure P2P channel established!', 'success');
-            // Re-enable all connect buttons
+            // Complete all progress stages
+            updateConnStep(3, 'done');
+            updateConnStep(4, 'done');
+            const fill = document.getElementById('connProgressFill');
+            const pct = document.getElementById('connPercent');
+            if (fill) fill.style.width = '100%';
+            if (pct) pct.textContent = '100%';
+            const ring = document.getElementById('connProgRing');
+            if (ring) ring.className = 'conn-prog-ring done';
+            // Re-enable connect buttons
             document.querySelectorAll('.peer-connect-btn').forEach(btn => {
-                btn.disabled = false;
-                btn.textContent = 'Connect';
+                if (btn.id !== 'cancelConnBtn') { btn.disabled = false; btn.textContent = 'Connect'; }
             });
-            switchToActiveChat(state.activePeer);
+            AudioEngine.playLockBeep();
+            // Close progress modal after brief delay showing 100%
+            setTimeout(() => {
+                closeConnProgress();
+                switchToActiveChat(state.activePeer);
+                showNearbyToast('🔒 Secure P2P channel established!', 'success');
+            }, 700);
         };
 
         dc.onclose = () => {
@@ -467,6 +505,71 @@
                 console.error("Failed to parse incoming P2P payload:", e);
             }
         };
+    }
+
+    // =========================================================================
+    // Connection Progress Modal — shows real-time WebRTC handshake stages
+    // =========================================================================
+    function openConnProgress(title) {
+        const modal = document.getElementById('connProgressModal');
+        if (!modal) return;
+        // Update title
+        const titleEl = document.getElementById('connProgTitle');
+        if (titleEl) titleEl.textContent = title || 'Establishing Secure Channel';
+        // Reset all 4 steps to pending
+        for (let i = 1; i <= 4; i++) {
+            setStepState(i, 'pending');
+        }
+        // Reset progress bar
+        const fill = document.getElementById('connProgressFill');
+        const pct  = document.getElementById('connPercent');
+        if (fill) fill.style.width = '5%';
+        if (pct) pct.textContent = '5%';
+        // Reset spinner ring
+        const ring = document.getElementById('connProgRing');
+        if (ring) ring.className = 'conn-prog-ring';
+        // Start elapsed timer
+        _connStartTime = Date.now();
+        _connCurrentStep = 0;
+        clearInterval(_connElapsedInterval);
+        _connElapsedInterval = setInterval(() => {
+            const el = document.getElementById('connElapsed');
+            if (el) el.textContent = `${((Date.now() - _connStartTime) / 1000).toFixed(1)}s elapsed`;
+        }, 100);
+        modal.classList.add('active');
+    }
+
+    function setStepState(num, status) {
+        const step  = document.getElementById(`connStep${num}`);
+        const dot   = document.getElementById(`connDot${num}`);
+        const badge = document.getElementById(`connBadge${num}`);
+        if (!step || !dot || !badge) return;
+        step.className  = `conn-step ${status === 'pending' ? '' : status}`;
+        dot.className   = `conn-step-dot ${status}`;
+        badge.className = `conn-step-badge ${status}`;
+        const labels = { pending: 'PENDING', active: 'ACTIVE ●', done: '✓ DONE', error: '✗ FAIL' };
+        badge.textContent = labels[status] || 'PENDING';
+    }
+
+    function updateConnStep(stepNum, status) {
+        setStepState(stepNum, status);
+        _connCurrentStep = stepNum;
+        // Update progress bar percentage
+        const progressMap = { 1: { active: 15, done: 25 }, 2: { active: 35, done: 50 }, 3: { active: 65, done: 78 }, 4: { active: 90, done: 100 } };
+        const fill = document.getElementById('connProgressFill');
+        const pct  = document.getElementById('connPercent');
+        const p = (progressMap[stepNum] || {})[status];
+        if (p !== undefined && fill && pct) {
+            fill.style.width = `${p}%`;
+            pct.textContent = `${p}%`;
+        }
+    }
+
+    function closeConnProgress() {
+        clearInterval(_connElapsedInterval);
+        _connElapsedInterval = null;
+        const modal = document.getElementById('connProgressModal');
+        if (modal) modal.classList.remove('active');
     }
 
     // Toast notification helper
@@ -502,22 +605,26 @@
 
     async function connectToPeer(peer) {
         if (!peer || peer.id === state.myId) return;
-        // Prevent spam-clicking when channel is already open
+        // Prevent connecting when channel already open
         if (state.dataChannel && state.dataChannel.readyState === 'open') return;
 
-        // Clear any previous timeout timer
+        // Clear any previous timeout
         if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
 
         AudioEngine.playLockBeep();
-        showNearbyToast(`🔗 Connecting to ${escapeHtml(peer.nickname || 'Peer')}…`, 'info');
 
-        // Disable all connect buttons to prevent conflicting parallel connections
+        // Open progress modal with stage tracking
+        openConnProgress(`Connecting to ${escapeHtml(peer.nickname || 'Peer')}`);
+        updateConnStep(1, 'active');
+
+        // Disable connect buttons to prevent parallel attempts
         document.querySelectorAll('.peer-connect-btn').forEach(btn => {
-            btn.disabled = true;
-            btn.textContent = 'Connecting…';
+            if (btn.id !== 'cancelConnBtn') { btn.disabled = true; btn.textContent = 'Connecting…'; }
         });
 
         initPeerConnection(peer, true);
+        updateConnStep(1, 'done');
+        updateConnStep(2, 'active');
 
         // Derive shared session key from peer's public key
         if (peer.publicKey) {
@@ -540,13 +647,16 @@
             }
         });
 
-        // Auto-fail if no DataChannel opens within 15 seconds
+        // Auto-fail if DataChannel doesn't open in 18 seconds
         _connectionTimeoutTimer = setTimeout(() => {
             if (!state.dataChannel || state.dataChannel.readyState !== 'open') {
-                showNearbyToast('⚠️ Connection timed out. Ensure both devices have the Nearby page open.', 'error');
-                terminateSession();
+                updateConnStep(_connCurrentStep, 'error');
+                const ring = document.getElementById('connProgRing');
+                if (ring) ring.className = 'conn-prog-ring error';
+                showNearbyToast('⚠️ Timed out. Ensure the other person has Nearby open on the same network.', 'error');
+                setTimeout(() => { closeConnProgress(); terminateSession(); }, 2500);
             }
-        }, 15000);
+        }, 18000);
     }
 
     // =========================================================================
@@ -704,33 +814,46 @@
     // =========================================================================
     function switchToActiveChat(peer) {
         state.activePeer = peer;
-        document.getElementById('standbyScreen').style.display = 'none';
-        const activeHUD = document.getElementById('activeChatHUD');
-        activeHUD.style.display = 'flex';
+        const standby = document.getElementById('standbyScreen');
+        const hud = document.getElementById('activeChatHUD');
 
-        // Activate clean full-screen chatbox view on mobile & desktop
-        document.body.classList.add('chat-active-view');
+        // Close any open modals gracefully
+        document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
+        stopQrScanner();
 
-        // Show Return to Chat navigation button in top bar
-        const returnNavBtn = document.getElementById('returnToChatNavBtn');
-        if (returnNavBtn) returnNavBtn.style.display = 'flex';
+        // Fade out standby
+        standby.style.opacity = '0';
+        setTimeout(() => {
+            standby.style.display = 'none';
 
-        document.getElementById('peerActiveAvatar').textContent = peer.avatar || '🕵️';
-        document.getElementById('peerActiveName').textContent = peer.nickname || 'Target_Peer';
-        document.getElementById('peerActiveDevice').textContent = peer.device || 'Mobile';
+            // Activate full-screen chat view
+            document.body.classList.add('chat-active-view');
 
-        // Update verification badge
-        document.getElementById('safetyEmojis').textContent = state.safetyEmojis || '🛡️ ⚡ 🔑 🦅';
-        document.getElementById('safetyHexCode').textContent = state.safetyFingerprint || 'VERIFIED E2EE';
+            // Fade in HUD
+            hud.style.opacity = '0';
+            hud.style.display = 'flex';
+            requestAnimationFrame(() => requestAnimationFrame(() => { hud.style.opacity = '1'; }));
 
-        // Focus input
-        const msgInput = document.getElementById('msgInput');
-        if (msgInput) msgInput.focus();
+            // Show Return to Chat button
+            const returnNavBtn = document.getElementById('returnToChatNavBtn');
+            if (returnNavBtn) returnNavBtn.style.display = 'flex';
+
+            // Populate peer info
+            document.getElementById('peerActiveAvatar').textContent = peer.avatar || '🕵️';
+            document.getElementById('peerActiveName').textContent = peer.nickname || 'Target_Peer';
+            document.getElementById('peerActiveDevice').textContent = peer.device || 'Mobile';
+            document.getElementById('safetyEmojis').textContent = state.safetyEmojis || '🛡️ ⚡ 🔑 🦅';
+            document.getElementById('safetyHexCode').textContent = state.safetyFingerprint || 'VERIFIED E2EE';
+
+            const msgInput = document.getElementById('msgInput');
+            if (msgInput) msgInput.focus();
+        }, 250);
     }
 
     function terminateSession() {
-        // Clear any pending connection timer
+        // Clear all timers
         if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
+        closeConnProgress();
 
         if (state.dataChannel) {
             try { state.dataChannel.close(); } catch (e) {}
@@ -745,19 +868,36 @@
         _pendingIceCandidates = [];
         _remoteDescriptionSet = false;
 
-        // Re-enable connect buttons for next attempt
+        // Re-enable connect buttons
         document.querySelectorAll('.peer-connect-btn').forEach(btn => {
-            btn.disabled = false;
-            btn.textContent = 'Connect';
+            if (btn.id !== 'cancelConnBtn') { btn.disabled = false; btn.textContent = 'Connect'; }
         });
 
-        document.body.classList.remove('chat-active-view');
-        const returnNavBtn = document.getElementById('returnToChatNavBtn');
-        if (returnNavBtn) returnNavBtn.style.display = 'none';
+        const hud = document.getElementById('activeChatHUD');
+        const standby = document.getElementById('standbyScreen');
 
-        document.getElementById('activeChatHUD').style.display = 'none';
-        document.getElementById('standbyScreen').style.display = 'flex';
-        document.getElementById('messagesContainer').innerHTML = '';
+        if (hud.style.display !== 'none') {
+            // Fade out chat HUD
+            hud.style.opacity = '0';
+            setTimeout(() => {
+                hud.style.display = 'none';
+                hud.style.opacity = '';
+                document.body.classList.remove('chat-active-view');
+                const returnNavBtn = document.getElementById('returnToChatNavBtn');
+                if (returnNavBtn) returnNavBtn.style.display = 'none';
+                standby.style.opacity = '0';
+                standby.style.display = 'flex';
+                requestAnimationFrame(() => requestAnimationFrame(() => { standby.style.opacity = '1'; }));
+                document.getElementById('messagesContainer').innerHTML = '';
+            }, 270);
+        } else {
+            document.body.classList.remove('chat-active-view');
+            const returnNavBtn = document.getElementById('returnToChatNavBtn');
+            if (returnNavBtn) returnNavBtn.style.display = 'none';
+            standby.style.display = 'flex';
+            standby.style.opacity = '1';
+            document.getElementById('messagesContainer').innerHTML = '';
+        }
         console.log("P2P Session Terminated.");
     }
 
@@ -882,29 +1022,88 @@
         }
     }
 
+    function handleDecodedQrPayload(rawBase64Data) {
+        try {
+            const parsed = JSON.parse(safeBase64ToUtf8(rawBase64Data));
+            if (parsed.type === 'airgap_offer' && parsed.key) {
+                stopQrScanner();
+                document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
+
+                if (parsed.sid && parsed.sid === state.myId) {
+                    showNearbyToast('⚠️ You scanned your own QR code!', 'error');
+                    return true;
+                }
+
+                if (parsed.sid && parsed.sid !== state.myId) {
+                    // Server-relayed WebRTC: use socket ID embedded in QR for full P2P DataChannel
+                    connectToPeer({
+                        id: parsed.sid,
+                        nickname: parsed.nick || 'QR_Agent',
+                        avatar: parsed.avatar || '📷',
+                        mode: 'qr',
+                        device: 'QR Verified',
+                        publicKey: parsed.key
+                    });
+                } else {
+                    // Match peer in discovered list if available
+                    const match = state.discoveredPeers.find(p => p.id !== state.myId && p.nickname === parsed.nick);
+                    if (match) {
+                        connectToPeer({ ...match, publicKey: parsed.key });
+                    } else {
+                        // Offline/local fallback: derive key & enter chat
+                        CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
+                            switchToActiveChat({
+                                id: 'airgap_peer',
+                                nickname: parsed.nick || 'AirGap_Agent',
+                                avatar: parsed.avatar || '📷',
+                                device: 'Air-Gapped Optical Link',
+                                publicKey: parsed.key
+                            });
+                            AudioEngine.playLockBeep();
+                            showNearbyToast('🔒 Air-Gapped E2EE optical channel ready!', 'success');
+                        });
+                    }
+                }
+                return true;
+            }
+        } catch (e) {
+            console.error("QR decode error:", e);
+        }
+        return false;
+    }
+
     async function generateQrOffer() {
         const qrContainer = document.getElementById('qrCodeContainer');
+        const statusEl = document.getElementById('qrStatusText');
         if (!qrContainer) return;
         qrContainer.innerHTML = '';
 
-        // Include socket ID so the scanner can initiate full WebRTC via server relay
+        if (!state.myPublicKeyJwk) {
+            await CryptoEngine.init();
+        }
+
+        const sid = state.myId || socket.id;
         const offerPayload = {
             type: 'airgap_offer',
             nick: state.myNickname,
             avatar: state.myAvatar,
             key: state.myPublicKeyJwk,
-            sid: state.myId  // Socket ID — enables server-relayed WebRTC DataChannel
+            sid: sid
         };
 
         const compressed = safeUtf8ToBase64(JSON.stringify(offerPayload));
         new QRCode(qrContainer, {
             text: compressed,
-            width: 200,
-            height: 200,
+            width: 220,
+            height: 220,
             colorDark: "#000000",
             colorLight: "#ffffff",
             correctLevel: QRCode.CorrectLevel.M
         });
+
+        if (statusEl) {
+            statusEl.innerHTML = `● Offer Generated for <strong style="color:#fff;">${escapeHtml(state.myNickname)}</strong>.<br><span style="color:var(--text-muted);font-size:11px;">Point partner camera to connect instantly.</span>`;
+        }
     }
 
     async function startQrScanner() {
@@ -978,37 +1177,8 @@
             });
 
             if (code && code.data) {
-                try {
-                    const parsed = JSON.parse(safeBase64ToUtf8(code.data));
-                    if (parsed.type === 'airgap_offer' && parsed.key) {
-                        stopQrScanner();
-                        document.getElementById('qrModal').classList.remove('active');
-
-                        if (parsed.sid && parsed.sid !== state.myId) {
-                            // Server-relayed WebRTC: use socket ID embedded in QR for full P2P DataChannel
-                            connectToPeer({
-                                id: parsed.sid,
-                                nickname: parsed.nick || 'QR_Agent',
-                                avatar: parsed.avatar || '📷',
-                                mode: 'qr',
-                                device: 'QR Verified',
-                                publicKey: parsed.key
-                            });
-                        } else {
-                            // Offline/air-gapped fallback: derive key only (no DataChannel)
-                            CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
-                                switchToActiveChat({
-                                    id: 'airgap_peer',
-                                    nickname: parsed.nick || 'AirGap_Agent',
-                                    avatar: parsed.avatar || '📷',
-                                    device: 'Air-Gapped Optical Link'
-                                });
-                                AudioEngine.playLockBeep();
-                            });
-                        }
-                        return;
-                    }
-                } catch (e) { }
+                const success = handleDecodedQrPayload(code.data);
+                if (success) return;
             }
         }
 
@@ -1098,8 +1268,10 @@
         RadarEngine.init();
 
         // Register with Socket.io on local network
-        socket.on('connect', () => {
-            state.myId = socket.id;
+        const registerOnMesh = () => {
+            if (socket.id) {
+                state.myId = socket.id;
+            }
             socket.emit('nearby_join', {
                 nickname: state.myNickname,
                 avatar: state.myAvatar,
@@ -1107,7 +1279,13 @@
                 device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
                 publicKey: state.myPublicKeyJwk
             });
-        });
+        };
+
+        if (socket.connected) {
+            registerOnMesh();
+        }
+        socket.on('connect', registerOnMesh);
+        socket.on('reconnect', registerOnMesh);
 
         socket.on('nearby_registered', (data) => {
             state.myId = data.id;
@@ -1120,6 +1298,18 @@
         // WebRTC Signaling Handlers — ICE candidates are queued until remote description is ready
         socket.on('nearby_signal', async (data) => {
             if (data.type === 'offer') {
+                // ── CRITICAL FIX: Close QR modal & camera so Device A sees the chatbox ──
+                document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
+                stopQrScanner();
+
+                // Show incoming connection progress on Device A
+                const incomingNick = (data.senderInfo && data.senderInfo.nickname) || 'Unknown Peer';
+                openConnProgress(`Incoming from ${escapeHtml(incomingNick)}`);
+                updateConnStep(1, 'done');
+                updateConnStep(2, 'done');
+                updateConnStep(3, 'active');
+                showNearbyToast(`📡 Incoming secure connection from ${escapeHtml(incomingNick)}`, 'info');
+
                 initPeerConnection(data.senderInfo, false);
                 if (data.senderInfo && data.senderInfo.publicKey) {
                     await CryptoEngine.deriveSharedSessionKey(data.senderInfo.publicKey);
@@ -1150,6 +1340,8 @@
                 });
             } else if (data.type === 'answer') {
                 if (state.peerConnection) {
+                    updateConnStep(2, 'done');
+                    updateConnStep(3, 'active');
                     await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
                     _remoteDescriptionSet = true;
 
@@ -1208,7 +1400,15 @@
             document.getElementById('avatarModal').classList.remove('active');
         });
 
+        // Cancel connection button — abort ongoing WebRTC handshake
+        document.getElementById('cancelConnBtn')?.addEventListener('click', () => {
+            closeConnProgress();
+            terminateSession();
+            showNearbyToast('Connection cancelled.', 'info');
+        });
+
         // Sound & Stealth Toggles
+
         document.getElementById('radarSoundToggle')?.addEventListener('click', (e) => {
             state.sonarSound = !state.sonarSound;
             e.currentTarget.style.color = state.sonarSound ? 'var(--neon-green)' : 'var(--text-muted)';
@@ -1336,6 +1536,15 @@
         });
         document.getElementById('triggerBleRequestBtn')?.addEventListener('click', triggerBluetoothScan);
 
+        // Fast Air-Gap QR Handshake button inside BLE modal
+        document.getElementById('bleToQrBtn')?.addEventListener('click', () => {
+            document.getElementById('bleModal').classList.remove('active');
+            document.querySelectorAll('.mode-tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('modeQrBtn')?.classList.add('active');
+            state.mode = 'qr';
+            openQrHandshakeModal();
+        });
+
         document.getElementById('modeQrBtn')?.addEventListener('click', (e) => {
             document.querySelectorAll('.mode-tab-btn').forEach(b => b.classList.remove('active'));
             e.currentTarget.classList.add('active');
@@ -1435,39 +1644,9 @@
                         });
 
                         if (code && code.data) {
-                            try {
-                                const parsed = JSON.parse(safeBase64ToUtf8(code.data));
-                                if (parsed.type === 'airgap_offer' && parsed.key) {
-                                    document.getElementById('qrModal').classList.remove('active');
-                                    if (qrVideoElem && qrVideoElem.srcObject) {
-                                        qrVideoElem.srcObject.getTracks().forEach(t => t.stop());
-                                    }
-                                    if (parsed.sid && parsed.sid !== state.myId) {
-                                        // Server-relayed WebRTC via socket ID embedded in QR
-                                        connectToPeer({
-                                            id: parsed.sid,
-                                            nickname: parsed.nick || 'QR_Agent',
-                                            avatar: parsed.avatar || '📷',
-                                            mode: 'qr',
-                                            device: 'QR Verified',
-                                            publicKey: parsed.key
-                                        });
-                                    } else {
-                                        // Offline fallback: key exchange only
-                                        CryptoEngine.deriveSharedSessionKey(parsed.key).then(() => {
-                                            switchToActiveChat({
-                                                id: 'airgap_peer',
-                                                nickname: parsed.nick || 'AirGap_Agent',
-                                                avatar: parsed.avatar || '📷',
-                                                device: 'Air-Gapped Optical Link'
-                                            });
-                                            AudioEngine.playLockBeep();
-                                        });
-                                    }
-                                    return;
-                                }
-                            } catch (err) {
-                                if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">⚠️ Invalid PrivyChat QR format. Try another photo.</span>';
+                            const success = handleDecodedQrPayload(code.data);
+                            if (!success && statusMsg) {
+                                statusMsg.innerHTML = '<span style="color:#ef4444;">⚠️ Invalid PrivyChat QR format. Try another photo.</span>';
                             }
                         } else {
                             if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">⚠️ No QR code found in this image. Ensure clear lighting.</span>';

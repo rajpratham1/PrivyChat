@@ -39,7 +39,7 @@ jobs:
           echo "flutter.versionCode=1" >> local.properties
           echo "flutter.versionName=2.4.0" >> local.properties
 
-      - name: Generate placeholder mipmap PNG icons
+      - name: Generate App Launcher Icons from official logo.png
         run: |
           sudo apt-get install -y imagemagick
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
@@ -51,11 +51,7 @@ jobs:
               xxxhdpi) size=192 ;;
             esac
             mkdir -p mobile/android/app/src/main/res/mipmap-${density}
-            convert -size ${size}x${size} xc:'#071A10' \
-              -fill '#22C55E' -draw "roundrectangle 4,4 $((size-4)),$((size-4)) 8,8" \
-              -fill '#071A10' -font DejaVu-Sans-Bold -pointsize $((size/3)) \
-              -gravity Center -annotate 0 "P" \
-              mobile/android/app/src/main/res/mipmap-${density}/ic_launcher.png
+            convert public/logo.png -resize ${size}x${size} mobile/android/app/src/main/res/mipmap-${density}/ic_launcher.png
           done
 
       - name: Verify Flutter Installation

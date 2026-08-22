@@ -1,22 +1,35 @@
 {
-    "name": "PrivyChat - Secure Spy Messenger",
+    "id": "/",
+    "name": "PrivyChat - Tactical Mesh",
     "short_name": "PrivyChat",
-    "description": "Zero-trace, end-to-end encrypted messaging operating entirely in RAM.",
-    "start_url": "/",
+    "description": "Zero-trace, end-to-end encrypted tactical messaging for local Wi-Fi and air-gapped mesh sessions.",
+    "start_url": "/nearby.html",
+    "scope": "/",
     "display": "standalone",
-    "background_color": "#0f172a",
-    "theme_color": "#0f172a",
+    "background_color": "#030712",
+    "theme_color": "#071a10",
+    "orientation": "portrait-primary",
+    "lang": "en",
+    "dir": "ltr",
+    "categories": ["communication", "utilities", "security"],
     "icons": [
+        {
+            "src": "icon-mask.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
         {
             "src": "logo.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         },
         {
             "src": "logo.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any maskable"
         }
-    ],
-    "orientation": "portrait-primary"
+    ]
 }

@@ -17,6 +17,8 @@
         myNickname: `Agent_${Math.floor(1000 + Math.random() * 9000)}`,
         myAvatar: '🕵️',
         mode: 'wifi', // 'wifi', 'ble', 'qr'
+        isOffline: !navigator.onLine,
+        preferredDiscovery: 'local-host-qr',
         isStealth: false,
         sonarSound: false, // Muted by default
         burnTimer: 0, // 0 = off, 5, 15, 30, 60, 'read'
@@ -36,6 +38,25 @@
         discoveredPeers: [], // Array of peers on radar
         transport: 'none', // 'direct', 'relay', or 'manual-qr'
         qrHandshake: null,
+        optical: {
+            active: false,
+            role: null,
+            sessionKey: null,
+            peerKey: null,
+            txFrames: [],
+            txTimer: null,
+            txIndex: 0,
+            rxFrames: new Map(),
+            rxVideo: null,
+            rxStream: null,
+            rxCanvas: null,
+            rxContext: null,
+            rxLoop: false,
+            rxBusy: false,
+            seenFrames: new Set(),
+            mediaRecorder: null,
+            audioChunks: []
+        },
         transfers: new Map(),
         objectUrls: new Set(),
 
@@ -73,6 +94,32 @@
         transports: ['websocket', 'polling'],
         upgrade: true
     });
+
+    function setOfflineMeshStatus(isOffline) {
+        state.isOffline = Boolean(isOffline);
+        state.preferredDiscovery = state.isOffline ? 'local-host-qr' : 'auto';
+        const pill = document.getElementById('meshStatusPill');
+        const statusText = document.getElementById('meshStatusText');
+        const dot = pill?.querySelector('span');
+        const badge = document.getElementById('radarBadge');
+        const wifiButton = document.getElementById('modeWifiBtn');
+        const qrButton = document.getElementById('modeQrBtn');
+
+        if (pill) {
+            pill.style.background = state.isOffline ? 'rgba(245, 158, 11, 0.14)' : 'rgba(34, 197, 94, 0.1)';
+            pill.style.borderColor = state.isOffline ? 'rgba(245, 158, 11, 0.55)' : 'rgba(34, 197, 94, 0.3)';
+            pill.style.color = state.isOffline ? '#f59e0b' : 'var(--neon-green)';
+        }
+        if (dot) {
+            dot.style.background = state.isOffline ? '#f59e0b' : 'var(--neon-green)';
+            dot.style.boxShadow = state.isOffline ? '0 0 8px #f59e0b' : '0 0 8px var(--neon-green)';
+        }
+        if (statusText) statusText.textContent = state.isOffline ? 'OFFLINE MESH (HOTSPOT / AIR-GAP ONLY)' : 'RADAR ACTIVE';
+        if (badge) badge.textContent = state.isOffline ? 'LOCAL HOST • AIR-GAP QR' : 'SWEEP: 360° • SCANNING';
+        if (wifiButton) wifiButton.title = state.isOffline ? 'Discover peers on a local hotspot/subnet without internet' : 'Discover peers on local WiFi / Hotspot router';
+        if (qrButton) qrButton.title = 'Air-Gapped Optical QR Messenger — no network required';
+        document.body.classList.toggle('offline-mesh', state.isOffline);
+    }
 
     // Sound Synthesizer via Web Audio API (Zero external mp3 files needed)
     const AudioEngine = {
@@ -249,6 +296,33 @@
                 throw new Error('Message authentication failed.');
             }
         }
+    };
+
+    // Key-scoped helpers keep an optical session isolated from the normal
+    // Socket.IO/WebRTC session key. They use the same AES-256-GCM primitive and
+    // never persist the CryptoKey outside the page heap.
+    CryptoEngine.encryptWithKey = async (plaintext, key, additionalData = '') => {
+        if (!key) throw new Error('Optical session is not established.');
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));
+        const ciphertext = await window.crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(additionalData) },
+            key,
+            new TextEncoder().encode(plaintext)
+        );
+        return { iv: bytesToBase64(iv), data: bytesToBase64(ciphertext) };
+    };
+
+    CryptoEngine.decryptWithKey = async (encryptedObj, key, additionalData = '') => {
+        if (!key) throw new Error('Optical session is not established.');
+        const iv = base64ToBytes(encryptedObj.iv);
+        const data = base64ToBytes(encryptedObj.data);
+        if (iv.byteLength !== 12 || data.byteLength < 16) throw new Error('Invalid optical ciphertext.');
+        const plaintext = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv, additionalData: new TextEncoder().encode(additionalData) },
+            key,
+            data
+        );
+        return new Uint8Array(plaintext);
     };
 
     async function ensureCryptoReady() {
@@ -442,6 +516,15 @@
         iceCandidatePoolSize: 0
     };
 
+    const LOCALRTCConfig = {
+        // No STUN/TURN DNS lookups in airplane mode or on a mobile hotspot.
+        // WebRTC will advertise host candidates on the local subnet (for
+        // example 192.168.43.x / 192.168.1.x) and connect directly when both
+        // browsers share that link.
+        iceServers: [],
+        iceCandidatePoolSize: 0
+    };
+
     // Perfect Negotiation State
     let isMakingOffer = false;
     let ignoreOffer = false;
@@ -457,7 +540,8 @@
             state.peerConnection = null;
         }
 
-        state.peerConnection = new RTCPeerConnection(manualQr ? QRRTCConfig : RTCConfig);
+        const rtcConfig = manualQr ? QRRTCConfig : (state.isOffline ? LOCALRTCConfig : RTCConfig);
+        state.peerConnection = new RTCPeerConnection(rtcConfig);
         state.activePeer = targetPeer;
 
         const targetId = (targetPeer && targetPeer.id) || (state.activePeer && state.activePeer.id);
@@ -1285,6 +1369,7 @@
 
     function terminateSession() {
         // Clear all timers
+        opticalResetSession();
         if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
         closeConnProgress();
         endP2PCall(false);
@@ -1485,6 +1570,7 @@
     }
 
     async function decodeQrPayload(raw) {
+        if (raw.trim().startsWith('{')) return JSON.parse(raw);
         if (raw.startsWith('PC2Z:')) {
             if (!('DecompressionStream' in window)) throw new Error('This browser cannot read compressed handshake QR codes.');
             const stream = new Blob([base64ToBytes(raw.slice(5))]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
@@ -1549,6 +1635,8 @@
         // Default to View 1 (Offer)
         document.getElementById('qrOfferView').style.display = 'block';
         document.getElementById('qrScanView').style.display = 'none';
+        document.getElementById('qrOpticalView')?.style.setProperty('display', 'none');
+        opticalStopReceiver();
         generateQrOffer();
     }
 
@@ -1802,6 +1890,7 @@
     async function handleDecodedQrPayload(rawData) {
         try {
             const parsed = await decodeQrPayload(rawData);
+            if (await opticalHandleDecodedPayload(parsed)) return true;
             if (parsed.type === 'airgap_offer' && parsed.key && parsed.offer) {
                 stopQrScanner();
                 if (parsed.sid && parsed.sid === state.myId) {
@@ -1867,6 +1956,384 @@
             showNearbyToast('Invalid or expired PrivyChat handshake QR.', 'error');
         }
         return false;
+    }
+
+    // -------------------------------------------------------------------------
+    // 2-way animated optical QR messenger
+    // -------------------------------------------------------------------------
+    const OPTICAL_PROTOCOL = 'privy-opt-v1';
+    const OPTICAL_CHUNK_BYTES = 220;
+    const OPTICAL_FRAME_MS = 300;
+
+    function opticalStatus(target, message, tone = '') {
+        const el = document.getElementById(target);
+        if (!el) return;
+        el.textContent = message;
+        el.style.color = tone === 'error' ? '#f87171' : tone === 'success' ? '#86efac' : '#94a3b8';
+    }
+
+    function opticalLog(text, received = false) {
+        const log = document.getElementById('opticalChatLog');
+        if (!log) return;
+        const line = document.createElement('div');
+        line.className = `optical-chat-line${received ? ' received' : ''}`;
+        line.textContent = text;
+        log.appendChild(line);
+        while (log.children.length > 80) log.firstElementChild.remove();
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function opticalFrameAad(frame) {
+        return `${OPTICAL_PROTOCOL}|${frame.id}|${frame.idx}|${frame.tot}`;
+    }
+
+    async function opticalChecksum(frame) {
+        const bytes = new TextEncoder().encode(`${frame.iv}.${frame.data}`);
+        return bytesToBase64(await window.crypto.subtle.digest('SHA-256', bytes));
+    }
+
+    function renderOpticalQr(payload) {
+        const container = document.getElementById('opticalTxQr');
+        if (!container || typeof QRCode === 'undefined') return;
+        container.innerHTML = '';
+        new QRCode(container, {
+            text: typeof payload === 'string' ? payload : JSON.stringify(payload),
+            width: 210,
+            height: 210,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.L
+        });
+    }
+
+    function opticalStopTransmitter() {
+        if (state.optical.txTimer) clearInterval(state.optical.txTimer);
+        state.optical.txTimer = null;
+        state.optical.txFrames = [];
+        state.optical.txIndex = 0;
+        const txState = document.getElementById('opticalTxState');
+        if (txState) txState.textContent = 'STANDBY';
+    }
+
+    function opticalStartTransmitter(frames) {
+        opticalStopTransmitter();
+        if (!frames || !frames.length) return;
+        state.optical.txFrames = frames;
+        state.optical.txIndex = 0;
+        const draw = () => {
+            const frame = state.optical.txFrames[state.optical.txIndex];
+            if (!frame) return;
+            renderOpticalQr(JSON.stringify(frame));
+            opticalStatus('opticalTxStatus', `TX FRAME ${frame.idx + 1}/${frame.tot} • keep this screen facing the partner`, 'success');
+            state.optical.txIndex = (state.optical.txIndex + 1) % state.optical.txFrames.length;
+        };
+        draw();
+        const txState = document.getElementById('opticalTxState');
+        if (txState) txState.textContent = 'STREAMING';
+        state.optical.txTimer = setInterval(draw, OPTICAL_FRAME_MS);
+    }
+
+    async function opticalBuildFrames(payload) {
+        if (!state.optical.sessionKey) throw new Error('Exchange optical key QR codes first.');
+        const messageId = `msg_${createTransferId()}`;
+        const bytes = new TextEncoder().encode(JSON.stringify(payload));
+        const total = Math.max(1, Math.ceil(bytes.length / OPTICAL_CHUNK_BYTES));
+        if (total > 512) throw new Error('Optical payload is too large for one QR sequence.');
+        const frames = [];
+        for (let idx = 0; idx < total; idx++) {
+            const plainChunk = bytesToBase64(bytes.subarray(idx * OPTICAL_CHUNK_BYTES, (idx + 1) * OPTICAL_CHUNK_BYTES));
+            const frameBase = { p: OPTICAL_PROTOCOL, id: messageId, idx, tot: total };
+            const encrypted = await CryptoEngine.encryptWithKey(plainChunk, state.optical.sessionKey, opticalFrameAad(frameBase));
+            const frame = { ...frameBase, iv: encrypted.iv, data: encrypted.data };
+            frame.chk = await opticalChecksum(frame);
+            frames.push(frame);
+        }
+        return frames;
+    }
+
+    async function opticalSendText() {
+        const input = document.getElementById('opticalMessageInput');
+        const text = input?.value.trim();
+        if (!text) return;
+        try {
+            const frames = await opticalBuildFrames({
+                kind: 'text',
+                sender: state.myNickname,
+                timestamp: Date.now(),
+                text
+            });
+            opticalStartTransmitter(frames);
+            opticalLog(`You: ${text}`);
+            input.value = '';
+        } catch (error) {
+            opticalStatus('opticalTxStatus', error.message, 'error');
+        }
+    }
+
+    async function opticalToggleVoice() {
+        const button = document.getElementById('opticalVoiceBtn');
+        if (state.optical.mediaRecorder && state.optical.mediaRecorder.state !== 'inactive') {
+            state.optical.mediaRecorder.stop();
+            return;
+        }
+        if (!state.optical.sessionKey || !navigator.mediaDevices?.getUserMedia) {
+            opticalStatus('opticalTxStatus', 'Exchange optical keys and allow microphone access first.', 'error');
+            return;
+        }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const preferred = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+            const mimeType = preferred.find(type => window.MediaRecorder?.isTypeSupported?.(type));
+            const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+            state.optical.mediaRecorder = recorder;
+            state.optical.audioChunks = [];
+            recorder.ondataavailable = event => { if (event.data.size) state.optical.audioChunks.push(event.data); };
+            recorder.onstop = async () => {
+                try {
+                    const blob = new Blob(state.optical.audioChunks, { type: recorder.mimeType || 'audio/webm' });
+                    if (blob.size > 96 * 1024) throw new Error('Optical voice notes are limited to 96 KB.');
+                    const frames = await opticalBuildFrames({
+                        kind: 'voice',
+                        sender: state.myNickname,
+                        timestamp: Date.now(),
+                        mime: blob.type,
+                        data: bytesToBase64(await blob.arrayBuffer())
+                    });
+                    opticalStartTransmitter(frames);
+                    opticalLog('You: encrypted optical voice note');
+                } catch (error) {
+                    opticalStatus('opticalTxStatus', error.message, 'error');
+                } finally {
+                    stream.getTracks().forEach(track => track.stop());
+                    state.optical.mediaRecorder = null;
+                    state.optical.audioChunks = [];
+                    if (button) button.classList.remove('recording');
+                }
+            };
+            recorder.start();
+            if (button) {
+                button.classList.add('recording');
+                button.title = 'Stop and transmit encrypted optical voice note';
+            }
+            opticalStatus('opticalTxStatus', 'RECORDING • click microphone again to transmit', 'success');
+        } catch (error) {
+            opticalStatus('opticalTxStatus', `Microphone unavailable: ${error.message}`, 'error');
+        }
+    }
+
+    function opticalLogVoice(message) {
+        const log = document.getElementById('opticalChatLog');
+        if (!log) return;
+        const line = document.createElement('div');
+        line.className = 'optical-chat-line received';
+        line.textContent = `${message.sender || 'Peer'}: encrypted optical voice note`;
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.src = URL.createObjectURL(new Blob([base64ToBytes(message.data)], { type: message.mime || 'audio/webm' }));
+        state.objectUrls.add(audio.src);
+        audio.style.display = 'block';
+        audio.style.maxWidth = '100%';
+        line.appendChild(audio);
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function opticalCleanupOldMessages() {
+        const now = Date.now();
+        for (const [id, entry] of state.optical.rxFrames) {
+            if (now - entry.createdAt > 120000) state.optical.rxFrames.delete(id);
+        }
+    }
+
+    async function opticalReceiveFrame(frame) {
+        if (!state.optical.sessionKey || !frame || frame.p !== OPTICAL_PROTOCOL) return false;
+        if (typeof frame.id !== 'string' || frame.id.length > 80 ||
+            !Number.isInteger(frame.idx) || !Number.isInteger(frame.tot) ||
+            frame.idx < 0 || frame.tot < 1 || frame.tot > 512 || frame.idx >= frame.tot ||
+            typeof frame.iv !== 'string' || typeof frame.data !== 'string' || typeof frame.chk !== 'string') return false;
+        const frameKey = `${frame.id}:${frame.idx}`;
+        if (state.optical.seenFrames.has(frameKey)) return true;
+        if (frame.data.length > 12000) return false;
+        if (await opticalChecksum(frame) !== frame.chk) return false;
+        state.optical.seenFrames.add(frameKey);
+        if (state.optical.seenFrames.size > 2048) state.optical.seenFrames.delete(state.optical.seenFrames.values().next().value);
+
+        const entry = state.optical.rxFrames.get(frame.id) || {
+            tot: frame.tot,
+            chunks: new Array(frame.tot),
+            received: 0,
+            createdAt: Date.now()
+        };
+        if (entry.tot !== frame.tot) return false;
+        const decrypted = await CryptoEngine.decryptWithKey(frame, state.optical.sessionKey, opticalFrameAad(frame));
+        const chunk = base64ToBytes(new TextDecoder().decode(decrypted));
+        if (!entry.chunks[frame.idx]) {
+            entry.chunks[frame.idx] = chunk;
+            entry.received++;
+        }
+        state.optical.rxFrames.set(frame.id, entry);
+        opticalStatus('opticalRxStatus', `RX FRAME ${entry.received}/${entry.tot} • checksum valid`, 'success');
+        opticalCleanupOldMessages();
+        if (entry.received !== entry.tot) return true;
+
+        const size = entry.chunks.reduce((sum, value) => sum + value.byteLength, 0);
+        const assembled = new Uint8Array(size);
+        let offset = 0;
+        entry.chunks.forEach(chunkValue => { assembled.set(chunkValue, offset); offset += chunkValue.byteLength; });
+        state.optical.rxFrames.delete(frame.id);
+        const message = JSON.parse(new TextDecoder().decode(assembled));
+        if (message.kind === 'text') opticalLog(`${message.sender || 'Peer'}: ${message.text}`, true);
+        if (message.kind === 'voice') opticalLogVoice(message);
+        opticalStatus('opticalRxStatus', 'MESSAGE REASSEMBLED • decrypted in RAM', 'success');
+        AudioEngine.playMsgChirp();
+        return true;
+    }
+
+    async function opticalStartReceiver() {
+        const video = document.getElementById('opticalRxVideo');
+        const canvas = document.getElementById('opticalRxCanvas');
+        if (!video || !canvas || !navigator.mediaDevices?.getUserMedia) {
+            opticalStatus('opticalRxStatus', 'Camera access requires HTTPS or localhost.', 'error');
+            return;
+        }
+        opticalStopReceiver();
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+                audio: false
+            });
+            state.optical.rxVideo = video;
+            state.optical.rxStream = stream;
+            state.optical.rxCanvas = canvas;
+            state.optical.rxContext = canvas.getContext('2d', { willReadFrequently: true });
+            video.srcObject = stream;
+            video.muted = true;
+            await video.play();
+            state.optical.rxLoop = true;
+            const rxState = document.getElementById('opticalRxState');
+            if (rxState) rxState.textContent = 'SCANNING 60FPS';
+            document.getElementById('opticalScanBtn')?.style.setProperty('display', 'none');
+            document.getElementById('opticalStopBtn')?.style.setProperty('display', 'inline-flex');
+            opticalStatus('opticalRxStatus', 'Camera active • align the partner QR screen');
+            requestAnimationFrame(opticalScanLoop);
+        } catch (error) {
+            opticalStatus('opticalRxStatus', `Camera unavailable: ${error.message}`, 'error');
+        }
+    }
+
+    function opticalStopReceiver() {
+        state.optical.rxLoop = false;
+        try { state.optical.rxStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
+        if (state.optical.rxVideo) state.optical.rxVideo.srcObject = null;
+        state.optical.rxStream = null;
+        const rxState = document.getElementById('opticalRxState');
+        if (rxState) rxState.textContent = 'STANDBY';
+        document.getElementById('opticalScanBtn')?.style.setProperty('display', 'inline-flex');
+        document.getElementById('opticalStopBtn')?.style.setProperty('display', 'none');
+    }
+
+    async function opticalScanLoop() {
+        if (!state.optical.rxLoop || !state.optical.rxVideo || !state.optical.rxContext) return;
+        const video = state.optical.rxVideo;
+        if (!state.optical.rxBusy && video.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+            const canvas = state.optical.rxCanvas;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            state.optical.rxContext.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const image = state.optical.rxContext.getImageData(0, 0, canvas.width, canvas.height);
+            const code = typeof jsQR === 'function' ? jsQR(image.data, image.width, image.height, { inversionAttempts: 'attemptBoth' }) : null;
+            if (code?.data) {
+                state.optical.rxBusy = true;
+                try {
+                    const parsed = await decodeQrPayload(code.data);
+                    await opticalHandleDecodedPayload(parsed);
+                } catch (error) {
+                    opticalStatus('opticalRxStatus', 'QR frame rejected • waiting for next frame', 'error');
+                } finally {
+                    state.optical.rxBusy = false;
+                }
+            }
+        }
+        if (state.optical.rxLoop) requestAnimationFrame(opticalScanLoop);
+    }
+
+    async function opticalHandleDecodedPayload(parsed) {
+        if (!parsed) return false;
+        if (parsed.p === OPTICAL_PROTOCOL && parsed.id) return opticalReceiveFrame(parsed);
+        if (parsed.type !== 'optical_offer' && parsed.type !== 'optical_ack') return false;
+        document.getElementById('qrModal')?.classList.add('active');
+        document.getElementById('qrOfferView')?.style.setProperty('display', 'none');
+        document.getElementById('qrScanView')?.style.setProperty('display', 'none');
+        document.getElementById('qrOpticalView')?.style.setProperty('display', 'block');
+        if (!parsed.key) throw new Error('Optical key QR is missing a public key.');
+
+        await CryptoEngine.init();
+        const previousSessionKey = state.sessionKey;
+        await CryptoEngine.deriveSharedSessionKey(parsed.key);
+        state.optical.sessionKey = state.sessionKey;
+        state.sessionKey = previousSessionKey;
+        state.optical.peerKey = parsed.key;
+        state.optical.active = true;
+        const safetyLabel = state.safetyFingerprint ? ` • SAFETY ${state.safetyFingerprint} ${state.safetyEmojis}` : '';
+
+        if (parsed.type === 'optical_offer') {
+            state.optical.role = 'answer';
+            const ack = {
+                p: OPTICAL_PROTOCOL,
+                type: 'optical_ack',
+                nick: state.myNickname,
+                avatar: state.myAvatar,
+                key: state.myPublicKeyJwk
+            };
+            renderOpticalQr(JSON.stringify(ack));
+            opticalStatus('opticalTxStatus', `KEY ACK READY${safetyLabel} • show this screen to the offer device`, 'success');
+            const txState = document.getElementById('opticalTxState');
+            if (txState) txState.textContent = 'KEY ACK';
+            return true;
+        }
+
+        state.optical.role = 'established';
+        opticalStatus('opticalTxStatus', `OPTICAL E2EE READY${safetyLabel} • AES-256-GCM frames can transmit`, 'success');
+        opticalStatus('opticalRxStatus', `OPTICAL E2EE READY${safetyLabel} • point camera at partner screen`, 'success');
+        const txState = document.getElementById('opticalTxState');
+        if (txState) txState.textContent = 'E2EE READY';
+        return true;
+    }
+
+    async function opticalGenerateOffer() {
+        await CryptoEngine.init();
+        opticalStopTransmitter();
+        state.optical.active = true;
+        state.optical.role = 'offer';
+        state.optical.sessionKey = null;
+        state.optical.peerKey = null;
+        state.optical.rxFrames.clear();
+        state.optical.seenFrames.clear();
+        renderOpticalQr(JSON.stringify({
+            p: OPTICAL_PROTOCOL,
+            type: 'optical_offer',
+            nick: state.myNickname,
+            avatar: state.myAvatar,
+            key: state.myPublicKeyJwk
+        }));
+        opticalStatus('opticalTxStatus', 'KEY OFFER READY • point partner camera here', 'success');
+        const txState = document.getElementById('opticalTxState');
+        if (txState) txState.textContent = 'KEY OFFER';
+    }
+
+    function opticalResetSession() {
+        try {
+            if (state.optical.mediaRecorder && state.optical.mediaRecorder.state !== 'inactive') state.optical.mediaRecorder.stop();
+            state.optical.mediaRecorder?.stream?.getTracks().forEach(track => track.stop());
+        } catch (e) {}
+        opticalStopTransmitter();
+        opticalStopReceiver();
+        state.optical.active = false;
+        state.optical.role = null;
+        state.optical.sessionKey = null;
+        state.optical.peerKey = null;
+        state.optical.rxFrames.clear();
+        state.optical.seenFrames.clear();
     }
 
     // =========================================================================
@@ -2052,6 +2519,7 @@
 
     function panicPurge() {
         // Stop every active media source before dropping the references.
+        opticalResetSession();
         try { stopQrScanner(); } catch (e) {}
         try { if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') { state.cancelVoiceRecording = true; state.mediaRecorder.stop(); } } catch (e) {}
         try { state.voiceSourceStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
@@ -2089,6 +2557,7 @@
     // place a tab in the back-forward cache. Explicitly drop volatile secrets
     // and media handles so a restored page cannot resurrect an old session.
     window.addEventListener('pagehide', () => {
+        opticalResetSession();
         try { state.dataChannel?.close(); } catch (e) {}
         try { state.peerConnection?.close(); } catch (e) {}
         try { state.localStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
@@ -2110,6 +2579,23 @@
     // 9. EVENT LISTENERS & DOM HOOKS
     // =========================================================================
     document.addEventListener('DOMContentLoaded', async () => {
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/service-worker.js').catch(() => {
+                // The mesh still works directly when service workers are
+                // unavailable (for example, when opened from file://).
+            });
+        }
+        setOfflineMeshStatus(!navigator.onLine);
+        window.addEventListener('offline', () => {
+            setOfflineMeshStatus(true);
+            showNearbyToast('Offline mesh active: use the local hotspot or Air-Gap QR.', 'info');
+        });
+        window.addEventListener('online', () => {
+            setOfflineMeshStatus(false);
+            if (!socket.connected) socket.connect();
+            showNearbyToast('Network restored. Local mesh remains available.', 'success');
+        });
+
         // Initialize Crypto & Radar
         await CryptoEngine.init();
         RadarEngine.init();
@@ -2522,6 +3008,8 @@
         document.getElementById('closeQrModalBtn')?.addEventListener('click', () => {
             document.getElementById('qrModal').classList.remove('active');
             stopQrScanner();
+            opticalStopReceiver();
+            opticalStopTransmitter();
             if (state.qrHandshake && !state.qrHandshake.connected) {
                 closePendingQrConnection(true);
             }
@@ -2529,15 +3017,38 @@
 
         document.getElementById('qrTabOffer')?.addEventListener('click', () => {
             stopQrScanner();
+            opticalStopReceiver();
             document.getElementById('qrOfferView').style.display = 'block';
             document.getElementById('qrScanView').style.display = 'none';
+            document.getElementById('qrOpticalView').style.display = 'none';
             generateQrOffer();
         });
 
         document.getElementById('qrTabScan')?.addEventListener('click', () => {
+            opticalStopReceiver();
             document.getElementById('qrOfferView').style.display = 'none';
             document.getElementById('qrScanView').style.display = 'block';
+            document.getElementById('qrOpticalView').style.display = 'none';
             startQrScanner();
+        });
+
+        document.getElementById('qrTabOptical')?.addEventListener('click', () => {
+            stopQrScanner();
+            document.getElementById('qrOfferView').style.display = 'none';
+            document.getElementById('qrScanView').style.display = 'none';
+            document.getElementById('qrOpticalView').style.display = 'block';
+            if (!state.optical.active) opticalGenerateOffer();
+        });
+        document.getElementById('opticalGenerateBtn')?.addEventListener('click', opticalGenerateOffer);
+        document.getElementById('opticalScanBtn')?.addEventListener('click', opticalStartReceiver);
+        document.getElementById('opticalStopBtn')?.addEventListener('click', opticalStopReceiver);
+        document.getElementById('opticalSendBtn')?.addEventListener('click', opticalSendText);
+        document.getElementById('opticalVoiceBtn')?.addEventListener('click', opticalToggleVoice);
+        document.getElementById('opticalMessageInput')?.addEventListener('keydown', event => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                opticalSendText();
+            }
         });
 
         // Return to Chat Nav Button (Click to reopen clean chat if session active)

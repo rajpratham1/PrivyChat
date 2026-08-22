@@ -12,8 +12,10 @@
     // =========================================================================
     const state = {
         myId: null,
-        myNickname: localStorage.getItem('privy_nearby_nick') || `Agent_${Math.floor(1000 + Math.random() * 9000)}`,
-        myAvatar: localStorage.getItem('privy_nearby_avatar') || '🕵️',
+        // Identity is intentionally session-only. Do not move this to localStorage,
+        // IndexedDB, cookies, or any other persistent browser storage.
+        myNickname: `Agent_${Math.floor(1000 + Math.random() * 9000)}`,
+        myAvatar: '🕵️',
         mode: 'wifi', // 'wifi', 'ble', 'qr'
         isStealth: false,
         sonarSound: false, // Muted by default
@@ -32,9 +34,18 @@
         peerConnection: null,
         dataChannel: null,
         discoveredPeers: [], // Array of peers on radar
+        transport: 'none', // 'direct', 'relay', or 'manual-qr'
+        qrHandshake: null,
+        transfers: new Map(),
+        objectUrls: new Set(),
 
         // Voice Recording & Media
         mediaRecorder: null,
+        voiceSourceStream: null,
+        voiceAudioContext: null,
+        voiceAudioNodes: null,
+        voiceMasking: false,
+        cancelVoiceRecording: false,
         audioChunks: [],
         voiceTimerInterval: null,
         localStream: null,
@@ -116,6 +127,7 @@
     // =========================================================================
     const CryptoEngine = {
         async init() {
+            if (state.keyPair && state.myPublicKeyJwk) return;
             // Generate Ephemeral ECDH Key Pair (P-256 Curve)
             state.keyPair = await window.crypto.subtle.generateKey(
                 { name: "ECDH", namedCurve: "P-256" },
@@ -131,6 +143,9 @@
         },
 
         async deriveSharedSessionKey(peerPublicKeyJwk) {
+            if (!state.keyPair || !state.myPublicKeyJwk) {
+                throw new Error('The ephemeral key pair is not ready.');
+            }
             const peerKey = await window.crypto.subtle.importKey(
                 "jwk",
                 peerPublicKeyJwk,
@@ -139,27 +154,50 @@
                 []
             );
 
-            // Derive 256-bit AES-GCM Key
-            state.sessionKey = await window.crypto.subtle.deriveKey(
-                { name: "ECDH", public: peerKey },
-                state.keyPair.privateKey,
-                { name: "AES-GCM", length: 256 },
-                false,
-                ["encrypt", "decrypt"]
-            );
-
-            // Derive Safety Fingerprint & Emojis for MITM Verification
+            // ECDH produces shared secret material only in memory. HKDF binds the
+            // resulting AES key to a deterministic public-key transcript so both
+            // parties derive the same key without exposing it to the relay.
             const rawBits = await window.crypto.subtle.deriveBits(
                 { name: "ECDH", public: peerKey },
                 state.keyPair.privateKey,
                 256
             );
-            const hashBuffer = await window.crypto.subtle.digest("SHA-256", rawBits);
+
+            const canonicalPublicKey = (jwk) => JSON.stringify({
+                crv: jwk.crv,
+                kty: jwk.kty,
+                x: jwk.x,
+                y: jwk.y
+            });
+            const transcript = [
+                canonicalPublicKey(state.myPublicKeyJwk),
+                canonicalPublicKey(peerPublicKeyJwk)
+            ].sort().join('|');
+            const transcriptBytes = new TextEncoder().encode(transcript);
+            const hashBuffer = await window.crypto.subtle.digest("SHA-256", transcriptBytes);
+
+            const keyMaterial = await window.crypto.subtle.importKey(
+                'raw', rawBits, 'HKDF', false, ['deriveKey']
+            );
+            state.sessionKey = await window.crypto.subtle.deriveKey(
+                {
+                    name: 'HKDF',
+                    hash: 'SHA-256',
+                    salt: hashBuffer,
+                    info: new TextEncoder().encode('PrivyChat Nearby Tactical Mesh v1')
+                },
+                keyMaterial,
+                { name: 'AES-GCM', length: 256 },
+                false,
+                ['encrypt', 'decrypt']
+            );
+
+            // SHA-256 of the ordered public keys is the out-of-band MITM check.
+            // Show the first eight bytes (16 hex characters) as the safety code.
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
 
-            // Format Hex: 6 groups of 4 chars
-            state.safetyFingerprint = `${hex.slice(0,4)} - ${hex.slice(4,8)} - ${hex.slice(8,12)} - ${hex.slice(12,16)} - ${hex.slice(16,20)} - ${hex.slice(20,24)}`;
+            state.safetyFingerprint = `${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}`;
 
             // 4 Safety Emojis
             const emojiTable = ['🛡️', '⚡', '🔑', '🦅', '🐺', '🛰️', '🔒', '💎', '🔥', '⚔️', '🌊', '🧬', '👁️', '🦇', '⚓', '🎯'];
@@ -170,15 +208,19 @@
                 emojiTable[hashArray[3] % emojiTable.length]
             ].join(' ');
 
-            console.log("🔒 Ephemeral AES-256-GCM Session Key Established!");
+            console.log("Ephemeral AES-256-GCM session key established.");
         },
 
-        async encrypt(plaintext) {
-            if (!state.sessionKey) return { iv: '', data: btoa(plaintext) };
+        async encrypt(plaintext, additionalData = '') {
+            if (!state.sessionKey) throw new Error('Secure session is not established.');
             const iv = window.crypto.getRandomValues(new Uint8Array(12));
             const encoded = new TextEncoder().encode(plaintext);
             const ciphertext = await window.crypto.subtle.encrypt(
-                { name: "AES-GCM", iv: iv },
+                {
+                    name: "AES-GCM",
+                    iv,
+                    additionalData: new TextEncoder().encode(additionalData)
+                },
                 state.sessionKey,
                 encoded
             );
@@ -188,25 +230,31 @@
             };
         },
 
-        async decrypt(encryptedObj) {
-            if (!state.sessionKey) {
-                try { return atob(encryptedObj.data); } catch (e) { return encryptedObj.data; }
-            }
+        async decrypt(encryptedObj, additionalData = '') {
+            if (!state.sessionKey) throw new Error('Received an encrypted packet before the secure session was established.');
             try {
                 const iv = Uint8Array.from(atob(encryptedObj.iv), c => c.charCodeAt(0));
                 const data = Uint8Array.from(atob(encryptedObj.data), c => c.charCodeAt(0));
                 const decrypted = await window.crypto.subtle.decrypt(
-                    { name: "AES-GCM", iv: iv },
+                    {
+                        name: "AES-GCM",
+                        iv,
+                        additionalData: new TextEncoder().encode(additionalData)
+                    },
                     state.sessionKey,
                     data
                 );
                 return new TextDecoder().decode(decrypted);
             } catch (e) {
-                console.error("Decryption failed:", e);
-                return "🔒 [Encrypted Payload - Decryption Error]";
+                throw new Error('Message authentication failed.');
             }
         }
     };
+
+    async function ensureCryptoReady() {
+        await CryptoEngine.init();
+        return state.myPublicKeyJwk;
+    }
 
     // =========================================================================
     // 3. RADAR 360° SONAR ENGINE (HTML5 CANVAS)
@@ -385,11 +433,20 @@
         iceCandidatePoolSize: 10
     };
 
+    // QR handshakes must not contact a STUN/TURN service while the offer and
+    // answer are exchanged optically.  Host candidates are enough when the
+    // devices share a local link; the normal WiFi mode keeps the STUN/TURN
+    // fallback for carrier-grade NATs.
+    const QRRTCConfig = {
+        iceServers: [],
+        iceCandidatePoolSize: 0
+    };
+
     // Perfect Negotiation State
     let isMakingOffer = false;
     let ignoreOffer = false;
 
-    function initPeerConnection(targetPeer, isInitiator = false) {
+    function initPeerConnection(targetPeer, isInitiator = false, { manualQr = false } = {}) {
         _pendingIceCandidates = [];
         _remoteDescriptionSet = false;
         isMakingOffer = false;
@@ -400,20 +457,53 @@
             state.peerConnection = null;
         }
 
-        state.peerConnection = new RTCPeerConnection(RTCConfig);
+        state.peerConnection = new RTCPeerConnection(manualQr ? QRRTCConfig : RTCConfig);
         state.activePeer = targetPeer;
 
         const targetId = (targetPeer && targetPeer.id) || (state.activePeer && state.activePeer.id);
 
-        // ICE Candidate Handling
+        const sendSignallingDescription = (description) => {
+            if (manualQr || !socket || !targetId) return;
+            socket.emit('nearby_signal', {
+                to: targetId,
+                signal: description,
+                type: description.type,
+                senderInfo: {
+                    id: state.myId || socket.id,
+                    nickname: state.myNickname,
+                    avatar: state.myAvatar,
+                    mode: state.mode,
+                    device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
+                    publicKey: state.myPublicKeyJwk
+                }
+            });
+        };
+
+        // ICE Candidate Handling. Manual QR carries candidates in its SDP.
         state.peerConnection.onicecandidate = (event) => {
-            if (event.candidate && socket && targetId) {
+            if (!manualQr && event.candidate && socket && targetId) {
                 socket.emit('nearby_ice_candidate', {
                     to: targetId,
                     candidate: event.candidate
                 });
             }
         };
+
+        // Handles the initial data-channel offer and renegotiates when a voice
+        // stream is added, which is required for a real WebRTC call.
+        if (!manualQr) {
+            state.peerConnection.onnegotiationneeded = async () => {
+                try {
+                    isMakingOffer = true;
+                    await state.peerConnection.setLocalDescription();
+                    sendSignallingDescription(state.peerConnection.localDescription);
+                } catch (error) {
+                    console.warn('WebRTC renegotiation failed:', error.message);
+                } finally {
+                    isMakingOffer = false;
+                }
+            };
+        }
 
         // Data Channel Setup
         if (isInitiator) {
@@ -460,15 +550,25 @@
 
     function setupDataChannelEvents(dc) {
         dc.onopen = () => {
+            state.transport = state.qrHandshake ? 'manual-qr' : 'direct';
+            updateTransportBadge();
+            if (state.qrHandshake) state.qrHandshake.connected = true;
             console.log("⚡ Direct P2P WebRTC DataChannel OPEN!");
             updateConnStep(3, 'done');
             updateConnStep(4, 'done');
             const ring = document.getElementById('connProgRing');
             if (ring) ring.className = 'conn-prog-ring done';
+            if (state.qrHandshake && state.activePeer) {
+                closeConnProgress();
+                switchToActiveChat(state.activePeer);
+                showNearbyToast('Air-gapped QR handshake completed over a direct local channel.', 'success');
+            }
         };
 
         dc.onclose = () => {
             console.log("DataChannel Closed.");
+            if (!state.qrHandshake) state.transport = 'relay';
+            updateTransportBadge();
         };
 
         dc.onmessage = async (event) => {
@@ -481,24 +581,129 @@
         };
     }
 
+    function updateTransportBadge() {
+        const badge = document.getElementById('peerActiveChannel');
+        if (!badge) return;
+        const labels = {
+            direct: 'P2P DIRECT',
+            relay: 'E2EE RELAY',
+            'manual-qr': 'OPTICAL • DIRECT',
+            none: 'NEGOTIATING'
+        };
+        badge.textContent = labels[state.transport] || 'E2EE RELAY';
+    }
+
     // Dual-Layer Transport Engine (P2P DataChannel + Zero-Knowledge Encrypted Socket Relay)
     function sendP2PPacket(packet) {
         if (state.dataChannel && state.dataChannel.readyState === 'open') {
             try {
                 state.dataChannel.send(JSON.stringify(packet));
+                state.transport = state.qrHandshake ? 'manual-qr' : 'direct';
+                updateTransportBadge();
                 return true;
             } catch (e) {
                 console.warn("DataChannel send failed, using E2EE socket relay fallback:", e);
             }
         }
+        // A manual QR session has no signalling relay by design. Never pretend a
+        // packet was delivered while its data channel is still negotiating.
+        if (state.qrHandshake) return false;
         if (socket && state.activePeer && state.activePeer.id) {
             socket.emit('nearby_p2p_message', {
                 to: state.activePeer.id,
                 packet: packet
             });
+            state.transport = 'relay';
+            updateTransportBadge();
             return true;
         }
         return false;
+    }
+
+    const MAX_TRANSFER_BYTES = 5 * 1024 * 1024;
+    const TRANSFER_CHUNK_BYTES = 12 * 1024;
+
+    function packetAAD(packet) {
+        return [
+            packet.type || '',
+            packet.sender || '',
+            packet.timestamp || '',
+            packet.transferId || '',
+            Number.isInteger(packet.index) ? packet.index : '',
+            Number.isInteger(packet.total) ? packet.total : '',
+            packet.burn || ''
+        ].join('|');
+    }
+
+    function bytesToBase64(bytes) {
+        let binary = '';
+        const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+        for (let offset = 0; offset < view.length; offset += 0x8000) {
+            binary += String.fromCharCode(...view.subarray(offset, offset + 0x8000));
+        }
+        return btoa(binary);
+    }
+
+    function base64ToBytes(value) {
+        const binary = atob(value);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+    }
+
+    function createTransferId() {
+        return Array.from(window.crypto.getRandomValues(new Uint8Array(12)), byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+
+    function waitForDataChannelCapacity() {
+        if (!state.dataChannel || state.dataChannel.readyState !== 'open' || state.dataChannel.bufferedAmount < 512 * 1024) {
+            return Promise.resolve();
+        }
+        return new Promise(resolve => setTimeout(resolve, 30)).then(waitForDataChannelCapacity);
+    }
+
+    async function sendBinaryTransfer({ blob, name, mime, kind, burn }) {
+        if (!state.activePeer || !state.sessionKey) throw new Error('Connect and verify a peer before sending media.');
+        if (!blob || blob.size > MAX_TRANSFER_BYTES) {
+            throw new Error(`Transfers are limited to ${MAX_TRANSFER_BYTES / (1024 * 1024)} MB per session.`);
+        }
+
+        const transferId = createTransferId();
+        const total = Math.max(1, Math.ceil(blob.size / TRANSFER_CHUNK_BYTES));
+        const timestamp = Date.now();
+        const meta = {
+            name: String(name || (kind === 'voice' ? 'voice-note.webm' : 'attachment')),
+            mime: String(mime || 'application/octet-stream'),
+            size: blob.size,
+            kind: kind === 'voice' ? 'voice' : 'file',
+            total
+        };
+        const metaPacket = {
+            type: 'file_meta', sender: state.myNickname, timestamp, burn,
+            transferId, total
+        };
+        metaPacket.payload = await CryptoEngine.encrypt(JSON.stringify(meta), packetAAD(metaPacket));
+        if (!sendP2PPacket(metaPacket)) throw new Error('Secure transport is not ready yet.');
+
+        const source = new Uint8Array(await blob.arrayBuffer());
+        for (let index = 0; index < total; index++) {
+            await waitForDataChannelCapacity();
+            const start = index * TRANSFER_CHUNK_BYTES;
+            const packet = {
+                type: 'file_chunk', sender: state.myNickname, timestamp, burn,
+                transferId, index, total
+            };
+            packet.payload = await CryptoEngine.encrypt(bytesToBase64(source.subarray(start, start + TRANSFER_CHUNK_BYTES)), packetAAD(packet));
+            if (!sendP2PPacket(packet)) throw new Error('Secure transport closed before the transfer completed.');
+        }
+
+        const completePacket = {
+            type: 'file_complete', sender: state.myNickname, timestamp, burn,
+            transferId, total
+        };
+        completePacket.payload = await CryptoEngine.encrypt('complete', packetAAD(completePacket));
+        if (!sendP2PPacket(completePacket)) throw new Error('Secure transport closed before the transfer completed.');
+        return { transferId, meta, timestamp };
     }
 
     // =========================================================================
@@ -598,6 +803,10 @@
 
     async function connectToPeer(peer) {
         if (!peer || peer.id === state.myId) return;
+        if (!peer.publicKey) {
+            showNearbyToast('This peer is not advertising an ephemeral public key.', 'error');
+            return;
+        }
 
         AudioEngine.playLockBeep();
 
@@ -607,9 +816,16 @@
 
         state.activePeer = peer;
 
-        // 1. Instantly derive shared session key if peer's public key is known
-        if (peer.publicKey) {
+        // 1. Instantly derive the shared session key before any packet can be
+        // sent. A malformed JWK must abort the attempt, never fall back to
+        // plaintext.
+        try {
             await CryptoEngine.deriveSharedSessionKey(peer.publicKey);
+        } catch (error) {
+            closeConnProgress();
+            state.activePeer = null;
+            showNearbyToast('Peer key exchange failed: ' + error.message, 'error');
+            return;
         }
         updateConnStep(1, 'done');
         updateConnStep(2, 'active');
@@ -620,32 +836,9 @@
             publicKey: state.myPublicKeyJwk
         });
 
-        // 3. Initiate WebRTC peer connection in parallel for direct media/data streaming
+        // 3. Initiate WebRTC peer connection in parallel for direct media/data streaming.
+        // onnegotiationneeded performs the offer and later call renegotiations.
         initPeerConnection(peer, true);
-
-        try {
-            isMakingOffer = true;
-            const offer = await state.peerConnection.createOffer();
-            await state.peerConnection.setLocalDescription(offer);
-
-            socket.emit('nearby_signal', {
-                to: peer.id,
-                signal: offer,
-                type: 'offer',
-                senderInfo: {
-                    id: state.myId || socket.id,
-                    nickname: state.myNickname,
-                    avatar: state.myAvatar,
-                    mode: state.mode,
-                    device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
-                    publicKey: state.myPublicKeyJwk
-                }
-            });
-        } catch (err) {
-            console.warn("WebRTC offer error:", err);
-        } finally {
-            isMakingOffer = false;
-        }
     }
 
     // Expose Global Connect Function Immediately
@@ -702,21 +895,14 @@
             if (callModal) callModal.classList.add('active');
 
             // Send call offer packet
-            const callPayload = {
-                type: 'call_offer',
+            const sent = await sendEncryptedControl('call_offer', {
                 caller: state.myNickname,
                 avatar: state.myAvatar,
                 callType: 'audio'
-            };
-
-            if (state.dataChannel && state.dataChannel.readyState === 'open') {
-                state.dataChannel.send(JSON.stringify(callPayload));
-            } else if (socket && state.activePeer.id) {
-                socket.emit('nearby_call_request', {
-                    to: state.activePeer.id,
-                    callType: 'audio',
-                    caller: { nickname: state.myNickname, avatar: state.myAvatar }
-                });
+            });
+            if (!sent) {
+                endP2PCall(false);
+                showNearbyToast('Secure session is not ready for a call.', 'error');
             }
         } catch (err) {
             console.error('Call failed:', err);
@@ -740,14 +926,10 @@
             document.getElementById('callPeerHeading').textContent = `Connected: ${state.activePeer ? state.activePeer.nickname : 'Partner'}`;
             document.getElementById('acceptCallBtn').style.display = 'none';
 
-            const acceptPayload = { type: 'call_accept' };
-            if (state.dataChannel && state.dataChannel.readyState === 'open') {
-                state.dataChannel.send(JSON.stringify(acceptPayload));
-            } else if (socket && state.activePeer && state.activePeer.id) {
-                socket.emit('nearby_call_response', {
-                    to: state.activePeer.id,
-                    accepted: true
-                });
+            const sent = await sendEncryptedControl('call_accept', { accepted: true });
+            if (!sent) {
+                endP2PCall(false);
+                showNearbyToast('Secure session is not ready for a call.', 'error');
             }
         } catch (err) {
             console.error('Accept call failed:', err);
@@ -779,12 +961,7 @@
         }
 
         if (notifyPeer) {
-            const endPayload = { type: 'call_end' };
-            if (state.dataChannel && state.dataChannel.readyState === 'open') {
-                try { state.dataChannel.send(JSON.stringify(endPayload)); } catch (e) {}
-            } else if (socket && state.activePeer && state.activePeer.id) {
-                socket.emit('nearby_call_end', { to: state.activePeer.id });
-            }
+            sendEncryptedControl('call_end', { ended: true }).catch(() => {});
         }
 
         showNearbyToast('Call ended.', 'info');
@@ -807,22 +984,44 @@
     // =========================================================================
     // 5. P2P MESSAGING, VOICE NOTES & FILE SHARING
     // =========================================================================
+    async function sendEncryptedControl(type, value) {
+        if (!state.activePeer || !state.sessionKey) return false;
+        const packet = {
+            type,
+            sender: state.myNickname,
+            timestamp: Date.now(),
+            burn: '0'
+        };
+        packet.payload = await CryptoEngine.encrypt(JSON.stringify(value), packetAAD(packet));
+        return sendP2PPacket(packet);
+    }
+
     async function sendTextMessage(text) {
         if (!text || !text.trim() || !state.activePeer) return;
 
         const trimmed = text.trim();
-        const encrypted = await CryptoEngine.encrypt(trimmed);
-
+        if (trimmed.length > 16000) {
+            showNearbyToast('Messages are limited to 16,000 characters.', 'error');
+            return;
+        }
         const packet = {
             type: 'text',
             sender: state.myNickname,
             avatar: state.myAvatar,
             timestamp: Date.now(),
-            burn: state.burnTimer,
-            payload: encrypted
+            burn: state.burnTimer
         };
+        try {
+            packet.payload = await CryptoEngine.encrypt(trimmed, packetAAD(packet));
+        } catch (error) {
+            showNearbyToast(error.message, 'error');
+            return;
+        }
 
-        sendP2PPacket(packet);
+        if (!sendP2PPacket(packet)) {
+            showNearbyToast('Secure transport is still connecting. Try again in a moment.', 'error');
+            return;
+        }
         AudioEngine.playMsgChirp();
 
         // Render in local UI
@@ -836,8 +1035,11 @@
     }
 
     async function handleIncomingP2PPayload(packet) {
+        if (!packet || !packet.type) return;
+        if (!state.sessionKey) return;
+        try {
         if (packet.type === 'text') {
-            const decryptedText = await CryptoEngine.decrypt(packet.payload);
+            const decryptedText = await CryptoEngine.decrypt(packet.payload, packetAAD(packet));
             AudioEngine.playMsgChirp();
 
             renderMessage({
@@ -850,7 +1052,7 @@
                 avatar: packet.avatar
             });
         } else if (packet.type === 'voice') {
-            const decryptedDataUrl = await CryptoEngine.decrypt(packet.payload);
+            const decryptedDataUrl = await CryptoEngine.decrypt(packet.payload, packetAAD(packet));
             AudioEngine.playMsgChirp();
 
             renderMessage({
@@ -862,7 +1064,7 @@
                 sender: packet.sender
             });
         } else if (packet.type === 'file') {
-            const decryptedFileObj = JSON.parse(await CryptoEngine.decrypt(packet.payload));
+            const decryptedFileObj = JSON.parse(await CryptoEngine.decrypt(packet.payload, packetAAD(packet)));
             AudioEngine.playMsgChirp();
 
             renderMessage({
@@ -873,10 +1075,60 @@
                 burn: packet.burn,
                 sender: packet.sender
             });
+        } else if (packet.type === 'file_meta') {
+            const meta = JSON.parse(await CryptoEngine.decrypt(packet.payload, packetAAD(packet)));
+            if (!packet.transferId || !Number.isInteger(packet.total) || packet.total < 1 || packet.total > 500 ||
+                !Number.isFinite(meta.size) || meta.size < 0 || meta.size > MAX_TRANSFER_BYTES ||
+                !['file', 'voice'].includes(meta.kind)) {
+                throw new Error('Invalid encrypted transfer metadata.');
+            }
+            state.transfers.set(packet.transferId, {
+                meta,
+                chunks: new Array(packet.total),
+                received: 0,
+                timestamp: packet.timestamp,
+                burn: packet.burn,
+                sender: packet.sender
+            });
+        } else if (packet.type === 'file_chunk') {
+            const transfer = state.transfers.get(packet.transferId);
+            if (!transfer || packet.total !== transfer.chunks.length || packet.index < 0 || packet.index >= packet.total) {
+                throw new Error('Unexpected encrypted file chunk.');
+            }
+            if (!transfer.chunks[packet.index]) {
+                const decoded = base64ToBytes(await CryptoEngine.decrypt(packet.payload, packetAAD(packet)));
+                if (decoded.byteLength > TRANSFER_CHUNK_BYTES) throw new Error('Invalid encrypted file chunk size.');
+                transfer.chunks[packet.index] = decoded;
+                transfer.received++;
+            }
+        } else if (packet.type === 'file_complete') {
+            const transfer = state.transfers.get(packet.transferId);
+            await CryptoEngine.decrypt(packet.payload, packetAAD(packet));
+            if (!transfer || transfer.received !== transfer.chunks.length) {
+                throw new Error('Encrypted transfer is incomplete.');
+            }
+            const receivedSize = transfer.chunks.reduce((size, chunk) => size + chunk.byteLength, 0);
+            if (receivedSize !== transfer.meta.size) throw new Error('Encrypted transfer integrity check failed.');
+            const blob = new Blob(transfer.chunks, { type: transfer.meta.mime });
+            const url = URL.createObjectURL(blob);
+            state.objectUrls.add(url);
+            state.transfers.delete(packet.transferId);
+            AudioEngine.playMsgChirp();
+            renderMessage({
+                type: transfer.meta.kind,
+                isSent: false,
+                audioSrc: transfer.meta.kind === 'voice' ? url : undefined,
+                file: transfer.meta.kind === 'file' ? { ...transfer.meta, url } : undefined,
+                timestamp: transfer.timestamp,
+                burn: transfer.burn,
+                sender: transfer.sender,
+                objectUrl: url
+            });
         } else if (packet.type === 'call_offer') {
+            const call = JSON.parse(await CryptoEngine.decrypt(packet.payload, packetAAD(packet)));
             AudioEngine.playRingtone();
             const callModal = document.getElementById('callModal');
-            const callerName = packet.caller || 'Agent';
+            const callerName = call.caller || 'Agent';
             document.getElementById('callAvatarIcon').textContent = packet.avatar || '🕵️';
             document.getElementById('callPeerHeading').textContent = `Incoming Call: ${callerName}`;
             document.getElementById('callSubheading').textContent = 'INCOMING ENCRYPTED P2P VOICE CALL • RINGING';
@@ -884,18 +1136,25 @@
             document.getElementById('hangupCallBtn').style.display = 'flex';
             if (callModal) callModal.classList.add('active');
         } else if (packet.type === 'call_accept') {
+            await CryptoEngine.decrypt(packet.payload, packetAAD(packet));
             AudioEngine.stopRingtone();
             startCallTimer();
             document.getElementById('callPeerHeading').textContent = `Connected: ${state.activePeer ? state.activePeer.nickname : 'Partner'}`;
             document.getElementById('acceptCallBtn').style.display = 'none';
             showNearbyToast('📞 Voice Call Connected!', 'success');
         } else if (packet.type === 'call_end') {
+            await CryptoEngine.decrypt(packet.payload, packetAAD(packet));
             endP2PCall(false);
         } else if (packet.type === 'typing') {
+            const typingState = JSON.parse(await CryptoEngine.decrypt(packet.payload, packetAAD(packet)));
             const indicator = document.getElementById('typingIndicator');
             if (indicator) {
-                indicator.style.display = packet.isTyping ? 'block' : 'none';
+                indicator.style.display = typingState.isTyping ? 'block' : 'none';
             }
+        }
+        } catch (error) {
+            console.warn('Dropped unauthenticated or malformed encrypted packet:', error.message);
+            showNearbyToast('A malformed or unauthenticated packet was discarded.', 'error');
         }
     }
 
@@ -911,6 +1170,9 @@
 
         // Ephemeral Burn Badge
         let burnBadgeHtml = '';
+        const safeAudioSrc = typeof msg.audioSrc === 'string' && /^(blob:|data:audio\/)/i.test(msg.audioSrc) ? msg.audioSrc : '';
+        const rawFileHref = msg.file && (msg.file.url || msg.file.data);
+        const safeFileHref = typeof rawFileHref === 'string' && (/^blob:/i.test(rawFileHref) || /^data:(audio|image|application)\//i.test(rawFileHref)) ? rawFileHref : '#';
         if (msg.burn && msg.burn !== '0') {
             burnBadgeHtml = `<div class="burn-timer-badge" title="Self-destruct timer">🔥</div>`;
         }
@@ -919,7 +1181,7 @@
             bubble.innerHTML = `
                 ${burnBadgeHtml}
                 <div style="font-size: 11px; color: ${msg.isSent ? '#86efac' : '#94a3b8'}; margin-bottom: 2px; font-weight: bold;">
-                    ${msg.isSent ? 'You' : (msg.sender || 'Target')} • ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    ${msg.isSent ? 'You' : escapeHtml(msg.sender || 'Target')} • ${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
                 <div>${escapeHtml(msg.text)}</div>
             `;
@@ -927,22 +1189,22 @@
             bubble.innerHTML = `
                 ${burnBadgeHtml}
                 <div style="font-size: 11px; color: ${msg.isSent ? '#86efac' : '#94a3b8'}; margin-bottom: 4px; font-weight: bold;">
-                    🎙️ Voice Memo (${msg.isSent ? 'You' : msg.sender})
+                    🎙️ Voice Memo (${msg.isSent ? 'You' : escapeHtml(msg.sender || 'Target')})
                 </div>
-                <audio controls src="${msg.audioSrc}" style="max-width: 220px; height: 32px;"></audio>
+                <audio controls src="${escapeHtml(safeAudioSrc)}" style="max-width: 220px; height: 32px;"></audio>
             `;
         } else if (msg.type === 'file') {
             bubble.innerHTML = `
                 ${burnBadgeHtml}
                 <div style="font-size: 11px; color: ${msg.isSent ? '#86efac' : '#94a3b8'}; margin-bottom: 4px; font-weight: bold;">
-                    📎 Encrypted File (${msg.isSent ? 'You' : msg.sender})
+                    📎 Encrypted File (${msg.isSent ? 'You' : escapeHtml(msg.sender || 'Target')})
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px;">
                     <i data-lucide="file" class="w-4 h-4 text-green-400"></i>
                     <div style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px;">
                         ${escapeHtml(msg.file.name)} (${Math.round(msg.file.size / 1024)} KB)
                     </div>
-                    <a href="${msg.file.data}" download="${escapeHtml(msg.file.name)}" style="color: var(--neon-green); font-size: 12px; font-weight: bold; text-decoration: none;">
+                    <a href="${escapeHtml(safeFileHref)}" download="${escapeHtml(msg.file.name)}" style="color: var(--neon-green); font-size: 12px; font-weight: bold; text-decoration: none;">
                         Save
                     </a>
                 </div>
@@ -951,6 +1213,7 @@
         }
 
         row.appendChild(bubble);
+        row._objectUrl = msg.objectUrl || (msg.file && msg.file.url) || (typeof msg.audioSrc === 'string' && msg.audioSrc.startsWith('blob:') ? msg.audioSrc : null);
         container.appendChild(row);
         container.scrollTop = container.scrollHeight;
 
@@ -961,7 +1224,13 @@
                 row.style.transition = 'opacity 0.5s, transform 0.5s';
                 row.style.opacity = '0';
                 row.style.transform = 'scale(0.8)';
-                setTimeout(() => row.remove(), 500);
+                setTimeout(() => {
+                    if (row._objectUrl) {
+                        URL.revokeObjectURL(row._objectUrl);
+                        state.objectUrls.delete(row._objectUrl);
+                    }
+                    row.remove();
+                }, 500);
             }, seconds * 1000);
         }
     }
@@ -1005,6 +1274,7 @@
             document.getElementById('peerActiveAvatar').textContent = peer.avatar || '🕵️';
             document.getElementById('peerActiveName').textContent = peer.nickname || 'Target_Peer';
             document.getElementById('peerActiveDevice').textContent = peer.device || 'Mobile';
+            updateTransportBadge();
             document.getElementById('safetyEmojis').textContent = state.safetyEmojis || '🛡️ ⚡ 🔑 🦅';
             document.getElementById('safetyHexCode').textContent = state.safetyFingerprint || 'VERIFIED E2EE';
 
@@ -1029,8 +1299,20 @@
         }
         state.activePeer = null;
         state.sessionKey = null;
+        // A terminated session must not reuse its ECDH identity. Generate a
+        // fresh ephemeral identity for the next discovery attempt.
+        state.keyPair = null;
+        state.myPublicKeyJwk = null;
+        state.safetyFingerprint = '';
+        state.safetyEmojis = '';
+        state.transport = 'none';
+        CryptoEngine.init().catch(() => {});
+        state.qrHandshake = null;
         _pendingIceCandidates = [];
         _remoteDescriptionSet = false;
+        state.transfers.clear();
+        state.objectUrls.forEach(url => URL.revokeObjectURL(url));
+        state.objectUrls.clear();
 
         // Re-enable connect buttons
         document.querySelectorAll('.peer-connect-btn').forEach(btn => {
@@ -1190,6 +1472,73 @@
         return decodeURIComponent(Array.prototype.map.call(atob(b64), (c) => {
             return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
         }).join(''));
+    }
+
+    async function encodeQrPayload(payload) {
+        const text = JSON.stringify(payload);
+        if ('CompressionStream' in window) {
+            const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+            const compressed = new Uint8Array(await new Response(stream).arrayBuffer());
+            return `PC2Z:${bytesToBase64(compressed)}`;
+        }
+        return `PC2:${safeUtf8ToBase64(text)}`;
+    }
+
+    async function decodeQrPayload(raw) {
+        if (raw.startsWith('PC2Z:')) {
+            if (!('DecompressionStream' in window)) throw new Error('This browser cannot read compressed handshake QR codes.');
+            const stream = new Blob([base64ToBytes(raw.slice(5))]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+            return JSON.parse(await new Response(stream).text());
+        }
+        if (raw.startsWith('PC2:')) return JSON.parse(safeBase64ToUtf8(raw.slice(4)));
+        return JSON.parse(safeBase64ToUtf8(raw));
+    }
+
+    function renderHandshakeQr(data, statusHtml) {
+        const qrContainer = document.getElementById('qrCodeContainer');
+        const statusEl = document.getElementById('qrStatusText');
+        if (!qrContainer) return;
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+            text: data,
+            width: 300,
+            height: 300,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.L
+        });
+        if (statusEl) statusEl.innerHTML = statusHtml;
+    }
+
+    function waitForIceGatheringComplete(peerConnection, timeoutMs = 7000) {
+        if (peerConnection.iceGatheringState === 'complete') return Promise.resolve();
+        return new Promise(resolve => {
+            const timeout = setTimeout(finish, timeoutMs);
+            function finish() {
+                clearTimeout(timeout);
+                peerConnection.removeEventListener('icegatheringstatechange', check);
+                resolve();
+            }
+            function check() {
+                if (peerConnection.iceGatheringState === 'complete') finish();
+            }
+            peerConnection.addEventListener('icegatheringstatechange', check);
+        });
+    }
+
+    function closePendingQrConnection() {
+        if (!state.qrHandshake) return;
+        if (state.dataChannel) {
+            try { state.dataChannel.close(); } catch (e) {}
+            state.dataChannel = null;
+        }
+        if (state.peerConnection) {
+            try { state.peerConnection.close(); } catch (e) {}
+            state.peerConnection = null;
+        }
+        state.qrHandshake = null;
+        state.sessionKey = null;
+        state.activePeer = null;
     }
 
     function openQrHandshakeModal() {
@@ -1372,13 +1721,152 @@
             });
 
             if (code && code.data) {
-                const success = handleDecodedQrPayload(code.data);
-                if (success) return;
+                // QR decoding now performs asynchronous WebRTC/crypto work.
+                // Keep scanning when a frame is not a valid PrivyChat payload.
+                qrOfferScannerActive = false;
+                handleDecodedQrPayload(code.data).then(success => {
+                    if (!success) {
+                        qrOfferScannerActive = true;
+                        scanQrLoop();
+                    }
+                }).catch(() => {
+                    qrOfferScannerActive = true;
+                    scanQrLoop();
+                });
             }
         }
 
-        // Throttle scan to every 120ms to conserve mobile CPU
-        qrScanTimer = setTimeout(scanQrLoop, 120);
+        // Throttle scan to every 120ms to conserve mobile CPU. A valid QR
+        // frame pauses this loop while its async handshake is processed.
+        if (qrOfferScannerActive) qrScanTimer = setTimeout(scanQrLoop, 120);
+    }
+
+    // -------------------------------------------------------------------------
+    // Optical QR transport v2
+    // -------------------------------------------------------------------------
+    // The original QR helpers remain above for backwards compatibility with
+    // old bookmarks. These declarations intentionally override them at runtime
+    // and exchange a complete SDP offer/answer, so QR mode has a real transport
+    // and never relies on a Socket.IO signaling relay.
+    function setQrView(view) {
+        const offerView = document.getElementById('qrOfferView');
+        const scanView = document.getElementById('qrScanView');
+        if (offerView) offerView.style.display = view === 'scan' ? 'none' : 'block';
+        if (scanView) scanView.style.display = view === 'scan' ? 'block' : 'none';
+    }
+
+    // Keep the optical payload browser-independent.  Raw UTF-8 base64 is
+    // understood by older Safari/Chromium builds that do not expose
+    // CompressionStream/DecompressionStream yet; local host-only SDP remains
+    // small enough for a standard QR frame.
+    async function encodeQrPayload(payload) {
+        return `PC2:${safeUtf8ToBase64(JSON.stringify(payload))}`;
+    }
+
+    async function generateQrOffer() {
+        const qrContainer = document.getElementById('qrCodeContainer');
+        if (!qrContainer) return;
+        if (!state.myPublicKeyJwk) await CryptoEngine.init();
+        if (state.peerConnection && !state.qrHandshake) {
+            document.getElementById('qrModal')?.classList.remove('active');
+            showNearbyToast('End the current session before starting an air-gapped handshake.', 'error');
+            return;
+        }
+        closePendingQrConnection(true);
+
+        const peer = {
+            id: `qr:${createTransferId()}`,
+            nickname: 'AirGap_Agent',
+            avatar: 'QR',
+            mode: 'qr',
+            device: 'Air-Gapped Optical Link'
+        };
+        state.qrHandshake = { role: 'offer', connected: false };
+        state.activePeer = peer;
+        initPeerConnection(peer, true, { manualQr: true });
+        const offer = await state.peerConnection.createOffer();
+        await state.peerConnection.setLocalDescription(offer);
+        await waitForIceGatheringComplete(state.peerConnection);
+
+        const encoded = await encodeQrPayload({
+            version: 2,
+            type: 'airgap_offer',
+            nick: state.myNickname,
+            avatar: state.myAvatar,
+            key: state.myPublicKeyJwk,
+            offer: state.peerConnection.localDescription
+        });
+        renderHandshakeQr(encoded, 'â— <strong style="color:#fff;">Offer ready.</strong><br><span style="color:var(--text-muted);font-size:11px;">Point the partner camera here. No signaling server is used.</span>');
+    }
+
+    async function handleDecodedQrPayload(rawData) {
+        try {
+            const parsed = await decodeQrPayload(rawData);
+            if (parsed.type === 'airgap_offer' && parsed.key && parsed.offer) {
+                stopQrScanner();
+                if (parsed.sid && parsed.sid === state.myId) {
+                    showNearbyToast('You scanned your own QR code.', 'error');
+                    return true;
+                }
+                if (state.activePeer && !state.qrHandshake) {
+                    showNearbyToast('End the current session before starting an air-gapped handshake.', 'error');
+                    return true;
+                }
+
+                await CryptoEngine.deriveSharedSessionKey(parsed.key);
+                const peer = {
+                    id: `qr:${createTransferId()}`,
+                    nickname: parsed.nick || 'AirGap_Agent',
+                    avatar: parsed.avatar || 'QR',
+                    mode: 'qr',
+                    device: 'Air-Gapped Optical Link',
+                    publicKey: parsed.key
+                };
+                state.qrHandshake = { role: 'answer', connected: false };
+                state.activePeer = peer;
+                initPeerConnection(peer, false, { manualQr: true });
+                await state.peerConnection.setRemoteDescription(parsed.offer);
+                _remoteDescriptionSet = true;
+                const answer = await state.peerConnection.createAnswer();
+                await state.peerConnection.setLocalDescription(answer);
+                await waitForIceGatheringComplete(state.peerConnection);
+
+                const encoded = await encodeQrPayload({
+                    version: 2,
+                    type: 'airgap_answer',
+                    nick: state.myNickname,
+                    avatar: state.myAvatar,
+                    key: state.myPublicKeyJwk,
+                    answer: state.peerConnection.localDescription
+                });
+                setQrView('offer');
+                renderHandshakeQr(encoded, 'â— <strong style="color:#fff;">Answer ready.</strong><br><span style="color:var(--text-muted);font-size:11px;">Show this QR to the offer device to finish.</span>');
+                showNearbyToast('Optical answer ready. Show it to the other device.', 'success');
+                return true;
+            }
+
+            if (parsed.type === 'airgap_answer' && parsed.key && parsed.answer && state.qrHandshake?.role === 'offer') {
+                stopQrScanner();
+                await CryptoEngine.deriveSharedSessionKey(parsed.key);
+                state.activePeer = {
+                    id: `qr:${createTransferId()}`,
+                    nickname: parsed.nick || 'AirGap_Agent',
+                    avatar: parsed.avatar || 'QR',
+                    mode: 'qr',
+                    device: 'Air-Gapped Optical Link',
+                    publicKey: parsed.key
+                };
+                await state.peerConnection.setRemoteDescription(parsed.answer);
+                _remoteDescriptionSet = true;
+                const statusEl = document.getElementById('qrStatusText');
+                if (statusEl) statusEl.innerHTML = 'âœ“ <strong style="color:#fff;">Answer accepted.</strong><br><span style="color:var(--text-muted);font-size:11px;">Opening the encrypted optical session...</span>';
+                return true;
+            }
+        } catch (error) {
+            console.warn('QR handshake rejected:', error.message);
+            showNearbyToast('Invalid or expired PrivyChat handshake QR.', 'error');
+        }
+        return false;
     }
 
     // =========================================================================
@@ -1407,7 +1895,7 @@
                 if (timerEl) timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
             }, 1000);
         } catch (err) {
-            alert("Microphone permission required for voice notes: " + err.message);
+            showNearbyToast('Microphone permission required: ' + err.message, 'error');
         }
     }
 
@@ -1418,32 +1906,29 @@
             clearInterval(state.voiceTimerInterval);
             document.getElementById('voiceRecordingBar').style.display = 'none';
 
-            const audioBlob = new Blob(state.audioChunks, { type: 'audio/webm' });
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-                const base64Data = reader.result;
-                const encrypted = await CryptoEngine.encrypt(base64Data);
-
-                const packet = {
-                    type: 'voice',
-                    sender: state.myNickname,
-                    avatar: state.myAvatar,
-                    timestamp: Date.now(),
-                    burn: state.burnTimer,
-                    payload: encrypted
-                };
-
-                sendP2PPacket(packet);
+            const audioBlob = new Blob(state.audioChunks, { type: state.mediaRecorder.mimeType || 'audio/webm' });
+            try {
+                const transfer = await sendBinaryTransfer({
+                    blob: audioBlob,
+                    name: `voice-note-${Date.now()}.webm`,
+                    mime: audioBlob.type,
+                    kind: 'voice',
+                    burn: state.burnTimer
+                });
+                const url = URL.createObjectURL(audioBlob);
+                state.objectUrls.add(url);
                 AudioEngine.playMsgChirp();
                 renderMessage({
                     type: 'voice',
                     isSent: true,
-                    audioSrc: base64Data,
-                    timestamp: packet.timestamp,
-                    burn: packet.burn
+                    audioSrc: url,
+                    timestamp: transfer.timestamp,
+                    burn: state.burnTimer,
+                    objectUrl: url
                 });
-            };
-            reader.readAsDataURL(audioBlob);
+            } catch (error) {
+                showNearbyToast(error.message, 'error');
+            }
 
             // Stop mic tracks
             state.mediaRecorder.stream.getTracks().forEach(t => t.stop());
@@ -1451,6 +1936,175 @@
 
         state.mediaRecorder.stop();
     }
+
+    // -------------------------------------------------------------------------
+    // Voice memo overrides: capture through a real Web Audio masking graph when
+    // requested, and make Cancel discard the recording instead of transmitting
+    // it through the recorder's normal onstop handler.
+    // -------------------------------------------------------------------------
+    function createVoiceMaskGraph(sourceStream) {
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) return { stream: sourceStream, cleanup: () => {} };
+        const ctx = new AudioContextCtor();
+        const source = ctx.createMediaStreamSource(sourceStream);
+        const distortion = ctx.createWaveShaper();
+        const curve = new Float32Array(44100);
+        for (let i = 0; i < curve.length; i++) {
+            const x = (i * 2) / curve.length - 1;
+            curve[i] = Math.sign(x) * (1 - Math.exp(-Math.abs(x) * 3.2));
+        }
+        distortion.curve = curve;
+        distortion.oversample = '2x';
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1350;
+        filter.Q.value = 0.85;
+        const gain = ctx.createGain();
+        gain.gain.value = 0.8;
+        const destination = ctx.createMediaStreamDestination();
+        source.connect(distortion).connect(filter).connect(gain).connect(destination);
+        ctx.resume().catch(() => {});
+        return {
+            stream: destination.stream,
+            cleanup: () => {
+                try { source.disconnect(); distortion.disconnect(); filter.disconnect(); gain.disconnect(); } catch (e) {}
+                try { ctx.close(); } catch (e) {}
+            },
+            context: ctx
+        };
+    }
+
+    async function startVoiceRecording() {
+        if (state.mediaRecorder) return;
+        try {
+            const sourceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            state.voiceSourceStream = sourceStream;
+            state.cancelVoiceRecording = false;
+            state.voiceMasking = !!document.getElementById('voiceMaskToggle')?.checked;
+            const graph = state.voiceMasking ? createVoiceMaskGraph(sourceStream) : { stream: sourceStream, cleanup: () => {} };
+            state.voiceAudioNodes = graph;
+            const preferredTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+            const mimeType = preferredTypes.find(type => window.MediaRecorder?.isTypeSupported?.(type));
+            state.mediaRecorder = new MediaRecorder(graph.stream, mimeType ? { mimeType } : undefined);
+            state.audioChunks = [];
+            state.mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) state.audioChunks.push(event.data);
+            };
+            state.mediaRecorder.onstop = async () => {
+                clearInterval(state.voiceTimerInterval);
+                const recorder = state.mediaRecorder;
+                const audioBlob = new Blob(state.audioChunks, { type: recorder?.mimeType || 'audio/webm' });
+                const cancelled = state.cancelVoiceRecording;
+                if (!cancelled && audioBlob.size > 0) {
+                    try {
+                        const transfer = await sendBinaryTransfer({
+                            blob: audioBlob,
+                            name: `voice-note-${Date.now()}.webm`,
+                            mime: audioBlob.type,
+                            kind: 'voice',
+                            burn: state.burnTimer
+                        });
+                        const url = URL.createObjectURL(audioBlob);
+                        state.objectUrls.add(url);
+                        AudioEngine.playMsgChirp();
+                        renderMessage({ type: 'voice', isSent: true, audioSrc: url, timestamp: transfer.timestamp, burn: state.burnTimer, objectUrl: url });
+                    } catch (error) {
+                        showNearbyToast(error.message, 'error');
+                    }
+                }
+                try { state.voiceSourceStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
+                try { state.voiceAudioNodes?.cleanup?.(); } catch (e) {}
+                state.voiceSourceStream = null;
+                state.voiceAudioNodes = null;
+                state.mediaRecorder = null;
+                state.audioChunks = [];
+                state.cancelVoiceRecording = false;
+                const bar = document.getElementById('voiceRecordingBar');
+                if (bar) bar.style.display = 'none';
+            };
+            state.mediaRecorder.start();
+            const bar = document.getElementById('voiceRecordingBar');
+            if (bar) bar.style.display = 'flex';
+            let seconds = 0;
+            const timerEl = document.getElementById('voiceTimer');
+            state.voiceTimerInterval = setInterval(() => {
+                seconds++;
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                if (timerEl) timerEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }, 1000);
+        } catch (error) {
+            showNearbyToast(`Microphone permission required: ${error.message}`, 'error');
+        }
+    }
+
+    async function stopAndSendVoiceRecording() {
+        if (!state.mediaRecorder || state.mediaRecorder.state === 'inactive') return;
+        state.cancelVoiceRecording = false;
+        state.mediaRecorder.stop();
+    }
+
+    function cancelVoiceRecording() {
+        if (!state.mediaRecorder || state.mediaRecorder.state === 'inactive') return;
+        state.cancelVoiceRecording = true;
+        state.mediaRecorder.stop();
+    }
+
+    function panicPurge() {
+        // Stop every active media source before dropping the references.
+        try { stopQrScanner(); } catch (e) {}
+        try { if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') { state.cancelVoiceRecording = true; state.mediaRecorder.stop(); } } catch (e) {}
+        try { state.voiceSourceStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
+        try { state.localStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
+        try { state.remoteStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
+        try { state.dataChannel?.close(); } catch (e) {}
+        try { state.peerConnection?.close(); } catch (e) {}
+        try { socket.disconnect(); } catch (e) {}
+        clearInterval(state.voiceTimerInterval);
+        clearInterval(state.callTimerInterval);
+        clearInterval(_connElapsedInterval);
+        state.objectUrls.forEach(url => { try { URL.revokeObjectURL(url); } catch (e) {} });
+        state.objectUrls.clear();
+        state.transfers.clear();
+        state.keyPair = null;
+        state.myPublicKeyJwk = null;
+        state.sessionKey = null;
+        state.activePeer = null;
+        state.peerConnection = null;
+        state.dataChannel = null;
+        state.qrHandshake = null;
+        state.audioChunks = [];
+        state.voiceSourceStream = null;
+        state.voiceAudioNodes = null;
+        state.mediaRecorder = null;
+        // Clear any legacy storage written by older builds, then remove the
+        // visible DOM so no ciphertext or media URL remains in the page heap.
+        try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
+        document.body.classList.add('panic-active');
+        document.body.replaceChildren();
+        setTimeout(() => { window.location.replace('about:blank'); }, 120);
+    }
+
+    // Browsers normally reclaim a page's heap on close, but pagehide can also
+    // place a tab in the back-forward cache. Explicitly drop volatile secrets
+    // and media handles so a restored page cannot resurrect an old session.
+    window.addEventListener('pagehide', () => {
+        try { state.dataChannel?.close(); } catch (e) {}
+        try { state.peerConnection?.close(); } catch (e) {}
+        try { state.localStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
+        try { state.voiceSourceStream?.getTracks().forEach(track => track.stop()); } catch (e) {}
+        state.objectUrls.forEach(url => { try { URL.revokeObjectURL(url); } catch (e) {} });
+        state.objectUrls.clear();
+        state.transfers.clear();
+        state.keyPair = null;
+        state.myPublicKeyJwk = null;
+        state.sessionKey = null;
+        state.activePeer = null;
+        try { socket.disconnect(); } catch (e) {}
+    });
+    window.addEventListener('pageshow', event => {
+        if (event.persisted) window.location.reload();
+    });
 
     // =========================================================================
     // 9. EVENT LISTENERS & DOM HOOKS
@@ -1499,13 +2153,18 @@
             openConnProgress(`Incoming from ${escapeHtml(sender.nickname || 'Peer')}`);
             updateConnStep(1, 'active');
 
-            if (sender.publicKey) {
-                await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
+            if (!sender.publicKey) {
+                closeConnProgress();
+                showNearbyToast('Peer did not provide an ephemeral public key.', 'error');
+                return;
             }
+            await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
             updateConnStep(1, 'done');
             updateConnStep(2, 'done');
             updateConnStep(3, 'done');
             updateConnStep(4, 'done');
+            state.transport = 'relay';
+            updateTransportBadge();
 
             // Send back our public key confirmation
             socket.emit('nearby_session_accept', {
@@ -1525,12 +2184,16 @@
             const sender = data.sender || { id: data.from, nickname: 'Peer', avatar: '🕵️' };
             state.activePeer = sender;
 
-            if (sender.publicKey && !state.sessionKey) {
-                await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
+            if (!sender.publicKey) {
+                showNearbyToast('Peer did not provide an ephemeral public key.', 'error');
+                return;
             }
+            if (!state.sessionKey) await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
             updateConnStep(2, 'done');
             updateConnStep(3, 'done');
             updateConnStep(4, 'done');
+            state.transport = 'relay';
+            updateTransportBadge();
 
             AudioEngine.playLockBeep();
             setTimeout(() => {
@@ -1578,9 +2241,8 @@
                         publicKey: (data.senderInfo && data.senderInfo.publicKey) || null
                     };
 
-                    if (sender.publicKey && !state.sessionKey) {
-                        await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
-                    }
+                    if (!sender.publicKey) throw new Error('Signaling peer did not provide an ephemeral public key.');
+                    if (!state.sessionKey) await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
 
                     await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
                     _remoteDescriptionSet = true;
@@ -1608,9 +2270,8 @@
                     });
                 } else if (data.type === 'answer') {
                     if (state.peerConnection && state.peerConnection.signalingState === 'have-local-offer') {
-                        if (data.senderInfo && data.senderInfo.publicKey && !state.sessionKey) {
-                            await CryptoEngine.deriveSharedSessionKey(data.senderInfo.publicKey);
-                        }
+                        if (!data.senderInfo || !data.senderInfo.publicKey) throw new Error('Signaling peer did not provide an ephemeral public key.');
+                        if (!state.sessionKey) await CryptoEngine.deriveSharedSessionKey(data.senderInfo.publicKey);
 
                         await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
                         _remoteDescriptionSet = true;
@@ -1672,7 +2333,6 @@
             nickInput.value = state.myNickname;
             nickInput.addEventListener('change', () => {
                 state.myNickname = nickInput.value.trim() || 'Agent_007';
-                localStorage.setItem('privy_nearby_nick', state.myNickname);
                 socket.emit('nearby_update_profile', { nickname: state.myNickname });
             });
         }
@@ -1688,7 +2348,6 @@
         document.getElementById('avatarGrid')?.addEventListener('click', (e) => {
             if (e.target.classList.contains('profile-avatar-btn')) {
                 state.myAvatar = e.target.textContent;
-                localStorage.setItem('privy_nearby_avatar', state.myAvatar);
                 if (avatarBtn) avatarBtn.textContent = state.myAvatar;
                 document.getElementById('avatarModal').classList.remove('active');
                 socket.emit('nearby_update_profile', { avatar: state.myAvatar });
@@ -1722,6 +2381,7 @@
         // Send message button & Enter key
         const msgInput = document.getElementById('msgInput');
         const sendBtn = document.getElementById('sendMsgBtn');
+        let typingStopTimer = null;
 
         const doSend = () => {
             if (msgInput) {
@@ -1732,10 +2392,20 @@
 
         if (sendBtn) sendBtn.addEventListener('click', doSend);
         if (msgInput) {
+            msgInput.addEventListener('input', () => {
+                if (!state.activePeer || !state.sessionKey) return;
+                sendEncryptedControl('typing', { isTyping: msgInput.value.length > 0 }).catch(() => {});
+                clearTimeout(typingStopTimer);
+                typingStopTimer = setTimeout(() => {
+                    sendEncryptedControl('typing', { isTyping: false }).catch(() => {});
+                }, 1200);
+            });
             msgInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
                     doSend();
+                    clearTimeout(typingStopTimer);
+                    sendEncryptedControl('typing', { isTyping: false }).catch(() => {});
                 }
             });
         }
@@ -1744,12 +2414,7 @@
         document.getElementById('recordVoiceBtn')?.addEventListener('click', startVoiceRecording);
         document.getElementById('sendVoiceBtn')?.addEventListener('click', stopAndSendVoiceRecording);
         document.getElementById('cancelVoiceBtn')?.addEventListener('click', () => {
-            if (state.mediaRecorder) {
-                state.mediaRecorder.stop();
-                state.mediaRecorder.stream.getTracks().forEach(t => t.stop());
-                clearInterval(state.voiceTimerInterval);
-                document.getElementById('voiceRecordingBar').style.display = 'none';
-            }
+            cancelVoiceRecording();
         });
 
         // File Attachment
@@ -1760,35 +2425,30 @@
                 const file = e.target.files[0];
                 if (!file || !state.activePeer) return;
 
-                const reader = new FileReader();
-                reader.onload = async () => {
-                    const fileObj = {
+                try {
+                    const transfer = await sendBinaryTransfer({
+                        blob: file,
                         name: file.name,
-                        size: file.size,
-                        type: file.type,
-                        data: reader.result
-                    };
-                    const encrypted = await CryptoEngine.encrypt(JSON.stringify(fileObj));
-                    const packet = {
-                        type: 'file',
-                        sender: state.myNickname,
-                        avatar: state.myAvatar,
-                        timestamp: Date.now(),
-                        burn: state.burnTimer,
-                        payload: encrypted
-                    };
-
-                    sendP2PPacket(packet);
+                        mime: file.type || 'application/octet-stream',
+                        kind: 'file',
+                        burn: state.burnTimer
+                    });
+                    const url = URL.createObjectURL(file);
+                    state.objectUrls.add(url);
                     AudioEngine.playMsgChirp();
                     renderMessage({
                         type: 'file',
                         isSent: true,
-                        file: fileObj,
-                        timestamp: packet.timestamp,
-                        burn: packet.burn
+                        file: { ...transfer.meta, url },
+                        timestamp: transfer.timestamp,
+                        burn: state.burnTimer,
+                        objectUrl: url
                     });
-                };
-                reader.readAsDataURL(file);
+                } catch (error) {
+                    showNearbyToast(error.message, 'error');
+                } finally {
+                    fileInput.value = '';
+                }
             });
         }
 
@@ -1862,6 +2522,9 @@
         document.getElementById('closeQrModalBtn')?.addEventListener('click', () => {
             document.getElementById('qrModal').classList.remove('active');
             stopQrScanner();
+            if (state.qrHandshake && !state.qrHandshake.connected) {
+                closePendingQrConnection(true);
+            }
         });
 
         document.getElementById('qrTabOffer')?.addEventListener('click', () => {
@@ -1909,12 +2572,7 @@
 
         // Panic Purge Button
         document.getElementById('panicBtn')?.addEventListener('click', () => {
-            document.body.classList.add('panic-active');
-            localStorage.clear();
-            sessionStorage.clear();
-            setTimeout(() => {
-                window.location.replace('https://www.google.com');
-            }, 250);
+            panicPurge();
         });
 
         // Back to Radar Button (Toggle out of full-screen chat without disconnecting)
@@ -1951,10 +2609,11 @@
                         });
 
                         if (code && code.data) {
-                            const success = handleDecodedQrPayload(code.data);
-                            if (!success && statusMsg) {
+                            handleDecodedQrPayload(code.data).then(success => {
+                                if (!success && statusMsg) {
                                 statusMsg.innerHTML = '<span style="color:#ef4444;">⚠️ Invalid PrivyChat QR format. Try another photo.</span>';
-                            }
+                                }
+                            });
                         } else {
                             if (statusMsg) statusMsg.innerHTML = '<span style="color:#ef4444;">⚠️ No QR code found in this image. Ensure clear lighting.</span>';
                         }

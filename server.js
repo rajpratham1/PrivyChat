@@ -139,7 +139,10 @@ app.get('/manual', (req, res) => {
 
 // --- Chat Logic ---
 const rooms = {}; // { roomName: { password: '...', users: [] } }
-const nearbyPeers = {}; // { socketId: { id, nickname, avatar, mode, ip, joinedAt, publicKey } }
+// Presence is deliberately volatile and contains only the minimum data needed
+// to route signaling.  In particular, never retain client IP addresses or
+// connection metadata: PrivyChat's nearby relay is a blind, in-memory pipe.
+const nearbyPeers = {}; // { socketId: { id, nickname, avatar, mode, device, publicKey } }
 
 // Validation Schema
 const roomSchema = Joi.object({
@@ -150,8 +153,6 @@ const roomSchema = Joi.object({
 });
 
 io.on('connection', (socket) => {
-    const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
-
     // Helper to broadcast user count AND list
     const broadcastRoomUpdate = (room) => {
         if (rooms[room]) {
@@ -171,8 +172,7 @@ io.on('connection', (socket) => {
             avatar: p.avatar,
             mode: p.mode,
             device: p.device,
-            publicKey: p.publicKey,
-            joinedAt: p.joinedAt
+            publicKey: p.publicKey
         }));
         io.emit('nearby_peer_list', peerList);
     };
@@ -186,7 +186,13 @@ io.on('connection', (socket) => {
         const avatar = data && data.avatar ? data.avatar : '🕵️';
         const mode = data && data.mode ? data.mode : 'wifi';
         const device = data && data.device ? data.device : 'Desktop';
-        const publicKey = data && data.publicKey ? data.publicKey : null;
+        const candidateKey = data && data.publicKey;
+        const publicKey = candidateKey && typeof candidateKey === 'object' &&
+            candidateKey.kty === 'EC' && candidateKey.crv === 'P-256' &&
+            typeof candidateKey.x === 'string' && typeof candidateKey.y === 'string' &&
+            candidateKey.x.length <= 128 && candidateKey.y.length <= 128
+            ? { kty: 'EC', crv: 'P-256', x: candidateKey.x, y: candidateKey.y }
+            : null;
 
         nearbyPeers[socket.id] = {
             id: socket.id,
@@ -194,9 +200,7 @@ io.on('connection', (socket) => {
             avatar,
             mode,
             device,
-            ip: clientIp,
-            publicKey,
-            joinedAt: Date.now()
+            publicKey
         };
 
         // Notify client of their assigned ID and list of other peers
@@ -214,7 +218,6 @@ io.on('connection', (socket) => {
             if (data.nickname) nearbyPeers[socket.id].nickname = String(data.nickname).slice(0, 25);
             if (data.avatar) nearbyPeers[socket.id].avatar = data.avatar;
             if (data.mode) nearbyPeers[socket.id].mode = data.mode;
-            if (data.publicKey) nearbyPeers[socket.id].publicKey = data.publicKey;
             broadcastNearbyPeers();
         }
     });
@@ -223,10 +226,17 @@ io.on('connection', (socket) => {
     socket.on('nearby_signal', (data) => {
         // data: { to, signal, type, senderInfo }
         if (data && data.to && io.sockets.sockets.get(data.to)) {
-            const sender = data.senderInfo || nearbyPeers[socket.id] || { id: socket.id, nickname: 'Anonymous' };
+            const sender = nearbyPeers[socket.id] || data.senderInfo || { id: socket.id, nickname: 'Anonymous' };
             // Ensure nearbyPeers has this sender's info cached
             if (!nearbyPeers[socket.id] && data.senderInfo) {
-                nearbyPeers[socket.id] = { ...data.senderInfo, id: socket.id, ip: clientIp, joinedAt: Date.now() };
+                nearbyPeers[socket.id] = {
+                    id: socket.id,
+                    nickname: String(data.senderInfo.nickname || 'Anonymous').slice(0, 25),
+                    avatar: data.senderInfo.avatar || '🕵️',
+                    mode: data.senderInfo.mode || 'wifi',
+                    device: data.senderInfo.device || 'Unknown',
+                    publicKey: data.senderInfo.publicKey || null
+                };
             }
             io.to(data.to).emit('nearby_signal', {
                 from: socket.id,
@@ -268,10 +278,18 @@ io.on('connection', (socket) => {
     // Zero-Knowledge Encrypted P2P Socket Relay (Dual-Layer Transport)
     // Server acts solely as a blind byte-pipe for client-side AES-256-GCM encrypted packets
     socket.on('nearby_p2p_message', (data) => {
-        if (data && data.to && io.sockets.sockets.get(data.to)) {
+        const packet = data && data.packet;
+        // Reject malformed/plaintext packets at the relay boundary. The relay
+        // must never become an accidental unencrypted message channel.
+        const encryptedPacket = packet && typeof packet === 'object' &&
+            typeof packet.type === 'string' && packet.type.length <= 32 &&
+            packet.payload && typeof packet.payload.iv === 'string' &&
+            typeof packet.payload.data === 'string' &&
+            packet.payload.iv.length === 16 && packet.payload.data.length <= 160000;
+        if (data && typeof data.to === 'string' && encryptedPacket && io.sockets.sockets.get(data.to)) {
             io.to(data.to).emit('nearby_p2p_message', {
                 from: socket.id,
-                packet: data.packet
+                packet
             });
         }
     });
@@ -282,7 +300,7 @@ io.on('connection', (socket) => {
             const sender = nearbyPeers[socket.id] || { id: socket.id, nickname: 'Agent' };
             io.to(data.to).emit('nearby_session_request', {
                 from: socket.id,
-                sender: { ...sender, publicKey: data.publicKey }
+                sender: { ...sender, publicKey: sender.publicKey || null }
             });
         }
     });
@@ -292,7 +310,7 @@ io.on('connection', (socket) => {
             const sender = nearbyPeers[socket.id] || { id: socket.id, nickname: 'Agent' };
             io.to(data.to).emit('nearby_session_accept', {
                 from: socket.id,
-                sender: { ...sender, publicKey: data.publicKey }
+                sender: { ...sender, publicKey: sender.publicKey || null }
             });
         }
     });
@@ -428,6 +446,9 @@ io.on('connection', (socket) => {
                     rooms[room].users = rooms[room].users.filter(u => u.id !== socket.id);
                     socket.to(room).emit('system_msg', `${user.username} has left`);
                     broadcastRoomUpdate(room);
+                    // Empty rooms have no useful state and must not accumulate
+                    // in the relay process after a session ends.
+                    if (rooms[room].users.length === 0) delete rooms[room];
                 }
             }
         });

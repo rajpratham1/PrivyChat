@@ -202,6 +202,18 @@ class MeshService extends ChangeNotifier {
     onHandshakeStepUpdate?.call(1, 'done');
     onHandshakeStepUpdate?.call(2, 'active');
 
+    if (peer.mode == 'qr' || _socket == null || !_socket!.connected) {
+      // Direct QR Optical or Local offline mode: finish handshake immediately
+      onHandshakeStepUpdate?.call(2, 'done');
+      onHandshakeStepUpdate?.call(3, 'done');
+      onHandshakeStepUpdate?.call(4, 'done');
+      Future.delayed(const Duration(milliseconds: 350), () {
+        onHandshakeCompleted?.call();
+        notifyListeners();
+      });
+      return;
+    }
+
     _socket?.emit('nearby_session_request', {
       'to': peer.id,
       'publicKey': CryptoEngine().myPublicKeyJwk,

@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../services/crypto_engine.dart';
+import '../services/mesh_service.dart';
 import '../models/peer_model.dart';
 
 class OpticalQrDialog extends StatefulWidget {
@@ -29,12 +30,13 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
   }
 
   void _generatePayload() {
+    final mesh = MeshService();
     final jwk = CryptoEngine().myPublicKeyJwk;
     final payload = {
       'p': 'privychat-opt-v1',
-      'id': 'peer_${DateTime.now().millisecondsSinceEpoch}',
-      'nick': 'Mobile_Agent',
-      'avatar': '🕵️',
+      'id': mesh.myId.isNotEmpty ? mesh.myId : 'peer_${DateTime.now().millisecondsSinceEpoch}',
+      'nick': mesh.nickname,
+      'avatar': mesh.avatar,
       'mode': 'qr',
       'key': jwk,
     };

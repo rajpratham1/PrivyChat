@@ -43,6 +43,33 @@ class CryptoEngine {
     });
   }
 
+  /// RFC 5869 compliant HKDF-SHA256
+  Uint8List _hkdfSha256({
+    required List<int> ikm,
+    required List<int> salt,
+    required List<int> info,
+    int length = 32,
+  }) {
+    // 1. Extract
+    final hmacExtract = crypto_hash.Hmac(crypto_hash.sha256, salt.isNotEmpty ? salt : List.filled(32, 0));
+    final prk = hmacExtract.convert(ikm).bytes;
+
+    // 2. Expand
+    final hmacExpand = crypto_hash.Hmac(crypto_hash.sha256, prk);
+    final okm = <int>[];
+    var previousT = <int>[];
+    var counter = 1;
+
+    while (okm.length < length) {
+      final input = [...previousT, ...info, counter];
+      previousT = hmacExpand.convert(input).bytes;
+      okm.addAll(previousT);
+      counter++;
+    }
+
+    return Uint8List.fromList(okm.sublist(0, length));
+  }
+
   Future<void> deriveSharedSessionKey(Map<String, dynamic> peerJwk) async {
     try {
       if (_keyPair == null || _myPublicKeyJwk == null) await init();
@@ -60,8 +87,9 @@ class CryptoEngine {
         keyPair: _keyPair!,
         remotePublicKey: remotePk,
       );
+      final rawSecretBytes = await sharedSecret.extractBytes();
 
-      // Compute canonical transcript hash for HKDF salt (identical to Web Crypto implementation)
+      // Compute canonical transcript hash for HKDF salt (identical to Web Crypto API)
       final transcriptList = [
         _canonicalPublicKey(_myPublicKeyJwk!),
         _canonicalPublicKey(peerJwk),
@@ -70,14 +98,14 @@ class CryptoEngine {
       final transcriptDigest = crypto_hash.sha256.convert(utf8.encode(transcript));
       final salt = transcriptDigest.bytes;
 
-      // HKDF Key Derivation to produce 256-bit AES-GCM Key
-      final hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
-      final derivedKey = await hkdf.deriveKey(
-        secretKey: sharedSecret,
+      // RFC 5869 HKDF Key Derivation to produce 256-bit AES-GCM Key
+      final derivedKeyBytes = _hkdfSha256(
+        ikm: rawSecretBytes,
         salt: salt,
         info: utf8.encode('PrivyChat Nearby Tactical Mesh v1'),
+        length: 32,
       );
-      _sharedSessionKey = derivedKey;
+      _sharedSessionKey = await _aesGcm.newSecretKeyFromBytes(derivedKeyBytes);
 
       // 16-hex Character Safety Fingerprint
       final hex = transcriptDigest.toString().toUpperCase();

@@ -1,0 +1,41 @@
+name: privychat_mobile
+description: "PrivyChat - Tactical Nearby WiFi & Bluetooth Mesh Messenger for Android & iOS"
+publish_to: 'none'
+version: 2.4.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Cryptography Engine (Zero-Knowledge ECDH P-256 + AES-256-GCM)
+  cryptography: ^2.7.0
+  crypto: ^3.0.3
+
+  # Network & P2P Mesh Engine
+  socket_io_client: ^2.0.3+1
+  flutter_webrtc: ^0.10.6
+
+  # Optical Air-Gap QR Transceiver
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^5.1.1
+
+  # Media, Audio & Voice Notes
+  record: ^5.1.2
+  audioplayers: ^6.0.0
+  file_picker: ^8.0.0
+
+  # Tactical Cyber HUD UI & Aesthetics
+  google_fonts: ^6.2.1
+  lucide_icons: ^0.257.0
+  flutter_animate: ^4.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'screens/radar_screen.dart';
+import 'screens/identity_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -9,7 +9,6 @@ void main() {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  // SystemUiOverlayStyle (lowercase 'i') is the correct spelling in Flutter
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -41,7 +40,7 @@ class PrivyChatMobileApp extends StatelessWidget {
         ),
         textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),
       ),
-      home: const RadarScreen(),
+      home: const IdentityScreen(),
     );
   }
 }

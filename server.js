@@ -265,6 +265,38 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Zero-Knowledge Encrypted P2P Socket Relay (Dual-Layer Transport)
+    // Server acts solely as a blind byte-pipe for client-side AES-256-GCM encrypted packets
+    socket.on('nearby_p2p_message', (data) => {
+        if (data && data.to && io.sockets.sockets.get(data.to)) {
+            io.to(data.to).emit('nearby_p2p_message', {
+                from: socket.id,
+                packet: data.packet
+            });
+        }
+    });
+
+    // Instant E2EE Session Handshake Request/Accept
+    socket.on('nearby_session_request', (data) => {
+        if (data && data.to && io.sockets.sockets.get(data.to)) {
+            const sender = nearbyPeers[socket.id] || { id: socket.id, nickname: 'Agent' };
+            io.to(data.to).emit('nearby_session_request', {
+                from: socket.id,
+                sender: { ...sender, publicKey: data.publicKey }
+            });
+        }
+    });
+
+    socket.on('nearby_session_accept', (data) => {
+        if (data && data.to && io.sockets.sockets.get(data.to)) {
+            const sender = nearbyPeers[socket.id] || { id: socket.id, nickname: 'Agent' };
+            io.to(data.to).emit('nearby_session_accept', {
+                from: socket.id,
+                sender: { ...sender, publicKey: data.publicKey }
+            });
+        }
+    });
+
     // Nearby ICE candidates
     socket.on('nearby_ice_candidate', (data) => {
         if (data && data.to && io.sockets.sockets.get(data.to)) {

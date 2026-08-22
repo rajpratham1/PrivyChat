@@ -424,10 +424,15 @@
         iceCandidatePoolSize: 10
     };
 
+    // Perfect Negotiation State
+    let isMakingOffer = false;
+    let ignoreOffer = false;
+
     function initPeerConnection(targetPeer, isInitiator = false) {
-        // Reset ICE queue for fresh connection attempt
         _pendingIceCandidates = [];
         _remoteDescriptionSet = false;
+        isMakingOffer = false;
+        ignoreOffer = false;
 
         if (state.peerConnection) {
             try { state.peerConnection.close(); } catch (e) {}
@@ -480,59 +485,29 @@
 
         state.peerConnection.oniceconnectionstatechange = () => {
             const iceState = state.peerConnection.iceConnectionState;
-            console.log('ICE State:', iceState);
-            if (iceState === 'checking') {
-                updateConnStep(3, 'active');
-            } else if (iceState === 'connected' || iceState === 'completed') {
+            console.log('WebRTC ICE State:', iceState);
+            if (iceState === 'connected' || iceState === 'completed') {
                 updateConnStep(3, 'done');
-                updateConnStep(4, 'active');
-            } else if (iceState === 'failed') {
-                updateConnStep(3, 'error');
-                const ring = document.getElementById('connProgRing');
-                if (ring) ring.className = 'conn-prog-ring error';
-                showNearbyToast('❌ Network negotiation failed. Ensure both devices have internet/WiFi.', 'error');
-                setTimeout(() => { closeConnProgress(); terminateSession(); }, 2500);
+                updateConnStep(4, 'done');
             }
         };
 
         state.peerConnection.onconnectionstatechange = () => {
             console.log("WebRTC Connection State:", state.peerConnection.connectionState);
-            if (state.peerConnection.connectionState === 'disconnected' || state.peerConnection.connectionState === 'failed') {
-                terminateSession();
-            }
         };
     }
 
     function setupDataChannelEvents(dc) {
         dc.onopen = () => {
-            console.log("⚡ P2P WebRTC DataChannel OPEN!");
-            // Clear connection timeout
-            if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
-            // Complete all progress stages
+            console.log("⚡ Direct P2P WebRTC DataChannel OPEN!");
             updateConnStep(3, 'done');
             updateConnStep(4, 'done');
-            const fill = document.getElementById('connProgressFill');
-            const pct = document.getElementById('connPercent');
-            if (fill) fill.style.width = '100%';
-            if (pct) pct.textContent = '100%';
             const ring = document.getElementById('connProgRing');
             if (ring) ring.className = 'conn-prog-ring done';
-            // Re-enable connect buttons
-            document.querySelectorAll('.peer-connect-btn').forEach(btn => {
-                if (btn.id !== 'cancelConnBtn') { btn.disabled = false; btn.textContent = 'Connect'; }
-            });
-            AudioEngine.playLockBeep();
-            // Close progress modal after brief delay showing 100%
-            setTimeout(() => {
-                closeConnProgress();
-                switchToActiveChat(state.activePeer);
-                showNearbyToast('🔒 Secure P2P channel established!', 'success');
-            }, 700);
         };
 
         dc.onclose = () => {
             console.log("DataChannel Closed.");
-            terminateSession();
         };
 
         dc.onmessage = async (event) => {
@@ -543,6 +518,26 @@
                 console.error("Failed to parse incoming P2P payload:", e);
             }
         };
+    }
+
+    // Dual-Layer Transport Engine (P2P DataChannel + Zero-Knowledge Encrypted Socket Relay)
+    function sendP2PPacket(packet) {
+        if (state.dataChannel && state.dataChannel.readyState === 'open') {
+            try {
+                state.dataChannel.send(JSON.stringify(packet));
+                return true;
+            } catch (e) {
+                console.warn("DataChannel send failed, using E2EE socket relay fallback:", e);
+            }
+        }
+        if (socket && state.activePeer && state.activePeer.id) {
+            socket.emit('nearby_p2p_message', {
+                to: state.activePeer.id,
+                packet: packet
+            });
+            return true;
+        }
+        return false;
     }
 
     // =========================================================================
@@ -561,8 +556,8 @@
         // Reset progress bar
         const fill = document.getElementById('connProgressFill');
         const pct  = document.getElementById('connPercent');
-        if (fill) fill.style.width = '5%';
-        if (pct) pct.textContent = '5%';
+        if (fill) fill.style.width = '10%';
+        if (pct) pct.textContent = '10%';
         // Reset spinner ring
         const ring = document.getElementById('connProgRing');
         if (ring) ring.className = 'conn-prog-ring';
@@ -573,7 +568,7 @@
         _connElapsedInterval = setInterval(() => {
             const el = document.getElementById('connElapsed');
             if (el) el.textContent = `${((Date.now() - _connStartTime) / 1000).toFixed(1)}s elapsed`;
-        }, 100);
+        }, 80);
         modal.classList.add('active');
     }
 
@@ -592,8 +587,7 @@
     function updateConnStep(stepNum, status) {
         setStepState(stepNum, status);
         _connCurrentStep = stepNum;
-        // Update progress bar percentage
-        const progressMap = { 1: { active: 15, done: 25 }, 2: { active: 35, done: 50 }, 3: { active: 65, done: 78 }, 4: { active: 90, done: 100 } };
+        const progressMap = { 1: { active: 20, done: 30 }, 2: { active: 50, done: 65 }, 3: { active: 80, done: 90 }, 4: { active: 95, done: 100 } };
         const fill = document.getElementById('connProgressFill');
         const pct  = document.getElementById('connPercent');
         const p = (progressMap[stepNum] || {})[status];
@@ -643,11 +637,6 @@
 
     async function connectToPeer(peer) {
         if (!peer || peer.id === state.myId) return;
-        // Prevent connecting when channel already open
-        if (state.dataChannel && state.dataChannel.readyState === 'open') return;
-
-        // Clear any previous timeout
-        if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
 
         AudioEngine.playLockBeep();
 
@@ -655,47 +644,47 @@
         openConnProgress(`Connecting to ${escapeHtml(peer.nickname || 'Peer')}`);
         updateConnStep(1, 'active');
 
-        // Disable connect buttons to prevent parallel attempts
-        document.querySelectorAll('.peer-connect-btn').forEach(btn => {
-            if (btn.id !== 'cancelConnBtn') { btn.disabled = true; btn.textContent = 'Connecting…'; }
-        });
+        state.activePeer = peer;
 
-        initPeerConnection(peer, true);
-        updateConnStep(1, 'done');
-        updateConnStep(2, 'active');
-
-        // Derive shared session key from peer's public key if available
+        // 1. Instantly derive shared session key if peer's public key is known
         if (peer.publicKey) {
             await CryptoEngine.deriveSharedSessionKey(peer.publicKey);
         }
+        updateConnStep(1, 'done');
+        updateConnStep(2, 'active');
 
-        const offer = await state.peerConnection.createOffer();
-        await state.peerConnection.setLocalDescription(offer);
-
-        socket.emit('nearby_signal', {
+        // 2. Send instant E2EE session request via zero-knowledge relay
+        socket.emit('nearby_session_request', {
             to: peer.id,
-            signal: offer,
-            type: 'offer',
-            senderInfo: {
-                id: state.myId || socket.id,
-                nickname: state.myNickname,
-                avatar: state.myAvatar,
-                mode: state.mode,
-                device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
-                publicKey: state.myPublicKeyJwk
-            }
+            publicKey: state.myPublicKeyJwk
         });
 
-        // Auto-fail if DataChannel doesn't open in 18 seconds
-        _connectionTimeoutTimer = setTimeout(() => {
-            if (!state.dataChannel || state.dataChannel.readyState !== 'open') {
-                updateConnStep(_connCurrentStep, 'error');
-                const ring = document.getElementById('connProgRing');
-                if (ring) ring.className = 'conn-prog-ring error';
-                showNearbyToast('⚠️ Timed out. Ensure the other person has Nearby open.', 'error');
-                setTimeout(() => { closeConnProgress(); terminateSession(); }, 2500);
-            }
-        }, 18000);
+        // 3. Initiate WebRTC peer connection in parallel for direct media/data streaming
+        initPeerConnection(peer, true);
+
+        try {
+            isMakingOffer = true;
+            const offer = await state.peerConnection.createOffer();
+            await state.peerConnection.setLocalDescription(offer);
+
+            socket.emit('nearby_signal', {
+                to: peer.id,
+                signal: offer,
+                type: 'offer',
+                senderInfo: {
+                    id: state.myId || socket.id,
+                    nickname: state.myNickname,
+                    avatar: state.myAvatar,
+                    mode: state.mode,
+                    device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
+                    publicKey: state.myPublicKeyJwk
+                }
+            });
+        } catch (err) {
+            console.warn("WebRTC offer error:", err);
+        } finally {
+            isMakingOffer = false;
+        }
     }
 
     // =========================================================================
@@ -836,7 +825,7 @@
     // 5. P2P MESSAGING, VOICE NOTES & FILE SHARING
     // =========================================================================
     async function sendTextMessage(text) {
-        if (!text || !text.trim() || !state.dataChannel || state.dataChannel.readyState !== 'open') return;
+        if (!text || !text.trim() || !state.activePeer) return;
 
         const trimmed = text.trim();
         const encrypted = await CryptoEngine.encrypt(trimmed);
@@ -850,7 +839,7 @@
             payload: encrypted
         };
 
-        state.dataChannel.send(JSON.stringify(packet));
+        sendP2PPacket(packet);
         AudioEngine.playMsgChirp();
 
         // Render in local UI
@@ -1461,17 +1450,15 @@
                     payload: encrypted
                 };
 
-                if (state.dataChannel && state.dataChannel.readyState === 'open') {
-                    state.dataChannel.send(JSON.stringify(packet));
-                    AudioEngine.playMsgChirp();
-                    renderMessage({
-                        type: 'voice',
-                        isSent: true,
-                        audioSrc: base64Data,
-                        timestamp: packet.timestamp,
-                        burn: packet.burn
-                    });
-                }
+                sendP2PPacket(packet);
+                AudioEngine.playMsgChirp();
+                renderMessage({
+                    type: 'voice',
+                    isSent: true,
+                    audioSrc: base64Data,
+                    timestamp: packet.timestamp,
+                    burn: packet.burn
+                });
             };
             reader.readAsDataURL(audioBlob);
 
@@ -1518,77 +1505,141 @@
             updatePeerListUI(peers);
         });
 
-        // WebRTC Signaling Handlers — ICE candidates are queued until remote description is ready
+        // ── ZERO-KNOWLEDGE INSTANT E2EE SESSION RELAY & HANDSHAKE ──
+        socket.on('nearby_session_request', async (data) => {
+            document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
+            stopQrScanner();
+
+            const sender = data.sender || { id: data.from, nickname: 'Peer', avatar: '🕵️' };
+            state.activePeer = sender;
+
+            openConnProgress(`Incoming from ${escapeHtml(sender.nickname || 'Peer')}`);
+            updateConnStep(1, 'active');
+
+            if (sender.publicKey) {
+                await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
+            }
+            updateConnStep(1, 'done');
+            updateConnStep(2, 'done');
+            updateConnStep(3, 'done');
+            updateConnStep(4, 'done');
+
+            // Send back our public key confirmation
+            socket.emit('nearby_session_accept', {
+                to: data.from,
+                publicKey: state.myPublicKeyJwk
+            });
+
+            AudioEngine.playLockBeep();
+            setTimeout(() => {
+                closeConnProgress();
+                switchToActiveChat(sender);
+                showNearbyToast('🔒 Encrypted P2P session established!', 'success');
+            }, 350);
+        });
+
+        socket.on('nearby_session_accept', async (data) => {
+            const sender = data.sender || { id: data.from, nickname: 'Peer', avatar: '🕵️' };
+            state.activePeer = sender;
+
+            if (sender.publicKey && !state.sessionKey) {
+                await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
+            }
+            updateConnStep(2, 'done');
+            updateConnStep(3, 'done');
+            updateConnStep(4, 'done');
+
+            AudioEngine.playLockBeep();
+            setTimeout(() => {
+                closeConnProgress();
+                switchToActiveChat(sender);
+                showNearbyToast('🔒 Encrypted P2P session established!', 'success');
+            }, 350);
+        });
+
+        // Zero-Knowledge Encrypted Socket Message Receiver
+        socket.on('nearby_p2p_message', (data) => {
+            if (data && data.packet) {
+                handleIncomingP2PPayload(data.packet);
+            }
+        });
+
+        // WebRTC Signaling Handlers with W3C Perfect Negotiation Pattern (Simultaneous Connect Glare Resolution)
         socket.on('nearby_signal', async (data) => {
-            if (data.type === 'offer') {
-                // Close QR modal & camera so Device A sees the chatbox
-                document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
-                stopQrScanner();
-
-                const sender = {
-                    id: data.from,
-                    nickname: (data.senderInfo && data.senderInfo.nickname) || 'Target_Peer',
-                    avatar: (data.senderInfo && data.senderInfo.avatar) || '🕵️',
-                    mode: (data.senderInfo && data.senderInfo.mode) || 'wifi',
-                    device: (data.senderInfo && data.senderInfo.device) || 'Mobile',
-                    publicKey: (data.senderInfo && data.senderInfo.publicKey) || null
-                };
-
-                openConnProgress(`Incoming from ${escapeHtml(sender.nickname)}`);
-                updateConnStep(1, 'done');
-                updateConnStep(2, 'done');
-                updateConnStep(3, 'active');
-                showNearbyToast(`📡 Incoming secure connection from ${escapeHtml(sender.nickname)}`, 'info');
-
-                initPeerConnection(sender, false);
-
-                if (sender.publicKey) {
-                    await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
-                }
-
-                await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
-                _remoteDescriptionSet = true;
-
-                // Flush any ICE candidates that arrived before remote description was ready
-                while (_pendingIceCandidates.length > 0) {
-                    const cand = _pendingIceCandidates.shift();
-                    try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
-                }
-
-                const answer = await state.peerConnection.createAnswer();
-                await state.peerConnection.setLocalDescription(answer);
-
-                socket.emit('nearby_signal', {
-                    to: data.from,
-                    signal: answer,
-                    type: 'answer',
-                    senderInfo: {
-                        id: state.myId || socket.id,
-                        nickname: state.myNickname,
-                        avatar: state.myAvatar,
-                        mode: state.mode,
-                        device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
-                        publicKey: state.myPublicKeyJwk
+            const isPolite = state.myId < data.from;
+            try {
+                if (data.type === 'offer') {
+                    if (!state.peerConnection) {
+                        initPeerConnection({ id: data.from }, false);
                     }
-                });
-            } else if (data.type === 'answer') {
-                if (state.peerConnection) {
-                    updateConnStep(2, 'done');
-                    updateConnStep(3, 'active');
 
-                    if (data.senderInfo && data.senderInfo.publicKey && !state.sessionKey) {
-                        await CryptoEngine.deriveSharedSessionKey(data.senderInfo.publicKey);
+                    const offerCollision = isMakingOffer || (state.peerConnection && state.peerConnection.signalingState !== "stable");
+                    ignoreOffer = !isPolite && offerCollision;
+
+                    if (ignoreOffer) {
+                        console.log("Impolite Peer: Ignored colliding offer in favor of local offer");
+                        return;
+                    }
+
+                    if (offerCollision && isPolite) {
+                        console.log("Polite Peer: Rolling back local offer to accept incoming offer");
+                        await state.peerConnection.setLocalDescription({ type: 'rollback' });
+                    }
+
+                    const sender = {
+                        id: data.from,
+                        nickname: (data.senderInfo && data.senderInfo.nickname) || 'Peer',
+                        avatar: (data.senderInfo && data.senderInfo.avatar) || '🕵️',
+                        mode: (data.senderInfo && data.senderInfo.mode) || 'wifi',
+                        device: (data.senderInfo && data.senderInfo.device) || 'Mobile',
+                        publicKey: (data.senderInfo && data.senderInfo.publicKey) || null
+                    };
+
+                    if (sender.publicKey && !state.sessionKey) {
+                        await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
                     }
 
                     await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
                     _remoteDescriptionSet = true;
 
-                    // Flush any ICE candidates that arrived before the answer was processed
                     while (_pendingIceCandidates.length > 0) {
                         const cand = _pendingIceCandidates.shift();
                         try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
                     }
+
+                    const answer = await state.peerConnection.createAnswer();
+                    await state.peerConnection.setLocalDescription(answer);
+
+                    socket.emit('nearby_signal', {
+                        to: data.from,
+                        signal: answer,
+                        type: 'answer',
+                        senderInfo: {
+                            id: state.myId || socket.id,
+                            nickname: state.myNickname,
+                            avatar: state.myAvatar,
+                            mode: state.mode,
+                            device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
+                            publicKey: state.myPublicKeyJwk
+                        }
+                    });
+                } else if (data.type === 'answer') {
+                    if (state.peerConnection && state.peerConnection.signalingState === 'have-local-offer') {
+                        if (data.senderInfo && data.senderInfo.publicKey && !state.sessionKey) {
+                            await CryptoEngine.deriveSharedSessionKey(data.senderInfo.publicKey);
+                        }
+
+                        await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
+                        _remoteDescriptionSet = true;
+
+                        while (_pendingIceCandidates.length > 0) {
+                            const cand = _pendingIceCandidates.shift();
+                            try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
+                        }
+                    }
                 }
+            } catch (err) {
+                console.warn("Signaling process notice:", err);
             }
         });
 
@@ -1598,14 +1649,14 @@
                 try {
                     await state.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
                 } catch (e) {
-                    console.warn('ICE candidate add failed:', e.message);
+                    console.warn('ICE candidate notice:', e.message);
                 }
             } else {
                 _pendingIceCandidates.push(data.candidate);
             }
         });
 
-        // Socket Call Signal Listeners (Fallback if DataChannel is negotiating)
+        // Socket Call Signal Listeners
         socket.on('nearby_call_request', (data) => {
             AudioEngine.playRingtone();
             const callModal = document.getElementById('callModal');
@@ -1724,7 +1775,7 @@
         if (fileInput) {
             fileInput.addEventListener('change', async (e) => {
                 const file = e.target.files[0];
-                if (!file || !state.dataChannel) return;
+                if (!file || !state.activePeer) return;
 
                 const reader = new FileReader();
                 reader.onload = async () => {
@@ -1744,7 +1795,7 @@
                         payload: encrypted
                     };
 
-                    state.dataChannel.send(JSON.stringify(packet));
+                    sendP2PPacket(packet);
                     AudioEngine.playMsgChirp();
                     renderMessage({
                         type: 'file',

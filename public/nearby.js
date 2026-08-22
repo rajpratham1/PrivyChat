@@ -38,7 +38,12 @@
         audioChunks: [],
         voiceTimerInterval: null,
         localStream: null,
-        remoteStream: null
+        remoteStream: null,
+
+        // P2P Voice Call Management
+        callTimerInterval: null,
+        callSeconds: 0,
+        isCallActive: false
     };
 
     // ICE candidate queue — prevents race condition where candidates arrive before setRemoteDescription
@@ -61,6 +66,7 @@
     // Sound Synthesizer via Web Audio API (Zero external mp3 files needed)
     const AudioEngine = {
         ctx: null,
+        ringInterval: null,
         init() {
             if (!this.ctx) {
                 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -114,6 +120,33 @@
                 osc.start();
                 osc.stop(this.ctx.currentTime + 0.12);
             } catch (e) { }
+        },
+        playRingtone() {
+            this.init();
+            if (this.ringInterval) return;
+            const ring = () => {
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, this.ctx.currentTime); // A4
+                    osc.frequency.setValueAtTime(480, this.ctx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 1.2);
+                } catch (e) {}
+            };
+            ring();
+            this.ringInterval = setInterval(ring, 3000);
+        },
+        stopRingtone() {
+            if (this.ringInterval) {
+                clearInterval(this.ringInterval);
+                this.ringInterval = null;
+            }
         }
     };
 
@@ -397,17 +430,20 @@
         _remoteDescriptionSet = false;
 
         if (state.peerConnection) {
-            state.peerConnection.close();
+            try { state.peerConnection.close(); } catch (e) {}
+            state.peerConnection = null;
         }
 
         state.peerConnection = new RTCPeerConnection(RTCConfig);
         state.activePeer = targetPeer;
 
+        const targetId = (targetPeer && targetPeer.id) || (state.activePeer && state.activePeer.id);
+
         // ICE Candidate Handling
         state.peerConnection.onicecandidate = (event) => {
-            if (event.candidate && socket && targetPeer.id) {
+            if (event.candidate && socket && targetId) {
                 socket.emit('nearby_ice_candidate', {
-                    to: targetPeer.id,
+                    to: targetId,
                     candidate: event.candidate
                 });
             }
@@ -426,16 +462,18 @@
             };
         }
 
-        // Direct Audio/Video Stream Handling
+        // Direct Audio/Video Stream Handling for P2P Voice Call
         state.peerConnection.ontrack = (event) => {
-            const remoteVideo = document.getElementById('remoteVideo');
+            console.log('Incoming remote media track:', event.track.kind);
             const remoteAudio = document.getElementById('remoteAudio');
+            const remoteVideo = document.getElementById('remoteVideo');
             if (event.streams && event.streams[0]) {
                 if (event.track.kind === 'video' && remoteVideo) {
                     remoteVideo.srcObject = event.streams[0];
                     remoteVideo.style.display = 'block';
                 } else if (event.track.kind === 'audio' && remoteAudio) {
                     remoteAudio.srcObject = event.streams[0];
+                    remoteAudio.play().catch(e => console.warn('Autoplay error:', e));
                 }
             }
         };
@@ -452,7 +490,7 @@
                 updateConnStep(3, 'error');
                 const ring = document.getElementById('connProgRing');
                 if (ring) ring.className = 'conn-prog-ring error';
-                showNearbyToast('❌ ICE negotiation failed. Try on the same WiFi/hotspot.', 'error');
+                showNearbyToast('❌ Network negotiation failed. Ensure both devices have internet/WiFi.', 'error');
                 setTimeout(() => { closeConnProgress(); terminateSession(); }, 2500);
             }
         };
@@ -626,7 +664,7 @@
         updateConnStep(1, 'done');
         updateConnStep(2, 'active');
 
-        // Derive shared session key from peer's public key
+        // Derive shared session key from peer's public key if available
         if (peer.publicKey) {
             await CryptoEngine.deriveSharedSessionKey(peer.publicKey);
         }
@@ -639,10 +677,11 @@
             signal: offer,
             type: 'offer',
             senderInfo: {
-                id: state.myId,
+                id: state.myId || socket.id,
                 nickname: state.myNickname,
                 avatar: state.myAvatar,
                 mode: state.mode,
+                device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
                 publicKey: state.myPublicKeyJwk
             }
         });
@@ -653,10 +692,144 @@
                 updateConnStep(_connCurrentStep, 'error');
                 const ring = document.getElementById('connProgRing');
                 if (ring) ring.className = 'conn-prog-ring error';
-                showNearbyToast('⚠️ Timed out. Ensure the other person has Nearby open on the same network.', 'error');
+                showNearbyToast('⚠️ Timed out. Ensure the other person has Nearby open.', 'error');
                 setTimeout(() => { closeConnProgress(); terminateSession(); }, 2500);
             }
         }, 18000);
+    }
+
+    // =========================================================================
+    // 5.1 DIRECT P2P ENCRYPTED VOICE CALL ENGINE
+    // =========================================================================
+    async function startP2PCall() {
+        if (!state.activePeer) {
+            showNearbyToast('⚠️ Connect to a peer first to start a call.', 'error');
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            state.localStream = stream;
+
+            // Attach audio tracks to WebRTC peer connection
+            if (state.peerConnection) {
+                stream.getTracks().forEach(track => {
+                    state.peerConnection.addTrack(track, stream);
+                });
+            }
+
+            AudioEngine.playRingtone();
+
+            // Open call modal on caller device
+            const callModal = document.getElementById('callModal');
+            document.getElementById('callAvatarIcon').textContent = state.activePeer.avatar || '🕵️';
+            document.getElementById('callPeerHeading').textContent = `Calling ${state.activePeer.nickname || 'Target'}...`;
+            document.getElementById('callSubheading').textContent = 'OUTGOING ENCRYPTED P2P VOICE CALL • RINGING';
+            document.getElementById('acceptCallBtn').style.display = 'none';
+            document.getElementById('hangupCallBtn').style.display = 'flex';
+            if (callModal) callModal.classList.add('active');
+
+            // Send call offer packet
+            const callPayload = {
+                type: 'call_offer',
+                caller: state.myNickname,
+                avatar: state.myAvatar,
+                callType: 'audio'
+            };
+
+            if (state.dataChannel && state.dataChannel.readyState === 'open') {
+                state.dataChannel.send(JSON.stringify(callPayload));
+            } else if (socket && state.activePeer.id) {
+                socket.emit('nearby_call_request', {
+                    to: state.activePeer.id,
+                    callType: 'audio',
+                    caller: { nickname: state.myNickname, avatar: state.myAvatar }
+                });
+            }
+        } catch (err) {
+            console.error('Call failed:', err);
+            showNearbyToast('Microphone permission required for voice call: ' + err.message, 'error');
+        }
+    }
+
+    async function acceptIncomingCall() {
+        AudioEngine.stopRingtone();
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            state.localStream = stream;
+
+            if (state.peerConnection) {
+                stream.getTracks().forEach(track => {
+                    state.peerConnection.addTrack(track, stream);
+                });
+            }
+
+            startCallTimer();
+            document.getElementById('callPeerHeading').textContent = `Connected: ${state.activePeer ? state.activePeer.nickname : 'Partner'}`;
+            document.getElementById('acceptCallBtn').style.display = 'none';
+
+            const acceptPayload = { type: 'call_accept' };
+            if (state.dataChannel && state.dataChannel.readyState === 'open') {
+                state.dataChannel.send(JSON.stringify(acceptPayload));
+            } else if (socket && state.activePeer && state.activePeer.id) {
+                socket.emit('nearby_call_response', {
+                    to: state.activePeer.id,
+                    accepted: true
+                });
+            }
+        } catch (err) {
+            console.error('Accept call failed:', err);
+            showNearbyToast('Microphone access denied: ' + err.message, 'error');
+            endP2PCall();
+        }
+    }
+
+    function endP2PCall(notifyPeer = true) {
+        AudioEngine.stopRingtone();
+        clearInterval(state.callTimerInterval);
+        state.callTimerInterval = null;
+        state.isCallActive = false;
+
+        if (state.localStream) {
+            state.localStream.getTracks().forEach(t => t.stop());
+            state.localStream = null;
+        }
+
+        const callModal = document.getElementById('callModal');
+        if (callModal) callModal.classList.remove('active');
+
+        const remoteAudio = document.getElementById('remoteAudio');
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteAudio) remoteAudio.srcObject = null;
+        if (remoteVideo) {
+            remoteVideo.srcObject = null;
+            remoteVideo.style.display = 'none';
+        }
+
+        if (notifyPeer) {
+            const endPayload = { type: 'call_end' };
+            if (state.dataChannel && state.dataChannel.readyState === 'open') {
+                try { state.dataChannel.send(JSON.stringify(endPayload)); } catch (e) {}
+            } else if (socket && state.activePeer && state.activePeer.id) {
+                socket.emit('nearby_call_end', { to: state.activePeer.id });
+            }
+        }
+
+        showNearbyToast('Call ended.', 'info');
+    }
+
+    function startCallTimer() {
+        state.isCallActive = true;
+        state.callSeconds = 0;
+        clearInterval(state.callTimerInterval);
+        const subheading = document.getElementById('callSubheading');
+        state.callTimerInterval = setInterval(() => {
+            state.callSeconds++;
+            const mins = Math.floor(state.callSeconds / 60);
+            const secs = state.callSeconds % 60;
+            const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            if (subheading) subheading.textContent = `🟢 ENCRYPTED VOICE CALL IN PROGRESS (${timeStr})`;
+        }, 1000);
     }
 
     // =========================================================================
@@ -728,6 +901,24 @@
                 burn: packet.burn,
                 sender: packet.sender
             });
+        } else if (packet.type === 'call_offer') {
+            AudioEngine.playRingtone();
+            const callModal = document.getElementById('callModal');
+            const callerName = packet.caller || 'Agent';
+            document.getElementById('callAvatarIcon').textContent = packet.avatar || '🕵️';
+            document.getElementById('callPeerHeading').textContent = `Incoming Call: ${callerName}`;
+            document.getElementById('callSubheading').textContent = 'INCOMING ENCRYPTED P2P VOICE CALL • RINGING';
+            document.getElementById('acceptCallBtn').style.display = 'flex';
+            document.getElementById('hangupCallBtn').style.display = 'flex';
+            if (callModal) callModal.classList.add('active');
+        } else if (packet.type === 'call_accept') {
+            AudioEngine.stopRingtone();
+            startCallTimer();
+            document.getElementById('callPeerHeading').textContent = `Connected: ${state.activePeer ? state.activePeer.nickname : 'Partner'}`;
+            document.getElementById('acceptCallBtn').style.display = 'none';
+            showNearbyToast('📞 Voice Call Connected!', 'success');
+        } else if (packet.type === 'call_end') {
+            endP2PCall(false);
         } else if (packet.type === 'typing') {
             const indicator = document.getElementById('typingIndicator');
             if (indicator) {
@@ -854,6 +1045,7 @@
         // Clear all timers
         if (_connectionTimeoutTimer) { clearTimeout(_connectionTimeoutTimer); _connectionTimeoutTimer = null; }
         closeConnProgress();
+        endP2PCall(false);
 
         if (state.dataChannel) {
             try { state.dataChannel.close(); } catch (e) {}
@@ -910,42 +1102,73 @@
         RadarEngine.updatePeerBlips(peers);
 
         const container = document.getElementById('peerListContainer');
-        if (!container) return;
+        const bleContainer = document.getElementById('blePeerListContainer');
 
         const otherPeers = peers.filter(p => p.id !== state.myId);
-        if (otherPeers.length === 0) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 24px 10px; color: var(--text-muted); font-size: 12px; font-family: 'Courier Prime', monospace;">
-                    <i data-lucide="radio" class="w-5 h-5 mx-auto mb-2 text-green-500 animate-pulse"></i>
-                    No nearby peers currently broadcasting.<br>
-                    Make sure other devices are on this WiFi or in range.
-                </div>
-            `;
-            setTimeout(() => lucide.createIcons(), 10);
-            return;
+
+        // 1. Update Main Radar Target List
+        if (container) {
+            if (otherPeers.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 24px 10px; color: var(--text-muted); font-size: 12px; font-family: 'Courier Prime', monospace;">
+                        <i data-lucide="radio" class="w-5 h-5 mx-auto mb-2 text-green-500 animate-pulse"></i>
+                        No nearby peers currently broadcasting.<br>
+                        Make sure other devices are on this WiFi or have Bluetooth active.
+                    </div>
+                `;
+            } else {
+                container.innerHTML = otherPeers.map(peer => `
+                    <div class="peer-card">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="font-size: 22px; width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center;">
+                                ${peer.avatar || '🕵️'}
+                            </div>
+                            <div>
+                                <div style="font-weight: 700; font-size: 13px; color: #fff;">${escapeHtml(peer.nickname)}</div>
+                                <div style="font-size: 10.5px; color: var(--text-muted); font-family: 'Courier Prime', monospace;">
+                                    ${peer.mode === 'ble' ? '📶 Bluetooth BLE' : '📡 Local WiFi'} • Signal: 98%
+                                </div>
+                            </div>
+                        </div>
+                        <button class="peer-connect-btn" onclick="window.PrivyNearby.connect('${peer.id}')">
+                            Connect
+                        </button>
+                    </div>
+                `).join('');
+            }
         }
 
-        container.innerHTML = otherPeers.map(peer => `
-            <div class="peer-card">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <div style="font-size: 22px; width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center;">
-                        ${peer.avatar || '🕵️'}
+        // 2. Update Bluetooth Modal Peer List
+        if (bleContainer) {
+            if (otherPeers.length === 0) {
+                bleContainer.innerHTML = `
+                    <div style="text-align: center; padding: 12px; color: var(--text-muted); font-size: 11px; font-family: 'Courier Prime', monospace;">
+                        Scanning for Bluetooth peers in range...
                     </div>
-                    <div>
-                        <div style="font-weight: 700; font-size: 13px; color: #fff;">${escapeHtml(peer.nickname)}</div>
-                        <div style="font-size: 10.5px; color: var(--text-muted); font-family: 'Courier Prime', monospace;">
-                            ${peer.mode === 'ble' ? '📶 Bluetooth BLE' : '📡 Local WiFi'} • Signal: 98%
+                `;
+            } else {
+                bleContainer.innerHTML = otherPeers.map(peer => `
+                    <div class="peer-card" style="padding: 8px 12px; background: rgba(6, 182, 212, 0.08); border-color: rgba(6, 182, 212, 0.25);">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="font-size: 18px;">${peer.avatar || '🕵️'}</div>
+                            <div>
+                                <div style="font-weight: 700; font-size: 12px; color: #fff;">${escapeHtml(peer.nickname)}</div>
+                                <div style="font-size: 9.5px; color: var(--neon-cyan); font-family: 'Courier Prime', monospace;">
+                                    ${peer.mode === 'ble' ? '📶 Active BLE Radio' : '📡 WiFi Mesh Peer'}
+                                </div>
+                            </div>
                         </div>
+                        <button class="peer-connect-btn" style="padding: 5px 12px; font-size: 11px; background: linear-gradient(135deg, #06b6d4, #0284c7);" onclick="document.getElementById('bleModal').classList.remove('active'); window.PrivyNearby.connect('${peer.id}')">
+                            Connect
+                        </button>
                     </div>
-                </div>
-                <button class="peer-connect-btn" onclick="window.PrivyNearby.connect('${peer.id}')">
-                    Connect
-                </button>
-            </div>
-        `).join('');
+                `).join('');
+            }
+        }
 
         setTimeout(() => lucide.createIcons(), 10);
     }
+
 
     // =========================================================================
     // 7. WEB BLUETOOTH & AIR-GAPPED QR HANDSHAKE
@@ -1298,30 +1521,39 @@
         // WebRTC Signaling Handlers — ICE candidates are queued until remote description is ready
         socket.on('nearby_signal', async (data) => {
             if (data.type === 'offer') {
-                // ── CRITICAL FIX: Close QR modal & camera so Device A sees the chatbox ──
+                // Close QR modal & camera so Device A sees the chatbox
                 document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
                 stopQrScanner();
 
-                // Show incoming connection progress on Device A
-                const incomingNick = (data.senderInfo && data.senderInfo.nickname) || 'Unknown Peer';
-                openConnProgress(`Incoming from ${escapeHtml(incomingNick)}`);
+                const sender = {
+                    id: data.from,
+                    nickname: (data.senderInfo && data.senderInfo.nickname) || 'Target_Peer',
+                    avatar: (data.senderInfo && data.senderInfo.avatar) || '🕵️',
+                    mode: (data.senderInfo && data.senderInfo.mode) || 'wifi',
+                    device: (data.senderInfo && data.senderInfo.device) || 'Mobile',
+                    publicKey: (data.senderInfo && data.senderInfo.publicKey) || null
+                };
+
+                openConnProgress(`Incoming from ${escapeHtml(sender.nickname)}`);
                 updateConnStep(1, 'done');
                 updateConnStep(2, 'done');
                 updateConnStep(3, 'active');
-                showNearbyToast(`📡 Incoming secure connection from ${escapeHtml(incomingNick)}`, 'info');
+                showNearbyToast(`📡 Incoming secure connection from ${escapeHtml(sender.nickname)}`, 'info');
 
-                initPeerConnection(data.senderInfo, false);
-                if (data.senderInfo && data.senderInfo.publicKey) {
-                    await CryptoEngine.deriveSharedSessionKey(data.senderInfo.publicKey);
+                initPeerConnection(sender, false);
+
+                if (sender.publicKey) {
+                    await CryptoEngine.deriveSharedSessionKey(sender.publicKey);
                 }
+
                 await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
                 _remoteDescriptionSet = true;
 
                 // Flush any ICE candidates that arrived before remote description was ready
-                for (const candidate of _pendingIceCandidates) {
-                    try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+                while (_pendingIceCandidates.length > 0) {
+                    const cand = _pendingIceCandidates.shift();
+                    try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
                 }
-                _pendingIceCandidates = [];
 
                 const answer = await state.peerConnection.createAnswer();
                 await state.peerConnection.setLocalDescription(answer);
@@ -1331,10 +1563,11 @@
                     signal: answer,
                     type: 'answer',
                     senderInfo: {
-                        id: state.myId,
+                        id: state.myId || socket.id,
                         nickname: state.myNickname,
                         avatar: state.myAvatar,
                         mode: state.mode,
+                        device: /Mobi|Android/i.test(navigator.userAgent) ? 'Mobile' : 'Desktop',
                         publicKey: state.myPublicKeyJwk
                     }
                 });
@@ -1342,29 +1575,61 @@
                 if (state.peerConnection) {
                     updateConnStep(2, 'done');
                     updateConnStep(3, 'active');
+
+                    if (data.senderInfo && data.senderInfo.publicKey && !state.sessionKey) {
+                        await CryptoEngine.deriveSharedSessionKey(data.senderInfo.publicKey);
+                    }
+
                     await state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal));
                     _remoteDescriptionSet = true;
 
                     // Flush any ICE candidates that arrived before the answer was processed
-                    for (const candidate of _pendingIceCandidates) {
-                        try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate)); } catch (e) {}
+                    while (_pendingIceCandidates.length > 0) {
+                        const cand = _pendingIceCandidates.shift();
+                        try { await state.peerConnection.addIceCandidate(new RTCIceCandidate(cand)); } catch (e) {}
                     }
-                    _pendingIceCandidates = [];
                 }
             }
         });
 
         socket.on('nearby_ice_candidate', async (data) => {
             if (!state.peerConnection || !data.candidate) return;
-            if (_remoteDescriptionSet) {
-                // Remote description is ready — add candidate immediately
+            if (_remoteDescriptionSet && state.peerConnection.remoteDescription && state.peerConnection.remoteDescription.type) {
                 try {
                     await state.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-                } catch (e) { console.warn('ICE candidate add failed:', e.message); }
+                } catch (e) {
+                    console.warn('ICE candidate add failed:', e.message);
+                }
             } else {
-                // Queue until setRemoteDescription is called (critical race condition fix)
                 _pendingIceCandidates.push(data.candidate);
             }
+        });
+
+        // Socket Call Signal Listeners (Fallback if DataChannel is negotiating)
+        socket.on('nearby_call_request', (data) => {
+            AudioEngine.playRingtone();
+            const callModal = document.getElementById('callModal');
+            const callerName = (data.caller && data.caller.nickname) || 'Agent';
+            document.getElementById('callAvatarIcon').textContent = (data.caller && data.caller.avatar) || '🕵️';
+            document.getElementById('callPeerHeading').textContent = `Incoming Call: ${callerName}`;
+            document.getElementById('callSubheading').textContent = 'INCOMING ENCRYPTED P2P VOICE CALL • RINGING';
+            document.getElementById('acceptCallBtn').style.display = 'flex';
+            document.getElementById('hangupCallBtn').style.display = 'flex';
+            if (callModal) callModal.classList.add('active');
+        });
+
+        socket.on('nearby_call_response', (data) => {
+            if (data.accepted) {
+                AudioEngine.stopRingtone();
+                startCallTimer();
+                document.getElementById('callPeerHeading').textContent = `Connected: ${state.activePeer ? state.activePeer.nickname : 'Partner'}`;
+                document.getElementById('acceptCallBtn').style.display = 'none';
+                showNearbyToast('📞 Voice Call Connected!', 'success');
+            }
+        });
+
+        socket.on('nearby_call_end', () => {
+            endP2PCall(false);
         });
 
         // Profile inputs
@@ -1518,17 +1783,25 @@
         // Disconnect Button
         document.getElementById('disconnectBtn')?.addEventListener('click', terminateSession);
 
+        // P2P Direct Voice Call Controls
+        document.getElementById('startCallBtn')?.addEventListener('click', startP2PCall);
+        document.getElementById('acceptCallBtn')?.addEventListener('click', acceptIncomingCall);
+        document.getElementById('hangupCallBtn')?.addEventListener('click', () => endP2PCall(true));
+
         // Discovery Mode Buttons
         document.getElementById('modeWifiBtn')?.addEventListener('click', (e) => {
             document.querySelectorAll('.mode-tab-btn').forEach(b => b.classList.remove('active'));
             e.currentTarget.classList.add('active');
             state.mode = 'wifi';
+            socket.emit('nearby_update_profile', { mode: 'wifi' });
+            showNearbyToast('📡 Switched to WiFi / LAN Mode', 'info');
         });
 
         document.getElementById('modeBleBtn')?.addEventListener('click', (e) => {
             document.querySelectorAll('.mode-tab-btn').forEach(b => b.classList.remove('active'));
             e.currentTarget.classList.add('active');
             state.mode = 'ble';
+            socket.emit('nearby_update_profile', { mode: 'ble' });
             document.getElementById('bleModal').classList.add('active');
         });
         document.getElementById('closeBleModalBtn')?.addEventListener('click', () => {

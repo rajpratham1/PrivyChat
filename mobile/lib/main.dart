@@ -9,8 +9,9 @@ void main() {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  // SystemUiOverlayStyle (lowercase 'i') is the correct spelling in Flutter
   SystemChrome.setSystemUIOverlayStyle(
-    const SystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.light,
       systemNavigationBarColor: Color(0xFF030712),
@@ -36,7 +37,6 @@ class PrivyChatMobileApp extends StatelessWidget {
           primary: Color(0xFF22C55E),
           secondary: Color(0xFF06B6D4),
           surface: Color(0xFF071A10),
-          background: Color(0xFF030712),
           error: Color(0xFFEF4444),
         ),
         textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme),

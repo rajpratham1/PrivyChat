@@ -32,6 +32,14 @@ jobs:
           channel: 'stable'
           cache: true
 
+      - name: Write local.properties with Flutter SDK path
+        working-directory: ./mobile/android
+        run: |
+          echo "flutter.sdk=$FLUTTER_ROOT" > local.properties
+          echo "flutter.versionCode=1" >> local.properties
+          echo "flutter.versionName=2.4.0" >> local.properties
+          cat local.properties
+
       - name: Verify Flutter Installation
         run: flutter doctor -v
 

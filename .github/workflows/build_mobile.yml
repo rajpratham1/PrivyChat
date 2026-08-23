@@ -5,9 +5,15 @@ on:
     branches:
       - main
       - Pratham_Contri
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build_mobile.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build_mobile.yml'
   workflow_dispatch:
 
 jobs:

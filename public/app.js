@@ -879,51 +879,54 @@ function toggleTheme() {
 // --- Voice Notes ---
 let mediaRecorder;
 let audioChunks = [];
+let activeStream = null;
+let isRecording = false;
+
+async function toggleRecording() {
+    isRecording ? stopRecording() : await startRecording();
+}
 
 async function startRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        activeStream = stream;
+        isRecording = true;
 
-        let selectedType = 'audio/webm'; // Default
-        if (MediaRecorder.isTypeSupported('audio/webm')) {
-            selectedType = 'audio/webm';
-        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
-            selectedType = 'audio/ogg';
-        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-            selectedType = 'audio/mp4';
-        }
-
-        console.log("🎤 Initializing Recorder with:", selectedType);
+        let selectedType = 'audio/webm';
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) selectedType = 'audio/webm;codecs=opus';
+        else if (MediaRecorder.isTypeSupported('audio/webm')) selectedType = 'audio/webm';
+        else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) selectedType = 'audio/ogg;codecs=opus';
+        else if (MediaRecorder.isTypeSupported('audio/mp4')) selectedType = 'audio/mp4';
 
         mediaRecorder = new MediaRecorder(stream, { mimeType: selectedType });
         audioChunks = [];
 
-        mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                audioChunks.push(event.data);
-            }
-        };
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
 
         mediaRecorder.onstop = () => {
-            // Just use the simple mime type for the blob
-            const audioBlob = new Blob(audioChunks, { type: selectedType });
-            sendVoiceNote(audioBlob, selectedType);
+            const mimeBase = selectedType.split(';')[0];
+            const audioBlob = new Blob(audioChunks, { type: mimeBase });
+            if (activeStream) { activeStream.getTracks().forEach(t => t.stop()); activeStream = null; }
+            sendVoiceNote(audioBlob, mimeBase);
         };
 
         mediaRecorder.start();
-        document.getElementById('mic-btn').innerText = "🎙️"; // Visual Feedback
-        showToast("Recording...", "info");
+        const btn = document.getElementById('mic-btn');
+        if (btn) { btn.innerText = '🔴'; btn.title = 'Click to Stop & Send'; btn.style.cssText = 'background:rgba(239,68,68,0.25);border-color:#ef4444;'; }
+        showToast('🎙️ Recording... click mic again to send.', 'info');
     } catch (err) {
-        console.error("Mic Error:", err);
-        showToast("Microphone Access Denied (Check Permissions)", "error");
+        isRecording = false;
+        console.error('Mic Error:', err);
+        showToast('Microphone access denied. Check browser permissions.', 'error');
     }
 }
 
 function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-        document.getElementById('mic-btn').innerText = "🎤";
-    }
+    isRecording = false;
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    if (activeStream) { activeStream.getTracks().forEach(t => t.stop()); activeStream = null; }
+    const btn = document.getElementById('mic-btn');
+    if (btn) { btn.innerText = '🎤'; btn.title = 'Record Voice Note'; btn.style.cssText = ''; }
 }
 
 function sendVoiceNote(blob, mimeType = 'audio/webm') {
@@ -1120,13 +1123,9 @@ function initializeChatRoomEventListeners() {
     }
 
     if (micBtn) {
-        micBtn.onmousedown = null;
-        micBtn.onmouseup = null;
-        micBtn.onmouseleave = null;
-        micBtn.addEventListener('mousedown', startRecording);
-        micBtn.addEventListener('mouseup', stopRecording);
-        micBtn.addEventListener('mouseleave', stopRecording);
-        console.log('Mic button listeners attached');
+        micBtn.onmousedown = null; micBtn.onmouseup = null; micBtn.onmouseleave = null; micBtn.onclick = null;
+        micBtn.addEventListener('click', toggleRecording);
+        console.log('Mic button click-toggle listener attached');
     }
 
     eventListenersInitialized = true;
@@ -1479,11 +1478,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') createPrivateRoom();
     });
 
-    // Mic button mouse events
+    // Mic button click-toggle: click once to start recording (🔴), click again to stop & send
     if (micBtnChat) {
-        micBtnChat.addEventListener('mousedown', startRecording);
-        micBtnChat.addEventListener('mouseup', stopRecording);
-        micBtnChat.addEventListener('mouseleave', stopRecording);
+        micBtnChat.onmousedown = null; micBtnChat.onmouseup = null; micBtnChat.onmouseleave = null; micBtnChat.onclick = null;
+        micBtnChat.addEventListener('click', toggleRecording);
     }
 
     // Modal event listeners

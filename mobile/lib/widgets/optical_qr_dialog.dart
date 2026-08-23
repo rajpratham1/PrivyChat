@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../services/crypto_engine.dart';
 import '../services/mesh_service.dart';
 import '../models/peer_model.dart';
@@ -55,7 +55,7 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
 
       final mesh = MeshService();
       final payload = {
-        'p': 'privy-opt-v1',
+        'p': 'privy-opt-v2',
         'type': 'optical_offer',
         'id': mesh.myId.isNotEmpty ? mesh.myId : 'peer_${DateTime.now().millisecondsSinceEpoch}',
         'nick': mesh.nickname,
@@ -90,7 +90,7 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
         try {
           final data = jsonDecode(barcode.rawValue!);
           if (data is Map &&
-              data['p'] == 'privy-opt-v1' &&
+              (data['p'] == 'privy-opt-v1' || data['p'] == 'privy-opt-v2') &&
               data['type'] == 'optical_message' &&
               widget.onQrMessageDecoded != null) {
             _peerHandled = true;
@@ -99,7 +99,11 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
             unawaited(widget.onQrMessageDecoded!(rawValue));
             return;
           }
-          if ((data['p'] == 'privy-opt-v1' || data['p'] == 'privychat-opt-v1') && data['key'] != null) {
+          if ((data['p'] == 'privy-opt-v1' ||
+                  data['p'] == 'privy-opt-v2' ||
+                  data['p'] == 'privychat-opt-v1') &&
+              data['key'] is Map &&
+              data['key']['crv']?.toString() == 'X25519') {
             final peer = PeerModel(
               id: data['id']?.toString() ?? 'qr_peer',
               nickname: data['nick']?.toString() ?? 'QR_Agent',
@@ -223,8 +227,8 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
               const SizedBox(height: 12),
               Text(
                 _keyError ?? (widget.outboundPayload == null
-                    ? 'Let peer scan your screen with their camera to establish an air-gapped E2EE session with zero network.'
-                    : 'Let the peer scan this message frame. Then switch to Scan Camera to receive their reply.'),
+                    ? 'This is the first half of the air-gap handshake. After the peer scans it, scan their response code.'
+                    : 'Let the peer scan this encrypted frame, then switch to Scan Camera to receive their reply.'),
                 style: TextStyle(fontSize: 11, color: _keyError == null ? const Color(0xFF94A3B8) : const Color(0xFFEF4444)),
                 textAlign: TextAlign.center,
               ),
@@ -241,7 +245,7 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Point camera at peer\'s screen to complete optical cryptographic handshake.',
+                'Scan the peer offer or response code. A two-way exchange is required for X25519.',
                 style: TextStyle(fontSize: 11, color: Color(0xFF22C55E)),
                 textAlign: TextAlign.center,
               ),

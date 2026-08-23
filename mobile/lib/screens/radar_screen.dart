@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../services/mesh_service.dart';
 import '../models/peer_model.dart';
 import '../widgets/radar_canvas.dart';
@@ -7,6 +7,7 @@ import '../widgets/discovery_tabs.dart';
 import '../widgets/optical_qr_dialog.dart';
 import 'chat_hud_screen.dart';
 import 'identity_screen.dart';
+import 'group_list_screen.dart';
 
 class RadarScreen extends StatefulWidget {
   const RadarScreen({super.key});
@@ -219,17 +220,22 @@ class _RadarScreenState extends State<RadarScreen> {
             tooltip: mesh.isStealth ? 'Stealth ON' : 'Go Stealth',
             onPressed: () => mesh.updateProfile(stealth: !mesh.isStealth),
           ),
+          IconButton(
+            icon: const Icon(LucideIcons.users, color: Color(0xFF06B6D4), size: 18),
+            tooltip: 'Nearby groups',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GroupListScreen())),
+          ),
           // Connection status badge
           Container(
             margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: mesh.isConnectedToMesh
+              color: (mesh.isConnectedToMesh || mesh.isLocalMeshReady)
                   ? const Color(0xFF22C55E).withOpacity(0.15)
                   : const Color(0xFFEF4444).withOpacity(0.15),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: mesh.isConnectedToMesh ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                color: (mesh.isConnectedToMesh || mesh.isLocalMeshReady) ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
                 width: 0.8,
               ),
             ),
@@ -239,18 +245,18 @@ class _RadarScreenState extends State<RadarScreen> {
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: mesh.isConnectedToMesh ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                  color: (mesh.isConnectedToMesh || mesh.isLocalMeshReady) ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  mesh.isConnectedToMesh ? 'LIVE' : 'OFF',
+                  mesh.isConnectedToMesh ? 'LIVE' : (mesh.isLocalMeshReady ? 'LOCAL' : 'OFF'),
                   style: TextStyle(
                     fontSize: 9,
                     fontFamily: 'Courier',
                     fontWeight: FontWeight.bold,
-                    color: mesh.isConnectedToMesh ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                    color: (mesh.isConnectedToMesh || mesh.isLocalMeshReady) ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
                   ),
                 ),
               ],
@@ -353,13 +359,13 @@ class _RadarScreenState extends State<RadarScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      mesh.isConnectedToMesh
-                          ? 'Ask your peer to open PrivyChat on same WiFi network.'
+                      (mesh.isConnectedToMesh || mesh.isLocalMeshReady)
+                          ? 'Keep both apps open on the same Wi-Fi or enable Bluetooth. Nearby discovery is local.'
                           : 'Not connected to mesh server. Check your network.',
                       style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                       textAlign: TextAlign.center,
                     ),
-                    if (!mesh.isConnectedToMesh) ...[
+                    if (!mesh.isConnectedToMesh && !mesh.isLocalMeshReady) ...[
                       const SizedBox(height: 12),
                       ElevatedButton.icon(
                         onPressed: () {
@@ -424,7 +430,7 @@ class _RadarScreenState extends State<RadarScreen> {
           ],
         ),
         content: Text(
-          'Initiate encrypted E2EE session with ${peer.nickname}?\nA ECDH P-256 handshake will be performed.',
+          'Initiate encrypted E2EE session with ${peer.nickname}?\nA X25519 / Curve25519 handshake will be performed.',
           style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
         ),
         actions: [
@@ -581,7 +587,7 @@ class _HandshakeDialogStatefulState extends State<_HandshakeDialogStateful> {
             const SizedBox(height: 4),
             Text(widget.title, style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)), textAlign: TextAlign.center),
             const SizedBox(height: 20),
-            _stepRow(step, 1, 'ECDH P-256 Key Exchange'),
+            _stepRow(step, 1, 'X25519 / Curve25519 Key Exchange'),
             _stepRow(step, 2, 'Signal Negotiation & Handshake'),
             _stepRow(step, 3, 'AES-256-GCM Session Key Derived'),
             _stepRow(step, 4, 'Encrypted Channel Active'),

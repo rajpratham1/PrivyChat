@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../models/peer_model.dart';
 import '../models/message_model.dart';
+import '../models/group_model.dart';
 import 'crypto_engine.dart';
+import 'local_mesh_transport.dart';
 
 class MeshService extends ChangeNotifier {
   static final MeshService _instance = MeshService._internal();
@@ -12,6 +15,9 @@ class MeshService extends ChangeNotifier {
   MeshService._internal();
 
   IO.Socket? _socket;
+  final LocalMeshTransport _localTransport = LocalMeshTransport();
+  StreamSubscription<LocalPeerEvent>? _localPeerSubscription;
+  StreamSubscription<Map<String, dynamic>>? _localPacketSubscription;
   String _serverUrl = 'https://privy-chat.onrender.com';
   String _myId = '';
   String _nickname = 'Agent_${1000 + (DateTime.now().millisecondsSinceEpoch % 9000)}';
@@ -19,9 +25,13 @@ class MeshService extends ChangeNotifier {
   String _mode = 'wifi'; // 'wifi', 'ble', 'qr'
 
   List<PeerModel> _discoveredPeers = [];
+  final Map<String, PeerModel> _localPeers = <String, PeerModel>{};
   PeerModel? _activePeer;
   final List<MessageModel> _messages = [];
   final Set<String> _receivedPacketIds = <String>{};
+  final Map<String, GroupModel> _groups = <String, GroupModel>{};
+  final Map<String, List<MessageModel>> _groupMessages = <String, List<MessageModel>>{};
+  final Map<String, List<Map<String, dynamic>>> _pendingGroupMessages = <String, List<Map<String, dynamic>>>{};
 
   bool _isConnectedToMesh = false;
   bool _isStealth = false;
@@ -30,7 +40,7 @@ class MeshService extends ChangeNotifier {
   Timer? _handshakeTimer;
 
   // Getters
-  String get myId => _myId;
+  String get myId => _myId.isNotEmpty ? _myId : _localTransport.localId;
   String get nickname => _nickname;
   String get avatar => _avatar;
   String get mode => _mode;
@@ -42,6 +52,10 @@ class MeshService extends ChangeNotifier {
   List<PeerModel> get discoveredPeers => List.unmodifiable(_discoveredPeers);
   PeerModel? get activePeer => _activePeer;
   List<MessageModel> get messages => List.unmodifiable(_messages);
+  List<GroupModel> get groups => List.unmodifiable(_groups.values);
+  List<MessageModel> groupMessages(String groupId) => List.unmodifiable(_groupMessages[groupId] ?? const []);
+  bool get hasLocalTransport => _localTransport.hasPeer(_activePeer?.id ?? '');
+  bool get isLocalMeshReady => _localTransport.isStarted;
 
   // Callbacks for live UI events
   Function(String title)? onHandshakeStarted;
@@ -56,7 +70,8 @@ class MeshService extends ChangeNotifier {
   /// QR is a real transport, not just a key-exchange screen. It is selected
   /// whenever the active peer was discovered optically or the relay is down.
   bool get shouldUseQrTransport =>
-      _activePeer?.mode == 'qr' || _socket == null || !_socket!.connected;
+      _activePeer?.mode == 'qr' ||
+      ((_socket == null || !_socket!.connected) && !hasLocalTransport);
 
   void updateProfile({String? nick, String? ava, String? mod, bool? stealth, int? burn}) {
     if (nick != null && nick.trim().isNotEmpty) _nickname = nick.trim();
@@ -84,6 +99,7 @@ class MeshService extends ChangeNotifier {
     _serverUrl = serverUrl;
     try {
       await CryptoEngine().init();
+      _startLocalTransports();
       _socket?.disconnect();
       _socket?.dispose();
 
@@ -114,10 +130,11 @@ class MeshService extends ChangeNotifier {
 
       _socket!.on('nearby_peer_list', (data) {
         if (data is List) {
-          _discoveredPeers = data
+          final relayPeers = data
               .map((p) => PeerModel.fromJson(Map<String, dynamic>.from(p)))
               .where((p) => p.id != _myId && p.mode != 'stealth')
               .toList();
+          _replaceRelayPeers(relayPeers);
           notifyListeners();
         }
       });
@@ -223,10 +240,82 @@ class MeshService extends ChangeNotifier {
     });
   }
 
+  void _startLocalTransports() {
+    _localPeerSubscription ??= _localTransport.peerEvents.listen(_onLocalPeerEvent);
+    _localPacketSubscription ??= _localTransport.packetEvents.listen((event) async {
+      if (event['packet'] is Map) {
+        await _handleIncomingPacket(Map<String, dynamic>.from(event['packet']));
+      }
+    });
+    unawaited(_localTransport.start(
+      id: _myId.isNotEmpty ? _myId : 'mobile_${DateTime.now().millisecondsSinceEpoch}',
+      nickname: _nickname,
+      avatar: _avatar,
+      publicKey: CryptoEngine().myPublicKeyJwk,
+    ));
+  }
+
+  void _replaceRelayPeers(List<PeerModel> relayPeers) {
+    final merged = <String, PeerModel>{
+      for (final peer in relayPeers) peer.id: peer,
+      ..._localPeers,
+    };
+    _discoveredPeers = merged.values.where((p) => p.id != _myId && p.mode != 'stealth').toList();
+  }
+
+  void _onLocalPeerEvent(LocalPeerEvent event) {
+    if (event.peer.id == _myId || event.peer.id == _localTransport.localId) return;
+    _localPeers[event.peer.id] = event.peer;
+    _replaceRelayPeers(_discoveredPeers.where((peer) => !_localPeers.containsKey(peer.id)).toList());
+    notifyListeners();
+    if (event.incoming && event.peer.publicKey != null) {
+      unawaited(_acceptIncomingLocalPeer(event.peer));
+    }
+  }
+
+  Future<void> _acceptIncomingLocalPeer(PeerModel peer) async {
+    try {
+      _activePeer = peer;
+      onHandshakeStarted?.call('Incoming ${peer.mode.toUpperCase()} link from ${peer.nickname}');
+      onHandshakeStepUpdate?.call(1, 'active');
+      await CryptoEngine().deriveSharedSessionKey(peer.publicKey!);
+      if (!CryptoEngine().hasSessionKey) throw StateError('Session key was not derived.');
+      onHandshakeStepUpdate?.call(1, 'done');
+      onHandshakeStepUpdate?.call(2, 'done');
+      onHandshakeStepUpdate?.call(3, 'done');
+      onHandshakeStepUpdate?.call(4, 'done');
+      onHandshakeCompleted?.call();
+      notifyListeners();
+    } catch (error) {
+      onHandshakeFailed?.call('Incoming local link failed: $error');
+    }
+  }
+
   Future<void> connectToPeer(PeerModel peer) async {
     _activePeer = peer;
     onHandshakeStarted?.call('Connecting to ${peer.nickname}');
     onHandshakeStepUpdate?.call(1, 'active');
+
+    if (peer.mode == 'ble') {
+      try {
+        final resolved = await _localTransport.connectBle(peer);
+        if (resolved != null) {
+          peer = resolved;
+          _activePeer = resolved;
+          _localPeers[resolved.id] = resolved;
+        }
+      } catch (error) {
+        onHandshakeFailed?.call('Bluetooth connection failed: $error');
+        return;
+      }
+    } else if (peer.mode == 'wifi' && _localPeers.containsKey(peer.id)) {
+      try {
+        await _localTransport.connectWifi(peer);
+      } catch (error) {
+        onHandshakeFailed?.call('Local Wi-Fi connection failed: $error');
+        return;
+      }
+    }
 
     if (peer.publicKey != null) {
       await CryptoEngine().deriveSharedSessionKey(peer.publicKey!);
@@ -242,7 +331,7 @@ class MeshService extends ChangeNotifier {
     onHandshakeStepUpdate?.call(2, 'active');
 
     // If QR air-gap or offline peer: complete handshake directly
-    if (peer.mode == 'qr' || _socket == null || !_socket!.connected) {
+    if (peer.mode == 'qr' || _localPeers.containsKey(peer.id) || _localTransport.hasPeer(peer.id) || _socket == null || !_socket!.connected) {
       onHandshakeStepUpdate?.call(2, 'done');
       onHandshakeStepUpdate?.call(3, 'done');
       onHandshakeStepUpdate?.call(4, 'done');
@@ -298,13 +387,8 @@ class MeshService extends ChangeNotifier {
     final encrypted = await CryptoEngine().encrypt(text.trim(), aad);
     rawPacket['payload'] = encrypted;
 
-    // Send over socket relay if available
-    if (_socket != null && _socket!.connected && _activePeer!.mode != 'qr') {
-      _socket!.emit('nearby_p2p_message', {
-        'to': _activePeer!.id,
-        'packet': rawPacket,
-      });
-    } else {
+    final delivered = await _sendTransportPacket(_activePeer!, rawPacket);
+    if (!delivered) {
       // The caller must show the packet in the optical transmitter. Do not
       // add a local bubble here because no bytes have reached the peer yet.
       return false;
@@ -326,6 +410,163 @@ class MeshService extends ChangeNotifier {
     notifyListeners();
     return true;
   }
+
+  Future<bool> _sendTransportPacket(PeerModel peer, Map<String, dynamic> packet) async {
+    try {
+      if (peer.mode == 'ble' && _localTransport.hasPeer(peer.id)) {
+        await _localTransport.sendBle(peer.id, packet);
+        return true;
+      }
+      if (peer.mode == 'wifi' && (_localPeers.containsKey(peer.id) || _localTransport.hasPeer(peer.id))) {
+        await _localTransport.sendWifi(peer.id, packet);
+        return true;
+      }
+      if (_socket != null && _socket!.connected && peer.mode != 'qr') {
+        _socket!.emit('nearby_p2p_message', {'to': peer.id, 'packet': packet});
+        return true;
+      }
+    } catch (error) {
+      debugPrint('Transport send error: $error');
+    }
+    return false;
+  }
+
+  Future<GroupModel?> createGroup(String name, List<PeerModel> peers) async {
+    final cleanName = name.trim();
+    if (cleanName.isEmpty) return null;
+    final preparedMembers = <PeerModel>[];
+    for (final candidate in peers) {
+      final prepared = await _preparePeer(candidate);
+      if (prepared != null) preparedMembers.add(prepared);
+    }
+    if (peers.isNotEmpty && preparedMembers.isEmpty) {
+      onTransportError?.call('Connect to at least one nearby peer before creating a group.');
+      return null;
+    }
+    final group = GroupModel(
+      id: 'group_${DateTime.now().millisecondsSinceEpoch}',
+      name: cleanName,
+      key: base64Url.encode(List<int>.generate(32, (_) => Random.secure().nextInt(256))),
+      creator: _nickname,
+      members: preparedMembers,
+    );
+    _groups[group.id] = group;
+    _groupMessages[group.id] = <MessageModel>[];
+    // The initial invite is sent after the group ID/key exist, with the final
+    // membership list included so every member can address the group.
+    var deliveredInvite = false;
+    for (final peer in preparedMembers) {
+      deliveredInvite = await _sendGroupInvite(peer, group: group) || deliveredInvite;
+    }
+    if (preparedMembers.isNotEmpty && !deliveredInvite) {
+      _groups.remove(group.id);
+      _groupMessages.remove(group.id);
+      onTransportError?.call('The group key could not be delivered. Reconnect a nearby peer and retry.');
+      return null;
+    }
+    notifyListeners();
+    return group;
+  }
+
+  Future<PeerModel?> _preparePeer(PeerModel candidate) async {
+    var peer = candidate;
+    try {
+      if (peer.mode == 'ble' && !_localTransport.hasPeer(peer.id)) {
+        final resolved = await _localTransport.connectBle(peer);
+        if (resolved != null) {
+          peer = resolved;
+          _localPeers[peer.id] = peer;
+        }
+      } else if (peer.mode == 'wifi' && _localPeers.containsKey(peer.id) && !_localTransport.hasPeer(peer.id)) {
+        await _localTransport.connectWifi(peer);
+      } else if (peer.mode == 'wifi' && !_localPeers.containsKey(peer.id) && (_socket == null || !_socket!.connected)) {
+        return null;
+      }
+      peer = _localPeers[peer.id] ?? peer;
+      if (peer.publicKey == null) return null;
+      await CryptoEngine().deriveSharedSessionKey(peer.publicKey!);
+      return CryptoEngine().hasSessionKey ? peer : null;
+    } catch (error) {
+      debugPrint('Group peer preparation failed: $error');
+      return null;
+    }
+  }
+
+  Future<bool> _sendGroupInvite(PeerModel peer, {GroupModel? group}) async {
+    if (group == null || peer.publicKey == null) return false;
+    await CryptoEngine().deriveSharedSessionKey(peer.publicKey!);
+    if (!CryptoEngine().hasSessionKey) return false;
+    final rawPacket = <String, dynamic>{
+      'id': 'invite_${group.id}_${DateTime.now().millisecondsSinceEpoch}',
+      'type': 'group_invite',
+      'sender': _nickname,
+      'avatar': _avatar,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'burn': 0,
+    };
+    rawPacket['payload'] = await CryptoEngine().encrypt(
+      jsonEncode({
+        'groupId': group.id,
+        'name': group.name,
+        'key': group.key,
+        'creator': group.creator,
+        'members': [
+          PeerModel(
+            id: _myId.isNotEmpty ? _myId : _localTransport.localId,
+            nickname: _nickname,
+            avatar: _avatar,
+            mode: _mode,
+            device: 'Mobile App',
+            publicKey: CryptoEngine().myPublicKeyJwk,
+          ).toJson(),
+          ...group.members.map((member) => member.toJson()),
+        ],
+      }),
+      _packetAAD(rawPacket),
+    );
+    return _sendTransportPacket(peer, rawPacket);
+  }
+
+  Future<bool> sendGroupText(String groupId, String text) async {
+    final group = _groups[groupId];
+    if (group == null || text.trim().isEmpty) return false;
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final rawPacket = <String, dynamic>{
+      'id': 'group_msg_$timestamp',
+      'type': 'group_message',
+      'groupId': group.id,
+      'sender': _nickname,
+      'avatar': _avatar,
+      'timestamp': timestamp,
+    };
+    final keyBytes = base64Url.decode(base64Url.normalize(group.key));
+    rawPacket['payload'] = await CryptoEngine().encryptWithRawKey(
+      keyBytes,
+      text.trim(),
+      _groupAAD(rawPacket),
+    );
+    var delivered = false;
+    for (final peer in group.members) {
+      delivered = await _sendTransportPacket(_localPeers[peer.id] ?? peer, rawPacket) || delivered;
+    }
+    if (delivered || group.members.isEmpty) {
+      final message = MessageModel(
+        id: rawPacket['id'] as String,
+        type: MessageType.text,
+        sender: _nickname,
+        avatar: _avatar,
+        text: text.trim(),
+        timestamp: DateTime.now(),
+        isSent: true,
+      );
+      _groupMessages[group.id]!.add(message);
+      notifyListeners();
+    }
+    return delivered || group.members.isEmpty;
+  }
+
+  String _groupAAD(Map<String, dynamic> packet) =>
+      '${packet['type'] ?? ''}|${packet['groupId'] ?? ''}|${packet['id'] ?? ''}|${packet['timestamp'] ?? ''}';
 
   /// Encrypt a text packet for the optical transmitter. The sender's public
   /// key is carried with every packet so the first reply can complete the
@@ -378,7 +619,7 @@ class MeshService extends ChangeNotifier {
       notifyListeners();
 
       return jsonEncode({
-        'p': 'privy-opt-v1',
+      'p': 'privy-opt-v2',
         'type': 'optical_message',
         'id': rawPacket['id'],
         'senderId': _myId,
@@ -401,7 +642,9 @@ class MeshService extends ChangeNotifier {
   Future<bool> receiveQrPayload(String rawValue) async {
     try {
       final data = jsonDecode(rawValue);
-      if (data is! Map || data['p'] != 'privy-opt-v1' || data['type'] != 'optical_message') {
+      if (data is! Map ||
+          (data['p'] != 'privy-opt-v1' && data['p'] != 'privy-opt-v2') ||
+          data['type'] != 'optical_message') {
         return false;
       }
       final message = Map<String, dynamic>.from(data);
@@ -420,8 +663,6 @@ class MeshService extends ChangeNotifier {
 
       final packet = Map<String, dynamic>.from(message['packet'] ?? const {});
       if (packet.isEmpty) return false;
-      final packetId = packet['id']?.toString() ?? message['id']?.toString() ?? '';
-      if (packetId.isNotEmpty && !_receivedPacketIds.add(packetId)) return true;
 
       final wasUnpaired = _activePeer == null;
       _activePeer ??= PeerModel(
@@ -442,6 +683,26 @@ class MeshService extends ChangeNotifier {
 
   Future<void> _handleIncomingPacket(Map<String, dynamic> packet) async {
     final type = packet['type']?.toString() ?? 'text';
+    if (type != 'group_invite' && type != 'group_message') {
+      final packetId = packet['id']?.toString();
+      if (packetId != null && !_receivedPacketIds.add(packetId)) return;
+    }
+    if (type != 'group_message' && !CryptoEngine().hasSessionKey && packet['payload'] is Map) {
+      // A local BLE peer sends its hello acknowledgement immediately. Give
+      // the incoming side a moment to finish deriving the same session key
+      // before attempting to authenticate the first packet.
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (!CryptoEngine().hasSessionKey) return;
+    }
+
+    if (type == 'group_invite') {
+      await _handleGroupInvite(packet);
+      return;
+    }
+    if (type == 'group_message') {
+      await _handleGroupMessage(packet);
+      return;
+    }
 
     if (type == 'text') {
       final aad = _packetAAD(packet);
@@ -467,6 +728,73 @@ class MeshService extends ChangeNotifier {
     }
   }
 
+  Future<void> _handleGroupInvite(Map<String, dynamic> packet) async {
+    final packetId = packet['id']?.toString();
+    if (packetId != null && !_receivedPacketIds.add(packetId)) return;
+    final clear = await CryptoEngine().decrypt(
+      Map<String, dynamic>.from(packet['payload'] ?? {}),
+      _packetAAD(packet),
+    );
+    try {
+      final invite = Map<String, dynamic>.from(jsonDecode(clear));
+      final ownId = _myId.isNotEmpty ? _myId : _localTransport.localId;
+      final members = invite['members'] is List
+          ? (invite['members'] as List)
+              .whereType<Map>()
+              .map((member) => PeerModel.fromJson(Map<String, dynamic>.from(member)))
+              .where((member) => member.id != ownId)
+              .toList()
+          : <PeerModel>[];
+      final group = GroupModel(
+        id: invite['groupId'].toString(),
+        name: invite['name'].toString(),
+        key: invite['key'].toString(),
+        creator: invite['creator']?.toString() ?? packet['sender']?.toString() ?? 'Peer',
+        members: members,
+      );
+      _groups[group.id] = group;
+      _groupMessages.putIfAbsent(group.id, () => <MessageModel>[]);
+      final pending = _pendingGroupMessages.remove(group.id) ?? const <Map<String, dynamic>>[];
+      for (final pendingPacket in pending) {
+        await _handleGroupMessage(pendingPacket);
+      }
+      notifyListeners();
+    } catch (_) {
+      debugPrint('Invalid group invite received.');
+    }
+  }
+
+  Future<void> _handleGroupMessage(Map<String, dynamic> packet) async {
+    final groupId = packet['groupId']?.toString();
+    final group = groupId == null ? null : _groups[groupId];
+    if (group == null) {
+      if (groupId != null) {
+        _pendingGroupMessages.putIfAbsent(groupId, () => <Map<String, dynamic>>[]).add(packet);
+      }
+      return;
+    }
+    final packetId = packet['id']?.toString();
+    if (packetId != null && !_receivedPacketIds.add(packetId)) return;
+    final keyBytes = base64Url.decode(base64Url.normalize(group.key));
+    final clear = await CryptoEngine().decryptWithRawKey(
+      keyBytes,
+      Map<String, dynamic>.from(packet['payload'] ?? {}),
+      _groupAAD(packet),
+    );
+    if (clear.startsWith('[Decryption failed')) return;
+    final message = MessageModel(
+      id: packet['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      type: MessageType.text,
+      sender: packet['sender']?.toString() ?? 'Peer',
+      avatar: packet['avatar']?.toString() ?? '🕵️',
+      text: clear,
+      timestamp: DateTime.now(),
+      isSent: false,
+    );
+    _groupMessages.putIfAbsent(group.id, () => <MessageModel>[]).add(message);
+    notifyListeners();
+  }
+
   void _handleSelfDestruct(MessageModel msg) {
     if (msg.burnSeconds > 0) {
       Timer(Duration(seconds: msg.burnSeconds), () {
@@ -482,6 +810,9 @@ class MeshService extends ChangeNotifier {
     _handshakeTimer = null;
     _activePeer = null;
     _messages.clear();
+    _groups.clear();
+    _groupMessages.clear();
+    _pendingGroupMessages.clear();
     _receivedPacketIds.clear();
     CryptoEngine().purge();
     notifyListeners();
@@ -492,6 +823,15 @@ class MeshService extends ChangeNotifier {
     _socket?.disconnect();
     _socket = null;
     _discoveredPeers.clear();
+    _localPeers.clear();
+    _groups.clear();
+    _groupMessages.clear();
+    _pendingGroupMessages.clear();
+    unawaited(_localPeerSubscription?.cancel() ?? Future<void>.value());
+    unawaited(_localPacketSubscription?.cancel() ?? Future<void>.value());
+    _localPeerSubscription = null;
+    _localPacketSubscription = null;
+    unawaited(_localTransport.stop());
     _isConnectedToMesh = false;
     notifyListeners();
   }

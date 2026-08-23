@@ -119,7 +119,7 @@ class _ChatHudScreenState extends State<ChatHudScreen> {
             _infoRow('Peer', '${widget.peer.avatar} ${widget.peer.nickname}'),
             _infoRow('Mode', widget.peer.mode.toUpperCase()),
             _infoRow('Encryption', 'AES-256-GCM'),
-            _infoRow('Key Exchange', 'ECDH P-256'),
+            _infoRow('Key Exchange', 'X25519 / Curve25519'),
             const SizedBox(height: 10),
             const Text('SAFETY FINGERPRINT', style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B), fontFamily: 'Courier', letterSpacing: 1)),
             const SizedBox(height: 4),

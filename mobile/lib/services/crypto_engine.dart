@@ -8,10 +8,13 @@ class CryptoEngine {
   factory CryptoEngine() => _instance;
   CryptoEngine._internal();
 
-  final _ecdh = Ecdh.p256(length: 32);
+  // P-256 is not implemented by the pure-Dart backend used on Android and
+  // throws UnimplementedError at runtime. X25519 is the Curve25519 exchange
+  // used by BitChat-style protocols and has a working pure-Dart backend.
+  final _ecdh = X25519();
   final _aesGcm = AesGcm.with256bits();
 
-  EcKeyPair? _keyPair;
+  SimpleKeyPair? _keyPair;
   Map<String, dynamic>? _myPublicKeyJwk;
   SecretKey? _sharedSessionKey;
   String _safetyFingerprint = '';
@@ -46,24 +49,22 @@ class CryptoEngine {
 
   Future<void> _initializeKeyPair(int generation) async {
     final keyPair = await _ecdh.newKeyPair();
-    final publicKey = await keyPair.extractPublicKey() as EcPublicKey;
+    final publicKey = await keyPair.extractPublicKey() as SimplePublicKey;
 
     if (generation != _identityGeneration) return;
     _keyPair = keyPair;
     _myPublicKeyJwk = {
-      'kty': 'EC',
-      'crv': 'P-256',
-      'x': base64Url.encode(publicKey.x).replaceAll('=', ''),
-      'y': base64Url.encode(publicKey.y).replaceAll('=', ''),
+      'kty': 'OKP',
+      'crv': 'X25519',
+      'x': base64Url.encode(publicKey.bytes).replaceAll('=', ''),
     };
   }
 
   String _canonicalPublicKey(Map<String, dynamic> jwk) {
     return jsonEncode({
-      'crv': jwk['crv']?.toString() ?? 'P-256',
-      'kty': jwk['kty']?.toString() ?? 'EC',
+      'crv': jwk['crv']?.toString() ?? 'X25519',
+      'kty': jwk['kty']?.toString() ?? 'OKP',
       'x': jwk['x']?.toString() ?? '',
-      'y': jwk['y']?.toString() ?? '',
     });
   }
 
@@ -95,17 +96,19 @@ class CryptoEngine {
   }
 
   Future<void> deriveSharedSessionKey(Map<String, dynamic> peerJwk) async {
+    // Never let a failed handshake reuse the previous peer's key. This is
+    // especially important when a user connects to several nearby peers in
+    // succession or creates a group.
+    _sharedSessionKey = null;
     try {
       if (_keyPair == null || _myPublicKeyJwk == null) await init();
 
       final xBytes = base64Url.decode(base64Url.normalize(peerJwk['x'].toString()));
-      final yBytes = base64Url.decode(base64Url.normalize(peerJwk['y'].toString()));
+      if (xBytes.length != 32 || peerJwk['crv']?.toString() != 'X25519') {
+        throw FormatException('Unsupported peer key. Expected X25519.');
+      }
 
-      final remotePk = EcPublicKey(
-        x: xBytes,
-        y: yBytes,
-        type: KeyPairType.p256,
-      );
+      final remotePk = SimplePublicKey(xBytes, type: KeyPairType.x25519);
 
       final sharedSecret = await _ecdh.sharedSecretKey(
         keyPair: _keyPair!,
@@ -126,7 +129,7 @@ class CryptoEngine {
       final derivedKeyBytes = _hkdfSha256(
         ikm: rawSecretBytes,
         salt: salt,
-        info: utf8.encode('PrivyChat Nearby Tactical Mesh v1'),
+        info: utf8.encode('PrivyChat Nearby Tactical Mesh v2 X25519'),
         length: 32,
       );
       _sharedSessionKey = await _aesGcm.newSecretKeyFromBytes(derivedKeyBytes);
@@ -144,23 +147,8 @@ class CryptoEngine {
           .map((i) => emojiTable[salt[i] % emojiTable.length])
           .join(' ');
     } catch (e) {
-      // Fallback direct shared secret if HKDF or format fails
-      try {
-        if (_keyPair == null) await init();
-        final xBytes = base64Url.decode(base64Url.normalize(peerJwk['x'].toString()));
-        final yBytes = base64Url.decode(base64Url.normalize(peerJwk['y'].toString()));
-        final remotePk = EcPublicKey(x: xBytes, y: yBytes, type: KeyPairType.p256);
-        final sharedSecret = await _ecdh.sharedSecretKey(keyPair: _keyPair!, remotePublicKey: remotePk);
-        final secretBytes = await sharedSecret.extractBytes();
-        _sharedSessionKey = await _aesGcm.newSecretKeyFromBytes(secretBytes);
-        final digest = crypto_hash.sha256.convert([...secretBytes, ...xBytes, ...yBytes]);
-        final hex = digest.toString().toUpperCase();
-        _safetyFingerprint = '${hex.substring(0, 4)}-${hex.substring(4, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}';
-        final emojiPool = ['🛡️', '⚡', '🔑', '🦅', '🐺', '🦾', '🕵️', '🔒', '🔥', '🕶️', '🚀', '⭐'];
-        _safetyEmojis = [0, 1, 2, 3].map((i) => emojiPool[digest.bytes[i] % emojiPool.length]).join(' ');
-      } catch (err) {
-        print('Key derivation fallback error: $err');
-      }
+      _sharedSessionKey = null;
+      print('Key derivation error: $e');
     }
   }
 
@@ -169,6 +157,25 @@ class CryptoEngine {
     if (key == null) {
       throw StateError('Secure session is not established.');
     }
+    final nonce = _aesGcm.newNonce();
+    final box = await _aesGcm.encrypt(
+      utf8.encode(plainText),
+      secretKey: key,
+      nonce: nonce,
+      aad: additionalData.isNotEmpty ? utf8.encode(additionalData) : Uint8List(0),
+    );
+    return {
+      'iv': base64.encode(box.nonce),
+      'data': base64.encode(box.cipherText + box.mac.bytes),
+    };
+  }
+
+  Future<Map<String, String>> encryptWithRawKey(
+    List<int> keyBytes,
+    String plainText, [
+    String additionalData = '',
+  ]) async {
+    final key = await _aesGcm.newSecretKeyFromBytes(keyBytes);
     final nonce = _aesGcm.newNonce();
     final box = await _aesGcm.encrypt(
       utf8.encode(plainText),
@@ -208,6 +215,32 @@ class CryptoEngine {
       final box = SecretBox(cipherText, nonce: nonceBytes, mac: Mac(mac));
       final decrypted = await _aesGcm.decrypt(box, secretKey: _sharedSessionKey!);
       return utf8.decode(decrypted);
+    } catch (_) {
+      return '[Decryption failed – integrity mismatch]';
+    }
+  }
+
+  Future<String> decryptWithRawKey(
+    List<int> keyBytes,
+    Map<String, dynamic> payload, [
+    String additionalData = '',
+  ]) async {
+    try {
+      final key = await _aesGcm.newSecretKeyFromBytes(keyBytes);
+      final nonceBytes = base64.decode(payload['iv'].toString());
+      final raw = base64.decode(payload['data'].toString());
+      if (raw.length < 16) return '[Decryption failed – malformed packet]';
+      final box = SecretBox(
+        raw.sublist(0, raw.length - 16),
+        nonce: nonceBytes,
+        mac: Mac(raw.sublist(raw.length - 16)),
+      );
+      final clear = await _aesGcm.decrypt(
+        box,
+        secretKey: key,
+        aad: additionalData.isNotEmpty ? utf8.encode(additionalData) : Uint8List(0),
+      );
+      return utf8.decode(clear);
     } catch (_) {
       return '[Decryption failed – integrity mismatch]';
     }

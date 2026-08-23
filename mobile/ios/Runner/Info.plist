@@ -50,5 +50,9 @@
 	<string>PrivyChat requires Bluetooth to discover nearby tactical mesh peers.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>PrivyChat uses the local network for nearby mesh signaling and direct peer discovery.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_privychat._tcp</string>
+	</array>
 </dict>
 </plist>

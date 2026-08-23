@@ -63,7 +63,7 @@ class HandshakeDialog extends StatelessWidget {
             const SizedBox(height: 20),
 
             // 4-Step Checklist
-            _buildStepRow(1, 'Ephemeral ECDH P-256 Key Exchange'),
+            _buildStepRow(1, 'Ephemeral X25519 Key Exchange'),
             _buildStepRow(2, 'Signal Negotiation & Handshake'),
             _buildStepRow(3, 'Zero-Knowledge AES-256-GCM Session Key'),
             _buildStepRow(4, 'Direct Encrypted Channel Active'),

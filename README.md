@@ -110,6 +110,35 @@ Every communication channel is shielded with hardware-accelerated **AES-256-GCM 
 
 ---
 
+## 📱 Android Mobile Application
+
+PrivyChat is also available as a **native Android app** (Flutter + Dart) for fully offline, internet-free communication.
+
+### Download APK
+> **[⬇️ PrivyChat Android APK — GitHub Actions Artifact](https://github.com/rajpratham1/PrivyChat/actions/runs/32630219270/artifacts/9490904652)**
+> Requirements: Android 8.0+ | Enable "Install unknown apps" in device settings.
+
+### Mobile Architecture
+
+| Component | Technology | Details |
+| :--- | :--- | :--- |
+| **UI Framework** | Flutter + Dart | Compiled native ARM binary |
+| **P2P Transport** | WebRTC DataChannels + Socket.io | Dual-layer local mesh relay |
+| **Key Exchange** | ECDH P-256 (Ephemeral) | Fresh keypair per session |
+| **Key Derivation** | HKDF SHA-256 (RFC 5869, pure Dart) | Salt + context-bound key derivation |
+| **Encryption** | AES-256-GCM with AAD | Authenticated ciphertext + tamper detection |
+| **Storage** | Volatile RAM only | Zero disk writes — messages never persisted |
+
+### Offline Connectivity Modes (Android)
+
+| Mode | How It Works | Range |
+| :--- | :--- | :--- |
+| **WiFi / Hotspot Mesh** | Connect to same router or mobile hotspot — no internet needed | 50–100m |
+| **Bluetooth BLE** | BLE GATT scan with RSSI proximity tracking | 10–30m |
+| **Air-Gapped QR Beam** | Camera-to-screen SDP handshake — zero RF radiation | Line of sight |
+
+---
+
 ## 📱 Desktop & Mobile Responsiveness
 
 PrivyChat is built using a mobile-first responsive architecture:

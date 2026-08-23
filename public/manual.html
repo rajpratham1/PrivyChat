@@ -201,9 +201,42 @@
     <div class="container">
         <header>
             <h1>🛡️ PrivyChat Manual</h1>
-            <span class="version-badge">Version 2.0.1</span>
-            <p>The Ultimate Guide to Secure, Ephemeral, & Stealth Messaging.</p>
+            <span class="version-badge">Version 2.5.0</span>
+            <p>The Ultimate Guide to Secure, Ephemeral, &amp; Stealth Messaging.</p>
         </header>
+
+        <h2>0. 📱 Android App — Chat Without Internet</h2>
+        <p>PrivyChat is available as a native Android app that lets you communicate with nearby people <strong>completely without internet</strong>.</p>
+
+        <h3>⬇️ Install the Android APK</h3>
+        <div class="info-box">
+            <strong>📲 Download Link:</strong><br>
+            <a href="https://github.com/rajpratham1/PrivyChat/actions/runs/32630219270/artifacts/9490904652" style="color: #3b82f6;">
+                GitHub Actions → PrivyChat Android Release APK
+            </a><br>
+            <em>Requirements: Android 8.0 (Oreo) or higher. Enable "Install from unknown sources" in device settings.</em>
+        </div>
+        <ul>
+            <li><strong>Step 1:</strong> Click the download link above and download the <code>.zip</code> artifact.</li>
+            <li><strong>Step 2:</strong> Extract the ZIP — you'll find the <code>app-release.apk</code> inside.</li>
+            <li><strong>Step 3:</strong> Transfer the APK to your Android phone via USB or send via any method.</li>
+            <li><strong>Step 4:</strong> On your phone, go to <em>Settings → Security → Install unknown apps</em> and allow your file manager.</li>
+            <li><strong>Step 5:</strong> Open the APK file and tap Install.</li>
+        </ul>
+
+        <h3>📡 How to Connect Locally (No Internet)</h3>
+        <ul>
+            <li><strong>WiFi Mesh:</strong> Both devices must be on the same WiFi router or one device acts as a <strong>mobile hotspot</strong>. Open the app, go to "Nearby" tab — peers appear on the radar automatically.</li>
+            <li><strong>Bluetooth BLE:</strong> Enable Bluetooth on both phones. Tap "BLE Scan" in the Nearby tab to discover and pair with devices within 10–30 meters.</li>
+            <li><strong>Air-Gap QR:</strong> No WiFi or Bluetooth needed. One device shows a QR code; the other scans it with the camera. A secure encrypted channel is established with zero radio transmission.</li>
+        </ul>
+
+        <h3>🔐 Mobile Security Spec</h3>
+        <ul>
+            <li><strong>Encryption:</strong> ECDH P-256 key exchange + HKDF SHA-256 derivation + AES-256-GCM (with AAD).</li>
+            <li><strong>Perfect Forward Secrecy:</strong> Every session uses a fresh ephemeral keypair — previous sessions cannot be decrypted even if current keys are compromised.</li>
+            <li><strong>Zero Storage:</strong> Messages are never written to the device disk. All state lives in volatile RAM.</li>
+        </ul>
 
         <h2>1. Getting Started: The "Search Engine" Interface</h2>
         <p>PrivyChat disguises itself as a simple search engine. Here is how to navigate the "Google Theme" UI to access

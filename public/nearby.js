@@ -2580,11 +2580,21 @@
     // =========================================================================
     document.addEventListener('DOMContentLoaded', async () => {
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/service-worker.js').catch(() => {
-                // The mesh still works directly when service workers are
-                // unavailable (for example, when opened from file://).
-            });
+            navigator.serviceWorker.register('/service-worker.js').then(reg => {
+                reg.update().catch(() => {});
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    if (newWorker) {
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                newWorker.postMessage('SKIP_WAITING');
+                            }
+                        });
+                    }
+                });
+            }).catch(() => {});
         }
+
         setOfflineMeshStatus(!navigator.onLine);
         window.addEventListener('offline', () => {
             setOfflineMeshStatus(true);

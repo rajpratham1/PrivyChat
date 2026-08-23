@@ -117,25 +117,64 @@ const limiter = rateLimit({
 app.use(limiter);
 
 app.use(cors(corsOptions)); // Apply strict CORS to Express too
-app.use(express.static(path.join(__dirname, 'public')));
+// Static asset serving with cache invalidation rules
+// Ensures HTML, JS, CSS, and Service Workers are never served stale to clients
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+        const isAppCode = filePath.endsWith('.html') ||
+                          filePath.endsWith('.js') ||
+                          filePath.endsWith('.css') ||
+                          filePath.endsWith('manifest.json') ||
+                          filePath.endsWith('robots.txt') ||
+                          filePath.endsWith('sitemap.xml');
+        if (isAppCode) {
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+        }
+    }
+}));
 app.use(express.json());
 
-// Routes
+// Routes with anti-cache headers for instant client updates
 app.get('/', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.get('/nearby', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
     res.sendFile(path.join(__dirname, 'public', 'nearby.html'));
 });
 
 app.get('/about', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
     res.sendFile(path.join(__dirname, 'public', 'about.html'));
 });
 
 app.get('/manual', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
     res.sendFile(path.join(__dirname, 'public', 'manual.html'));
 });
+
+// Direct Android APK Download Endpoint
+// Allows mobile devices to trigger an immediate APK download without requiring a GitHub account or zip extraction
+const handleApkDownload = (req, res) => {
+    const localApkPath = path.join(__dirname, 'public', 'downloads', 'PrivyChat.apk');
+    if (fs.existsSync(localApkPath)) {
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        res.setHeader('Content-Disposition', 'attachment; filename="PrivyChat.apk"');
+        res.sendFile(localApkPath);
+    } else {
+        // Redirect to direct GitHub Release asset download (standalone .apk, zero login required)
+        res.redirect('https://github.com/rajpratham1/PrivyChat/releases/latest/download/PrivyChat.apk');
+    }
+};
+
+app.get(['/download-apk', '/download/privychat.apk', '/download/PrivyChat.apk', '/privychat.apk', '/PrivyChat.apk', '/app-release.apk', '/download/app.apk'], handleApkDownload);
+
 
 // --- Chat Logic ---
 const rooms = {}; // { roomName: { password: '...', users: [] } }

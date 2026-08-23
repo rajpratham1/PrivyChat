@@ -24,7 +24,8 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.rajpratham.privychat"
-    compileSdkVersion 35
+    // Current proximity/audio plugins require Android API 36.
+    compileSdkVersion 36
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -42,7 +43,7 @@ android {
     defaultConfig {
         applicationId "com.rajpratham.privychat"
         minSdkVersion 23
-        targetSdkVersion 35
+        targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true

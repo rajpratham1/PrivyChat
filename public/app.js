@@ -1333,12 +1333,23 @@ function handleModalKey(e) {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM Content Loaded - Starting initialization');
 
-    // Register Service Worker
+    // Register Service Worker with automatic update invalidation
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js')
-            .then(reg => console.log('SW Registered!', reg.scope))
-            .catch(err => console.log('SW Failed:', err));
+        navigator.serviceWorker.register('/service-worker.js').then(reg => {
+            reg.update().catch(() => {});
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                if (newWorker) {
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            newWorker.postMessage('SKIP_WAITING');
+                        }
+                    });
+                }
+            });
+        }).catch(err => console.log('SW Failed:', err));
     }
+
 
     // Check if all main elements exist
     const elementsCheck = {

@@ -1,11 +1,12 @@
-/* PrivyChat v2.4 — offline-first application shell.
+/* PrivyChat v2.5.1 — Live Update & Offline Mesh Service Worker
  *
- * This worker only caches public application assets. Messages, identities,
- * ECDH keys, media chunks, and relay traffic are never written to Cache
- * Storage, IndexedDB, or any other persistent store.
+ * Strategy:
+ * - Network-First for HTML/JS/CSS (always serves latest website when online, falls back to cache offline).
+ * - Stale-While-Revalidate for remote CDNs/fonts.
+ * - Instant activation via skipWaiting() and clients.claim() to prevent stale device caches.
  */
-const CACHE_NAME = 'privychat-v2.4-offline';
-const RUNTIME_CACHE = 'privychat-v2.4-runtime';
+const CACHE_NAME = 'privychat-v2.5.1-live';
+const RUNTIME_CACHE = 'privychat-v2.5.1-runtime';
 
 const CORE_ASSETS = [
     '/',
@@ -16,7 +17,6 @@ const CORE_ASSETS = [
     '/nearby.js',
     '/nearby.css',
     '/app.js',
-    '/script.js',
     '/style.css',
     '/crypto-utils.js',
     '/sound-utils.js',
@@ -30,8 +30,6 @@ const CORE_ASSETS = [
     '/robots.txt',
     '/sitemap.xml',
     '/socket.io/socket.io.js',
-    // Requested stable local aliases. They are populated when a deployment
-    // provides vendored builds, while the CDN URLs below cover this repo.
     '/cdn/lucide.min.js',
     '/cdn/qrcode.min.js',
     '/cdn/jsQR.min.js',
@@ -58,10 +56,7 @@ async function bestEffortPrecache(cache, urls) {
         try {
             const response = await fetch(requestFor(url));
             if (response.ok || response.type === 'opaque') await cache.put(url, response);
-        } catch (error) {
-            // A first install may happen offline. Missing optional assets are
-            // retried by stale-while-revalidate when connectivity returns.
-        }
+        } catch (error) {}
     }));
 }
 
@@ -74,34 +69,41 @@ async function bestEffortPrecacheAliases(cache) {
     }));
 }
 
+// 1. Install Event: Precache and immediately take over without waiting
 self.addEventListener('install', event => {
+    self.skipWaiting(); // Force active immediately
     event.waitUntil((async () => {
         const cache = await caches.open(CACHE_NAME);
         await bestEffortPrecache(cache, CORE_ASSETS);
         await bestEffortPrecacheAliases(cache);
         await bestEffortPrecache(cache, OPTIONAL_REMOTE_ASSETS);
-        await self.skipWaiting();
     })());
 });
 
+// 2. Activate Event: Obliterate ALL old caches from previous versions
 self.addEventListener('activate', event => {
     event.waitUntil((async () => {
         const keys = await caches.keys();
         await Promise.all(keys
-            .filter(key => ![CACHE_NAME, RUNTIME_CACHE].includes(key))
-            .map(key => caches.delete(key)));
-        await self.clients.claim();
+            .filter(key => key !== CACHE_NAME && key !== RUNTIME_CACHE)
+            .map(key => {
+                console.log('[SW] Purging old cache:', key);
+                return caches.delete(key);
+            }));
+        await self.clients.claim(); // Take control of all clients immediately
     })());
 });
 
 function isSocketOrSignalingRequest(request) {
     return request.url.includes('/socket.io/') ||
+        request.url.includes('/download') ||
+        request.url.endsWith('.apk') ||
         request.headers.get('upgrade') === 'websocket';
 }
 
-async function cacheFirst(request) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
+// Network-First Strategy for Local Application Code
+// Always fetches fresh updates from server when online; falls back to cache when offline
+async function networkFirst(request) {
     try {
         const response = await fetch(request);
         if (response.ok || response.type === 'opaque') {
@@ -110,39 +112,19 @@ async function cacheFirst(request) {
         }
         return response;
     } catch (error) {
+        // Offline Fallback
+        const cached = await caches.match(request);
+        if (cached) return cached;
         if (request.mode === 'navigate') {
             return (await caches.match('/nearby.html')) ||
                 (await caches.match('/index.html')) ||
-                new Response('PrivyChat is offline and the app shell is not cached yet.', {
+                new Response('PrivyChat is offline.', {
                     status: 503,
                     headers: { 'Content-Type': 'text/plain; charset=utf-8' }
                 });
         }
         return new Response('', { status: 503, statusText: 'Offline asset unavailable' });
     }
-}
-
-async function cacheFirstAlias(request, remoteUrl) {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    try {
-        const localResponse = await fetch(request);
-        if (localResponse.ok) {
-            const cache = await caches.open(RUNTIME_CACHE);
-            cache.put(request, localResponse.clone()).catch(() => {});
-            return localResponse;
-        }
-    } catch (error) {}
-
-    try {
-        const remoteResponse = await fetch(requestFor(remoteUrl));
-        if (remoteResponse.ok || remoteResponse.type === 'opaque') {
-            const cache = await caches.open(CACHE_NAME);
-            cache.put(request, remoteResponse.clone()).catch(() => {});
-            return remoteResponse;
-        }
-    } catch (error) {}
-    return new Response('', { status: 503, statusText: 'Offline library unavailable' });
 }
 
 async function staleWhileRevalidate(request) {
@@ -164,19 +146,13 @@ self.addEventListener('fetch', event => {
     if (request.method !== 'GET' || isSocketOrSignalingRequest(request)) return;
 
     const url = new URL(request.url);
-    const localAlias = url.origin === self.location.origin &&
-        REMOTE_ALIASES.find(alias => alias.local === url.pathname);
-    if (localAlias) {
-        event.respondWith(cacheFirstAlias(request, localAlias.remote));
-        return;
-    }
     const isRemoteLibrary = url.origin !== self.location.origin &&
         (url.hostname === 'unpkg.com' || url.hostname === 'cdnjs.cloudflare.com' ||
             url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'cdn.socket.io' ||
             url.hostname === 'fonts.googleapis.com' ||
             url.hostname === 'fonts.gstatic.com');
 
-    event.respondWith(isRemoteLibrary ? staleWhileRevalidate(request) : cacheFirst(request));
+    event.respondWith(isRemoteLibrary ? staleWhileRevalidate(request) : networkFirst(request));
 });
 
 self.addEventListener('message', event => {

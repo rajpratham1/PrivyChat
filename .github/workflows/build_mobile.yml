@@ -77,6 +77,10 @@ jobs:
         working-directory: ./mobile
         run: flutter build apk --release
 
+      - name: Rename APK for Direct Release
+        run: |
+          cp mobile/build/app/outputs/flutter-apk/app-release.apk PrivyChat.apk
+
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -84,3 +88,29 @@ jobs:
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: warn
           retention-days: 30
+
+      - name: Publish Direct GitHub Release with APK
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Pratham_Contri'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: PrivyChat
+          name: "PrivyChat Android Release APK"
+          body: |
+            ## 📱 PrivyChat Android Release APK
+
+            
+            ### ⬇️ Direct Download
+            Direct APK download for Android phones. No login and no zip extraction required.
+            
+            - **File:** `PrivyChat.apk`
+            - **Requirements:** Android 8.0 (Oreo) or higher
+            - **Encryption:** ECDH P-256 + HKDF SHA-256 + AES-256-GCM (with AAD)
+            - **Mesh Vectors:** Offline WiFi / Hotspot, Bluetooth BLE, Air-Gapped Optical QR
+          files: |
+            PrivyChat.apk
+            mobile/build/app/outputs/flutter-apk/app-release.apk
+          prerelease: false
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

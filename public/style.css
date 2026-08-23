@@ -46,6 +46,8 @@
 html {
     scroll-behavior: smooth;
     font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 body {
@@ -56,14 +58,14 @@ body {
     line-height: 1.5;
     width: 100vw;
     height: 100vh;
-    /* Fallback */
     height: 100dvh;
-    /* Dynamic Height */
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    transition: background 0.5s ease;
+    transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-overflow-scrolling: touch;
 }
+
 
 /* --- Typography --- */
 h1,
@@ -1020,14 +1022,15 @@ body.hacker-theme input {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(5px);
+    background: rgba(0, 0, 0, 0.82);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: none;
     justify-content: center;
     align-items: center;
     z-index: 5000;
     opacity: 0;
-    transition: opacity 0.3s;
+    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .modal-overlay[style*="display: flex"] {
@@ -1043,10 +1046,37 @@ body.hacker-theme input {
     border-radius: var(--radius-lg);
     width: 90%;
     max-width: 500px;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(34, 197, 94, 0.15);
     max-height: 85vh;
     overflow-y: auto;
+    animation: modalSpringIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform, opacity;
 }
+
+@keyframes modalSpringIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.94) translateY(12px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Micro-Interactions & Button Smoothness */
+.btn, .btn-icon, .btn-primary, .btn-secondary, button {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, opacity 0.2s ease;
+}
+
+.btn:active, .btn-icon:active, button:active {
+    transform: scale(0.95);
+}
+
+.btn:hover, .btn-icon:hover {
+    transform: translateY(-1px);
+}
+
 
 /* --- Mobile Responsiveness --- */
 @media (max-width: 768px) {

@@ -169,7 +169,7 @@ const handleApkDownload = (req, res) => {
         res.sendFile(localApkPath);
     } else {
         // Redirect to direct GitHub Release asset download (standalone .apk, zero login required)
-        res.redirect('https://github.com/rajpratham1/PrivyChat/releases/latest/download/PrivyChat.apk');
+        res.redirect('https://github.com/rajpratham1/PrivyChat/releases/download/PrivyChat/PrivyChat.apk');
     }
 };
 

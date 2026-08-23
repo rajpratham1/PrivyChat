@@ -115,8 +115,9 @@ Every communication channel is shielded with hardware-accelerated **AES-256-GCM 
 PrivyChat is also available as a **native Android app** (Flutter + Dart) for fully offline, internet-free communication.
 
 ### Direct APK Download
-> **[⬇️ Download PrivyChat.apk (Direct Android APK)](https://github.com/rajpratham1/PrivyChat/releases/latest/download/PrivyChat.apk)**
+> **[⬇️ Download PrivyChat.apk (Direct Android APK)](https://github.com/rajpratham1/PrivyChat/releases/download/PrivyChat/PrivyChat.apk)**
 > Standalone APK • Zero login or zip extraction required • Android 8.0+
+
 
 
 ### Mobile Architecture

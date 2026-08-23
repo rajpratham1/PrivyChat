@@ -93,10 +93,11 @@ jobs:
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/Pratham_Contri'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.5.0
-          name: "PrivyChat v2.5.0 (Android Release APK)"
+          tag_name: PrivyChat
+          name: "PrivyChat Android Release APK"
           body: |
-            ## 📱 PrivyChat Android Release APK (v2.5.0)
+            ## 📱 PrivyChat Android Release APK
+
             
             ### ⬇️ Direct Download
             Direct APK download for Android phones. No login and no zip extraction required.

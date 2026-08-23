@@ -56,10 +56,39 @@ class _ChatHudScreenState extends State<ChatHudScreen> {
     });
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
-    MeshService().sendTextMessage(text);
+    final mesh = MeshService();
+
+    if (mesh.shouldUseQrTransport) {
+      final payload = await mesh.createQrTextPayload(text);
+      if (!mounted) return;
+      if (payload == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Complete the QR handshake before sending an optical message.'),
+            backgroundColor: Color(0xFFB45309),
+          ),
+        );
+        return;
+      }
+      _msgController.clear();
+      _showQrMessage(payload);
+      _focusNode.requestFocus();
+      return;
+    }
+
+    final sent = await mesh.sendTextMessage(text);
+    if (!sent && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No encrypted transport is connected. Select QR or reconnect to the mesh.'),
+          backgroundColor: Color(0xFFB45309),
+        ),
+      );
+      return;
+    }
     _msgController.clear();
     _focusNode.requestFocus();
   }
@@ -157,7 +186,24 @@ class _ChatHudScreenState extends State<ChatHudScreen> {
     showDialog(
       context: context,
       builder: (ctx) => OpticalQrDialog(
-        onQrPeerDecoded: (_) => Navigator.of(ctx).pop(),
+        onQrPeerDecoded: (peer) => MeshService().connectToPeer(peer),
+        onQrMessageDecoded: (rawValue) async {
+          await MeshService().receiveQrPayload(rawValue);
+        },
+      ),
+    );
+  }
+
+  void _showQrMessage(String payload) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => OpticalQrDialog(
+        outboundPayload: payload,
+        onQrPeerDecoded: (_) {},
+        onQrMessageDecoded: (rawValue) async {
+          await MeshService().receiveQrPayload(rawValue);
+        },
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -9,10 +10,14 @@ import '../models/peer_model.dart';
 
 class OpticalQrDialog extends StatefulWidget {
   final Function(PeerModel) onQrPeerDecoded;
+  final String? outboundPayload;
+  final Future<void> Function(String rawValue)? onQrMessageDecoded;
 
   const OpticalQrDialog({
     super.key,
     required this.onQrPeerDecoded,
+    this.outboundPayload,
+    this.onQrMessageDecoded,
   });
 
   @override
@@ -34,6 +39,15 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
 
   Future<void> _preparePayload() async {
     try {
+      if (widget.outboundPayload != null) {
+        if (!mounted) return;
+        setState(() {
+          _qrPayload = widget.outboundPayload!;
+          _isKeyReady = true;
+          _keyError = null;
+        });
+        return;
+      }
       final crypto = CryptoEngine();
       await crypto.init();
       final jwk = crypto.myPublicKeyJwk;
@@ -75,6 +89,16 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
       if (barcode.rawValue != null) {
         try {
           final data = jsonDecode(barcode.rawValue!);
+          if (data is Map &&
+              data['p'] == 'privy-opt-v1' &&
+              data['type'] == 'optical_message' &&
+              widget.onQrMessageDecoded != null) {
+            _peerHandled = true;
+            final rawValue = barcode.rawValue!;
+            Navigator.of(context).pop();
+            unawaited(widget.onQrMessageDecoded!(rawValue));
+            return;
+          }
           if ((data['p'] == 'privy-opt-v1' || data['p'] == 'privychat-opt-v1') && data['key'] != null) {
             final peer = PeerModel(
               id: data['id']?.toString() ?? 'qr_peer',
@@ -117,8 +141,10 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
                   children: [
                     const Icon(LucideIcons.qrCode, color: Color(0xFF22C55E), size: 18),
                     const SizedBox(width: 8),
-                    const Text(
-                      '100% AIR-GAP QR MESH',
+                    Text(
+                      widget.outboundPayload == null
+                          ? '100% AIR-GAP QR MESH'
+                          : 'OPTICAL MESSAGE TRANSFER',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -143,7 +169,7 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
                   child: ElevatedButton.icon(
                     onPressed: () => setState(() => _isScanning = false),
                     icon: const Icon(LucideIcons.qrCode, size: 14),
-                    label: const Text('Show My Code', style: TextStyle(fontSize: 11)),
+                    label: Text(widget.outboundPayload == null ? 'Show My Code' : 'Show Message QR', style: const TextStyle(fontSize: 11)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: !_isScanning ? const Color(0xFF22C55E) : const Color(0xFF1E293B),
                       foregroundColor: !_isScanning ? Colors.black : Colors.white,
@@ -196,7 +222,9 @@ class _OpticalQrDialogState extends State<OpticalQrDialog> {
               ),
               const SizedBox(height: 12),
               Text(
-                _keyError ?? 'Let peer scan your screen with their camera to establish an air-gapped E2EE session with zero network.',
+                _keyError ?? (widget.outboundPayload == null
+                    ? 'Let peer scan your screen with their camera to establish an air-gapped E2EE session with zero network.'
+                    : 'Let the peer scan this message frame. Then switch to Scan Camera to receive their reply.'),
                 style: TextStyle(fontSize: 11, color: _keyError == null ? const Color(0xFF94A3B8) : const Color(0xFFEF4444)),
                 textAlign: TextAlign.center,
               ),

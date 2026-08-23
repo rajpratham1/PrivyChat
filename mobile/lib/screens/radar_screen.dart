@@ -54,6 +54,17 @@ class _RadarScreenState extends State<RadarScreen> {
         );
       }
     };
+
+    mesh.onHandshakeFailed = (message) {
+      if (!mounted) return;
+      if (_handshakeDialogOpen) {
+        Navigator.of(context, rootNavigator: true).pop();
+        _handshakeDialogOpen = false;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: const Color(0xFFB45309)),
+      );
+    };
   }
 
   @override
@@ -88,6 +99,9 @@ class _RadarScreenState extends State<RadarScreen> {
       builder: (ctx) => OpticalQrDialog(
         onQrPeerDecoded: (peer) {
           MeshService().connectToPeer(peer);
+        },
+        onQrMessageDecoded: (rawValue) async {
+          await MeshService().receiveQrPayload(rawValue);
         },
       ),
     );

@@ -3,4 +3,5 @@ uploads
 .env
 .DS_Store
 package-lock.json
+mobile/android/.gradle/
 

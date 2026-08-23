@@ -21,11 +21,13 @@ class MeshService extends ChangeNotifier {
   List<PeerModel> _discoveredPeers = [];
   PeerModel? _activePeer;
   final List<MessageModel> _messages = [];
+  final Set<String> _receivedPacketIds = <String>{};
 
   bool _isConnectedToMesh = false;
   bool _isStealth = false;
   bool _isGhostMode = false;
   int _burnTimer = 0;
+  Timer? _handshakeTimer;
 
   // Getters
   String get myId => _myId;
@@ -48,6 +50,13 @@ class MeshService extends ChangeNotifier {
   Function()? onIncomingCall;
   Function()? onCallConnected;
   Function()? onCallEnded;
+  Function(String message)? onTransportError;
+  Function(String message)? onHandshakeFailed;
+
+  /// QR is a real transport, not just a key-exchange screen. It is selected
+  /// whenever the active peer was discovered optically or the relay is down.
+  bool get shouldUseQrTransport =>
+      _activePeer?.mode == 'qr' || _socket == null || !_socket!.connected;
 
   void updateProfile({String? nick, String? ava, String? mod, bool? stealth, int? burn}) {
     if (nick != null && nick.trim().isNotEmpty) _nickname = nick.trim();
@@ -115,6 +124,7 @@ class MeshService extends ChangeNotifier {
 
       // ── Zero-Knowledge Session Handshake Listeners ──
       _socket!.on('nearby_session_request', (data) async {
+        _handshakeTimer?.cancel();
         final senderMap = Map<String, dynamic>.from(data['sender'] ?? {});
         final fromId = data['from']?.toString() ?? senderMap['id']?.toString() ?? '';
         final sender = PeerModel.fromJson({
@@ -147,6 +157,7 @@ class MeshService extends ChangeNotifier {
       });
 
       _socket!.on('nearby_session_accept', (data) async {
+        _handshakeTimer?.cancel();
         final senderMap = Map<String, dynamic>.from(data['sender'] ?? {});
         final fromId = data['from']?.toString() ?? senderMap['id']?.toString() ?? '';
         final sender = PeerModel.fromJson({
@@ -221,6 +232,12 @@ class MeshService extends ChangeNotifier {
       await CryptoEngine().deriveSharedSessionKey(peer.publicKey!);
     }
 
+    if (!CryptoEngine().hasSessionKey) {
+      onTransportError?.call('Unable to establish the encrypted session. Scan the peer QR code again.');
+      onHandshakeFailed?.call('Unable to establish the encrypted session. Scan the peer QR code again.');
+      return;
+    }
+
     onHandshakeStepUpdate?.call(1, 'done');
     onHandshakeStepUpdate?.call(2, 'active');
 
@@ -230,6 +247,7 @@ class MeshService extends ChangeNotifier {
       onHandshakeStepUpdate?.call(3, 'done');
       onHandshakeStepUpdate?.call(4, 'done');
       Future.delayed(const Duration(milliseconds: 350), () {
+        _handshakeTimer?.cancel();
         onHandshakeCompleted?.call();
         notifyListeners();
       });
@@ -239,6 +257,10 @@ class MeshService extends ChangeNotifier {
     _socket?.emit('nearby_session_request', {
       'to': peer.id,
       'publicKey': CryptoEngine().myPublicKeyJwk,
+    });
+    _handshakeTimer?.cancel();
+    _handshakeTimer = Timer(const Duration(seconds: 12), () {
+      onHandshakeFailed?.call('Peer did not accept the session. Check that both devices are on the same relay or use QR.');
     });
   }
 
@@ -254,11 +276,12 @@ class MeshService extends ChangeNotifier {
     ].join('|');
   }
 
-  Future<void> sendTextMessage(String text) async {
-    if (text.trim().isEmpty || _activePeer == null) return;
+  Future<bool> sendTextMessage(String text) async {
+    if (text.trim().isEmpty || _activePeer == null) return false;
     if (!CryptoEngine().hasSessionKey) {
       debugPrint('Message blocked: secure session is not established.');
-      return;
+      onTransportError?.call('Secure session is not established. Complete the QR handshake first.');
+      return false;
     }
 
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -276,11 +299,15 @@ class MeshService extends ChangeNotifier {
     rawPacket['payload'] = encrypted;
 
     // Send over socket relay if available
-    if (_socket != null && _socket!.connected) {
+    if (_socket != null && _socket!.connected && _activePeer!.mode != 'qr') {
       _socket!.emit('nearby_p2p_message', {
         'to': _activePeer!.id,
         'packet': rawPacket,
       });
+    } else {
+      // The caller must show the packet in the optical transmitter. Do not
+      // add a local bubble here because no bytes have reached the peer yet.
+      return false;
     }
 
     final msg = MessageModel(
@@ -297,6 +324,120 @@ class MeshService extends ChangeNotifier {
     _messages.add(msg);
     _handleSelfDestruct(msg);
     notifyListeners();
+    return true;
+  }
+
+  /// Encrypt a text packet for the optical transmitter. The sender's public
+  /// key is carried with every packet so the first reply can complete the
+  /// reverse side of a QR-only handshake (the original offer is one-way).
+  Future<String?> createQrTextPayload(String text) async {
+    if (text.trim().isEmpty || _activePeer == null) return null;
+    if (text.trim().length > 240) {
+      onTransportError?.call('Optical QR messages are limited to 240 characters per frame.');
+      return null;
+    }
+    if (!CryptoEngine().hasSessionKey) {
+      onTransportError?.call('Scan the peer offer first; the first QR reply establishes the session.');
+      return null;
+    }
+
+    await CryptoEngine().init();
+    final ownKey = CryptoEngine().myPublicKeyJwk;
+    if (ownKey == null) {
+      onTransportError?.call('Ephemeral key is not ready. Retry the QR handshake.');
+      return null;
+    }
+
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final rawPacket = <String, dynamic>{
+        'id': timestamp.toString(),
+        'type': 'text',
+        'sender': _nickname,
+        'avatar': _avatar,
+        'timestamp': timestamp,
+        'burn': _burnTimer,
+      };
+      rawPacket['payload'] = await CryptoEngine().encrypt(
+        text.trim(),
+        _packetAAD(rawPacket),
+      );
+
+      final localMessage = MessageModel(
+        id: rawPacket['id'] as String,
+        type: MessageType.text,
+        sender: _nickname,
+        avatar: _avatar,
+        text: text.trim(),
+        timestamp: DateTime.now(),
+        burnSeconds: _burnTimer,
+        isSent: true,
+      );
+      _messages.add(localMessage);
+      _handleSelfDestruct(localMessage);
+      notifyListeners();
+
+      return jsonEncode({
+        'p': 'privy-opt-v1',
+        'type': 'optical_message',
+        'id': rawPacket['id'],
+        'senderId': _myId,
+        'sender': _nickname,
+        'avatar': _avatar,
+        'mode': 'qr',
+        'key': ownKey,
+        'packet': rawPacket,
+      });
+    } catch (error) {
+      debugPrint('Optical message encryption error: $error');
+      onTransportError?.call('Unable to encrypt this optical message. Retry the transfer.');
+      return null;
+    }
+  }
+
+  /// Accept an optical message frame and route it through the same encrypted
+  /// packet handler used by Socket.IO. Returns false for an offer or malformed
+  /// barcode so the scanner can safely ignore unrelated QR codes.
+  Future<bool> receiveQrPayload(String rawValue) async {
+    try {
+      final data = jsonDecode(rawValue);
+      if (data is! Map || data['p'] != 'privy-opt-v1' || data['type'] != 'optical_message') {
+        return false;
+      }
+      final message = Map<String, dynamic>.from(data);
+      final key = message['key'];
+      final senderId = message['senderId']?.toString() ?? 'qr_peer';
+      final knownKey = _activePeer?.publicKey;
+      final keyChanged = key is Map &&
+          (knownKey == null || jsonEncode(knownKey) != jsonEncode(key));
+      if (key is Map && (!CryptoEngine().hasSessionKey || keyChanged)) {
+        await CryptoEngine().deriveSharedSessionKey(Map<String, dynamic>.from(key));
+      }
+      if (!CryptoEngine().hasSessionKey) {
+        onTransportError?.call('Message received without a valid session key. Scan the peer offer first.');
+        return false;
+      }
+
+      final packet = Map<String, dynamic>.from(message['packet'] ?? const {});
+      if (packet.isEmpty) return false;
+      final packetId = packet['id']?.toString() ?? message['id']?.toString() ?? '';
+      if (packetId.isNotEmpty && !_receivedPacketIds.add(packetId)) return true;
+
+      final wasUnpaired = _activePeer == null;
+      _activePeer ??= PeerModel(
+        id: senderId,
+        nickname: message['sender']?.toString() ?? 'QR_Agent',
+        avatar: message['avatar']?.toString() ?? '🕵️',
+        mode: 'qr',
+        publicKey: key is Map ? Map<String, dynamic>.from(key) : null,
+      );
+      await _handleIncomingPacket(packet);
+      if (wasUnpaired) onHandshakeCompleted?.call();
+      return true;
+    } catch (error) {
+      debugPrint('Optical message decode error: $error');
+      return false;
+    }
   }
 
   Future<void> _handleIncomingPacket(Map<String, dynamic> packet) async {
@@ -337,8 +478,11 @@ class MeshService extends ChangeNotifier {
   }
 
   void terminateSession() {
+    _handshakeTimer?.cancel();
+    _handshakeTimer = null;
     _activePeer = null;
     _messages.clear();
+    _receivedPacketIds.clear();
     CryptoEngine().purge();
     notifyListeners();
   }

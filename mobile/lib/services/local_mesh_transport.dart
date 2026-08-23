@@ -251,7 +251,10 @@ class LocalMeshTransport {
   }
 
   void _readSocket(Socket socket) {
-    socket.transform(utf8.decoder).transform(const LineSplitter()).listen(
+    // Socket exposes Uint8List chunks, while Utf8Decoder accepts List<int>.
+    // Bind the decoder explicitly so Dart's strict StreamTransformer variance
+    // does not reject the TCP framing pipeline on newer SDKs.
+    utf8.decoder.bind(socket.cast<List<int>>()).transform(const LineSplitter()).listen(
       (line) {
         try {
           final message = Map<String, dynamic>.from(jsonDecode(line));

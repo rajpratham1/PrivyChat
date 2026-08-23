@@ -4,7 +4,8 @@ publish_to: 'none'
 version: 2.4.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  # Keep the app constraint explicit: universal_ble 2.x requires Dart >=3.11.4.
+  sdk: '>=3.11.4 <4.0.0'
 
 dependencies:
   flutter:

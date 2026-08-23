@@ -1,3 +1,41 @@
+# ==============================================================================
+# PrivyChat - Zero-Trace Spy Messenger & Tactical Mesh
+# Official Search Engine Crawler Policy & Directives
+# Website: https://privy-chat.onrender.com
+# ==============================================================================
+
 User-agent: *
 Allow: /
-Sitemap: https://privychat.render.com/sitemap.xml
+Allow: /index.html
+Allow: /nearby.html
+Allow: /about.html
+Allow: /manual.html
+Allow: /logo.png
+Allow: /manifest.json
+Allow: /sitemap.xml
+
+# Search Engine Crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /logo.png
+Allow: /icon-mask.svg
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+# Sitemap Location
+Sitemap: https://privy-chat.onrender.com/sitemap.xml

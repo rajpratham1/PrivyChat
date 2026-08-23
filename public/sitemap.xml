@@ -1,15 +1,45 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+   <!-- Home / Global Lobby & Search Disguise -->
    <url>
-      <loc>https://privychat.render.com/</loc>
-      <lastmod>2026-01-03</lastmod>
+      <loc>https://privy-chat.onrender.com/</loc>
+      <lastmod>2026-08-23</lastmod>
       <changefreq>daily</changefreq>
       <priority>1.0</priority>
+      <image:image>
+         <image:loc>https://privy-chat.onrender.com/logo.png</image:loc>
+         <image:title>PrivyChat Logo</image:title>
+         <image:caption>PrivyChat - Zero-Trace Ephemeral Spy Messenger</image:caption>
+      </image:image>
    </url>
+
+   <!-- Nearby Tactical Mesh (Offline WiFi, BLE & Air-Gap QR Radar) -->
    <url>
-      <loc>https://privychat.render.com/manual.html</loc>
-      <lastmod>2026-01-03</lastmod>
-      <changefreq>monthly</changefreq>
-      <priority>0.8</priority>
+      <loc>https://privy-chat.onrender.com/nearby.html</loc>
+      <lastmod>2026-08-23</lastmod>
+      <changefreq>daily</changefreq>
+      <priority>0.95</priority>
+      <image:image>
+         <image:loc>https://privy-chat.onrender.com/logo.png</image:loc>
+         <image:title>Nearby Tactical Mesh Radar</image:title>
+         <image:caption>360-degree Sonar Radar for Offline P2P Encrypted Mesh</image:caption>
+      </image:image>
+   </url>
+
+   <!-- About & Cryptographic Architecture -->
+   <url>
+      <loc>https://privy-chat.onrender.com/about.html</loc>
+      <lastmod>2026-08-23</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.85</priority>
+   </url>
+
+   <!-- Official User Manual & Security Guide -->
+   <url>
+      <loc>https://privy-chat.onrender.com/manual.html</loc>
+      <lastmod>2026-08-23</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.80</priority>
    </url>
 </urlset>

@@ -187,12 +187,16 @@ io.on('connection', (socket) => {
         const mode = data && data.mode ? data.mode : 'wifi';
         const device = data && data.device ? data.device : 'Desktop';
         const candidateKey = data && data.publicKey;
-        const publicKey = candidateKey && typeof candidateKey === 'object' &&
+        const isP256 = candidateKey && typeof candidateKey === 'object' &&
             candidateKey.kty === 'EC' && candidateKey.crv === 'P-256' &&
             typeof candidateKey.x === 'string' && typeof candidateKey.y === 'string' &&
-            candidateKey.x.length <= 128 && candidateKey.y.length <= 128
+            candidateKey.x.length <= 128 && candidateKey.y.length <= 128;
+        const isX25519 = candidateKey && typeof candidateKey === 'object' &&
+            candidateKey.kty === 'OKP' && candidateKey.crv === 'X25519' &&
+            typeof candidateKey.x === 'string' && candidateKey.x.length <= 64;
+        const publicKey = isP256
             ? { kty: 'EC', crv: 'P-256', x: candidateKey.x, y: candidateKey.y }
-            : null;
+            : (isX25519 ? { kty: 'OKP', crv: 'X25519', x: candidateKey.x } : null);
 
         nearbyPeers[socket.id] = {
             id: socket.id,
@@ -397,9 +401,9 @@ io.on('connection', (socket) => {
         broadcastRoomUpdate(room);
     });
 
-    // Send Message
+    // Send Message — broadcast to everyone EXCEPT the sender to prevent duplicate display
     socket.on('send_message', (data) => {
-        io.to(data.room).emit('receive_message', data);
+        socket.to(data.room).emit('receive_message', data);
     });
 
     // Typing Indicators
@@ -411,9 +415,9 @@ io.on('connection', (socket) => {
         socket.to(data.room).emit('hide_typing', data);
     });
 
-    // File Sharing
+    // File Sharing — broadcast to everyone EXCEPT the sender to prevent duplicate voice/file display
     socket.on('file_share', (data) => {
-        io.to(data.room).emit('file_share', data);
+        socket.to(data.room).emit('file_share', data);
     });
 
     // --- WebRTC Signaling ---

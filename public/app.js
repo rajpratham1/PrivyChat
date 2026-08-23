@@ -509,8 +509,6 @@ async function sendMessage() {
     const input = document.getElementById('msg-input');
     const msgText = input.value.trim();
 
-    console.log('SendMessage called:', { msgText, currentRoom, myUsername, socketConnected: socket.connected });
-
     if (msgText && currentRoom) {
 
         let protocolMsg = msgText;
@@ -531,19 +529,35 @@ async function sendMessage() {
             encrypted: isEncrypted,
             iv: iv,
             username: myUsername,
-            replyTo: currentReply, // Send reply context
+            replyTo: currentReply,
             timestamp: Date.now(),
             destruct: document.getElementById('destruct-timer').value
         };
 
-        console.log('Emitting send_message:', messageData);
         socket.emit('send_message', messageData);
 
-        // Don't add message immediately - let server echo it back
-        // This prevents duplicate messages
-        cancelReply(); // Clear reply state after sending
-        SoundUtils.playSend(); // SFX
+        // Immediately display sender's own message (server no longer echoes back to sender)
+        const msgElement = addMessage(msgText, 'sent', myUsername, currentReply);
 
+        // Handle Self-Destruct for sender's own message
+        if (messageData.destruct && messageData.destruct > 0) {
+            const timerSec = messageData.destruct / 1000;
+            const timerSpan = document.createElement('span');
+            timerSpan.style.fontSize = '0.7rem';
+            timerSpan.style.color = '#ef4444';
+            timerSpan.style.marginLeft = '10px';
+            timerSpan.innerText = `💣 ${timerSec}s`;
+            msgElement.appendChild(timerSpan);
+            const burnDuration = 600;
+            const burnStart = Math.max(0, messageData.destruct - burnDuration);
+            setTimeout(() => {
+                msgElement.classList.add('burn-out');
+                setTimeout(() => msgElement.remove(), burnDuration);
+            }, burnStart);
+        }
+
+        cancelReply();
+        SoundUtils.playSend();
         input.value = '';
         socket.emit('stop_typing', { room: currentRoom, username: myUsername });
     } else if (!currentRoom) {
@@ -552,44 +566,27 @@ async function sendMessage() {
     }
 }
 
-// Receive Message Listener with Decryption
+// Receive Message Listener with Decryption (only handles messages from OTHER users)
 socket.on('receive_message', async (data) => {
-    console.log('Received message:', data);
-    console.log('DEBUG DETAILED:',
-        {
-            'data.username': data.username,
-            'myUsername': myUsername,
-            'usernames match': data.username === myUsername,
-            'message preview': data.message ? data.message.substring(0, 30) : 'no message'
-        });
-    SoundUtils.playReceive(); // SFX
-
-    // Prevent duplicate messages by checking message metadata
-    const existingMessages = Array.from(messagesDiv.children).map(msg => {
-        return {
-            text: msg.querySelector('.message-content')?.textContent,
-            sender: msg.querySelector('.sender')?.textContent
-        };
-    });
-
-    if (existingMessages.some(msg => msg.text === data.message && msg.sender === data.username)) {
-        console.log('Duplicate message detected, skipping.');
-        return;
-    }
+    // Server only sends this to other users now, so always 'received'
+    SoundUtils.playReceive();
 
     let displayMsg = data.message;
 
     // DECRYPT IF NEEDED
     if (data.encrypted && data.iv) {
         if (currentCryptoKey) {
-            displayMsg = await CryptoUtils.decrypt({ iv: data.iv, data: data.message }, currentCryptoKey);
+            try {
+                displayMsg = await CryptoUtils.decrypt({ iv: data.iv, data: data.message }, currentCryptoKey);
+            } catch (e) {
+                displayMsg = '🔒 Encrypted Message (decryption failed)';
+            }
         } else {
-            displayMsg = "🔒 Encrypted Message (You do not have the key)";
+            displayMsg = '🔒 Encrypted Message (You do not have the key)';
         }
     }
 
-    const type = data.username === myUsername ? 'sent' : 'received';
-    const msgElement = addMessage(displayMsg, type, data.username, data.replyTo);
+    const msgElement = addMessage(displayMsg, 'received', data.username, data.replyTo);
 
     // Handle Self-Destruct
     if (data.destruct && data.destruct > 0) {
@@ -600,14 +597,10 @@ socket.on('receive_message', async (data) => {
         timerSpan.style.marginLeft = '10px';
         timerSpan.innerText = `💣 ${timerSec}s`;
         msgElement.appendChild(timerSpan);
-
-        // Burn Effect (Matrix Protocol)
-        const burnDuration = 600; // Match CSS
+        const burnDuration = 600;
         const burnStart = Math.max(0, data.destruct - burnDuration);
-
         setTimeout(() => {
             msgElement.classList.add('burn-out');
-            // Play burn sound if available? SoundUtils.playBurn()?
             setTimeout(() => msgElement.remove(), burnDuration);
         }, burnStart);
     }
@@ -765,12 +758,13 @@ function addFileMessage(data, type) {
         div.innerHTML = content;
     }
 
-    // Apply Audio Effects Programmatically (Fix)
+    // Apply Audio Effects Programmatically
     if (fileType.startsWith('audio/') && fileType !== 'audio/') {
-        // We can find the audio element within 'div' now
         const audioElement = div.querySelector('audio');
         if (audioElement) {
-            if (audioElement.webkitPreservesPitch !== undefined) audioElement.webkitPreservesPitch = preserve;
+            audioElement.playbackRate = rate;
+            if (audioElement.webkitPreservesPitch !== undefined) audioElement.webkitPreservesPitch = pitchPreserve;
+            if (audioElement.mozPreservesPitch !== undefined) audioElement.mozPreservesPitch = pitchPreserve;
         }
     }
 
@@ -933,12 +927,12 @@ function stopRecording() {
 }
 
 function sendVoiceNote(blob, mimeType = 'audio/webm') {
-    if (blob.size < 100) return; // Allow shorter clips (was 1000)
+    if (blob.size < 100) return;
 
-    // Convert Blob to DataURL (Base64) to send via Socket
     const reader = new FileReader();
     reader.onload = async (evt) => {
-        let fileData = evt.target.result;
+        const rawDataUrl = evt.target.result;
+        let fileData = rawDataUrl;
         let isEncrypted = false;
         let iv = null;
 
@@ -949,19 +943,23 @@ function sendVoiceNote(blob, mimeType = 'audio/webm') {
             isEncrypted = true;
         }
 
-        socket.emit('file_share', {
+        const voiceData = {
             room: currentRoom,
             username: myUsername,
             fileData: fileData,
             encrypted: isEncrypted,
             iv: iv,
-            // Strip codecs from fileName extension check if possible, or just default to .webm for safety
-            fileName: "voice-note" + (mimeType.includes('mp4') ? '.m4a' : '.webm'),
-            fileType: mimeType, // Send the clean mime type
-            voiceEffect: document.getElementById('voice-effect').value, // Send selected effect
+            fileName: 'voice-note' + (mimeType.includes('mp4') ? '.m4a' : '.webm'),
+            fileType: mimeType,
+            voiceEffect: document.getElementById('voice-effect').value,
             timestamp: Date.now(),
             destruct: document.getElementById('destruct-timer').value
-        });
+        };
+
+        socket.emit('file_share', voiceData);
+
+        // Immediately display sender's own voice note (server no longer echoes back to sender)
+        addFileMessage({ ...voiceData, fileData: rawDataUrl }, 'sent');
     };
     reader.readAsDataURL(blob);
 }
